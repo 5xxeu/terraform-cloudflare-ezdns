@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.12.2] - 2026-10-10
+
 ### Added
 
 - README: "Internationalized Names", how to keep names such as `münchen.de` readable in the configuration with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider (zone name, record names and targets; record keys stay the same as with names in Punycode)
@@ -387,7 +389,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...HEAD
+[2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.0...v2.11.1
