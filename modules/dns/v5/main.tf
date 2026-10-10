@@ -29,7 +29,7 @@ data "cloudflare_zone" "this" {
     # record names come back in Punycode
     postcondition {
       condition     = !can(regex("[^[:ascii:]]", self.name))
-      error_message = "The zone ${jsonencode(self.name)} has an internationalized name, which Cloudflare returns in Unicode: set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de)."
+      error_message = "The zone ${jsonencode(self.name)} has an internationalized name, which Cloudflare returns in Unicode: set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de; provider::idna::to_ascii of the 5xxeu/idna provider converts it)."
     }
   }
 }

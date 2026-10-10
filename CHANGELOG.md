@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- README: "Internationalized Names", how to keep names such as `münchen.de` readable in the configuration with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider (zone name, record names and targets; record keys stay the same as with names in Punycode)
+
+### Changed
+
+- The errors for a zone name that is not in Punycode (the `zone_name` validation and the zone lookup) mention `provider::idna::to_ascii`
+
 ## [2.12.1] - 2026-10-10
 
 ### Changed

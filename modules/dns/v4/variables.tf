@@ -12,7 +12,7 @@ variable "zone_name" {
   # A non-ASCII name gets its own error, since the DNS name rule does not say why it fails
   validation {
     condition     = var.zone_name == null || !can(regex("[^[:ascii:]]", var.zone_name))
-    error_message = "zone_name must be in Punycode (xn--mnchen-3ya.de for münchen.de). An internationalized zone needs it set: Cloudflare returns the names of such zones in Unicode, so they cannot be looked up from zone_id."
+    error_message = "zone_name must be in Punycode (xn--mnchen-3ya.de for münchen.de; provider::idna::to_ascii of the 5xxeu/idna provider converts it). An internationalized zone needs it set: Cloudflare returns the names of such zones in Unicode, so they cannot be looked up from zone_id."
   }
 
   validation {

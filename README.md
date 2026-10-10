@@ -65,7 +65,7 @@ Everything else (all record types, defaults, import of existing records, validat
 - [Usage](#usage): [Terraform Registry](#terraform-registry), [local copy](#local-copy), [Git source](#git-source), [HCL or YAML](#hcl-or-yaml) and the [full example](#full-example)
 - [Record Model](#record-model): [record types](#record-types), [aliases](#the-aliases-logic), [record keys](#record-keys)
 - [Validation](#validation), [Inputs](#inputs), [Outputs](#outputs)
-- [Records in YAML](#records-in-yaml) with editor support, [Recipes](#recipes)
+- [Records in YAML](#records-in-yaml) with editor support, [Recipes](#recipes): [unsupported types and fields](#a-record-type-or-field-the-module-does-not-support), [external-dns](#next-to-external-dns), [internationalized names](#internationalized-names)
 - [Importing Existing Records](#importing-existing-records), [Records Not in the Configuration](#records-not-in-the-configuration)
 - [Upgrading and Migration](#upgrading-and-migration)
 - [Testing](#testing)
@@ -121,7 +121,7 @@ Both wrappers share the same inputs, outputs and record keys, so switching betwe
 | `modules/dns/v4` | `>= 1.8.0` | `~> 4.41` |
 | `modules/dns/v5` | `>= 1.8.0` | `~> 5.26` |
 
-If `zone_name` is not set, the module looks up the zone by `zone_id`, so the API token needs the `Zone:Read` permission. An internationalized zone (`münchen.de`) must set `zone_name` in Punycode (`xn--mnchen-3ya.de`): Cloudflare returns the names of such zones in Unicode, which cannot be used for the fully qualified names, so the lookup fails at `plan` with what to set.
+If `zone_name` is not set, the module looks up the zone by `zone_id`, so the API token needs the `Zone:Read` permission. An internationalized zone (`münchen.de`) must set `zone_name` in Punycode (`xn--mnchen-3ya.de`): Cloudflare returns the names of such zones in Unicode, which cannot be used for the fully qualified names, so the lookup fails at `plan` with what to set. The [`5xxeu/idna`](#internationalized-names) provider converts names to Punycode.
 
 > **`zone_name` must be the name of the zone that `zone_id` refers to** (a trailing dot, as in zone files, is ignored). Setting it skips the lookup (no `Zone:Read` needed), and the module cannot check it: a wrong `zone_name` makes alias targets and fully qualified names point into another domain. Leave it unset when the token can read zones.
 
@@ -414,7 +414,7 @@ The `records` input is validated before any API call. The module checks the stru
 - `A` records need an IPv4 address and `AAAA` records an IPv6 address (sent in the canonical form, `2001:db8::1` for `2001:0DB8:0:0:0:0:0:1`, as Cloudflare stores it; the [key](#record-keys) keeps the address as written); `CNAME`, `MX`, `NS` and `PTR` records need a DNS name: labels of letters, digits, `_` and `-` (up to 63 characters) separated by dots, at most 253 characters, an optional trailing dot, and not an IP address (`@` stands for the zone apex, and `.` is a null `MX`, RFC 7505, which must have `priority` 0)
 - `target` of `SRV`, `HTTPS` and `SVCB` records and `replacement` of `NAPTR` records must be a DNS name by the same rule, or `.` (no service for `SRV`, the owner name for `HTTPS` and `SVCB`, no replacement for `NAPTR`). `@` is not accepted there: the module passes `data` to Cloudflare as written. `URI` targets are URIs and are not checked
 - `TXT` values are limited to 2048 characters
-- Names, prefixes and `ALIASES` must be valid DNS names: labels of letters, digits, `_` and `-` separated by dots. Internationalized names, also in `zone_name`, must be given in Punycode (`xn--mnchen-3ya` for `münchen`), as the Cloudflare API expects them
+- Names, prefixes and `ALIASES` must be valid DNS names: labels of letters, digits, `_` and `-` separated by dots. Internationalized names, also in `zone_name`, must be given in Punycode (`xn--mnchen-3ya` for `münchen`), as the Cloudflare API expects them ([Internationalized Names](#internationalized-names) shows how to convert them)
 - The fully qualified name of a record (prefix, name and zone together) can have at most 253 characters, and so can the target of a prefixed `ALIASES`
 - A wildcard `*` must be the whole leftmost label, also in the names a prefix and a base name combine into (`"_acme-challenge.TXT"` under `"*"` would give `_acme-challenge.*`) and in the targets of `<prefix>.ALIASES`
 - A `CNAME` or alias cannot point to its own name (case, a trailing dot, `@` and the short form do not matter)
@@ -617,6 +617,42 @@ The module manages only the records in its configuration and leaves the others a
 - Let external-dns manage a subdomain (`--domain-filter=k8s.example.com`), or restrict it to annotated resources, and keep those names out of `records`.
 - external-dns keeps a TXT ownership record next to each record it manages (`--txt-owner-id`, `--txt-prefix`); leave these to it as well. A `CNAME` in `records` on a name that external-dns also uses fails at apply, and two tools writing the same `A` record overwrite each other.
 - With [`report_unmanaged`](#records-not-in-the-configuration), the records of external-dns show up as unmanaged; that is expected, the report only lists them.
+
+### Internationalized Names
+
+The module expects internationalized names in Punycode, as the Cloudflare API does. The [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider converts them with a function, so the configuration can keep the readable form. It has only functions (Terraform 1.8 or later): no configuration and no network requests.
+
+```hcl
+terraform {
+  required_providers {
+    idna = {
+      source  = "5xxeu/idna"
+      version = "~> 0.1"
+    }
+  }
+}
+
+locals {
+  records = {
+    "@"      = { A = [{ content = "192.0.2.1" }] }
+    "bücher" = { CNAME = [{ content = provider::idna::to_ascii("www.münchen.de") }] }
+  }
+}
+
+module "dns" {
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "2.12.2"
+
+  zone_id   = var.zone_id
+  zone_name = provider::idna::to_ascii("münchen.de")
+  records   = { for name, types in local.records : provider::idna::to_ascii(name) => types }
+}
+```
+
+- An internationalized zone must set `zone_name`, see [Requirements](#requirements).
+- `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names only, not the record types under them (`"_acme-challenge.TXT"`), and convert targets where they are written: `content` of `CNAME`, `MX`, `NS`, `PTR` and `ALIASES`, `target` and `replacement` in `data`.
+- Record keys contain the ASCII form (`xn--bcher-kva CNAME`), the same as with names written in Punycode, so switching an existing configuration to the readable form changes no addresses in the state.
+- With records in YAML, convert the names of the decoded map the same way. The JSON Schema accepts names in Punycode only, so the editor marks names in Unicode.
 
 ## Importing Existing Records
 
