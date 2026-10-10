@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-10-10
+
+### Changed
+
+- The repository moved to [5xxeu/terraform-cloudflare-ezdns](https://github.com/5xxeu/terraform-cloudflare-ezdns) (with all earlier tags), and the module is published on the Terraform Registry again, as `5xxeu/ezdns/cloudflare`. The README describes the Registry source and switching `source` from the old repository or from `NikitaPuglachenko/easy-dns/cloudflare`; the module itself is unchanged, so no addresses in the state change. Releases up to 2.12.0 stay in `i386dev/terraform-cloudflare-easy-dns`
+- Release archives are named `terraform-cloudflare-ezdns-<version>.tar.gz` and `terraform-cloudflare-ezdns-v5-<version>.tar.gz`, and their provenance is verified with `--repo 5xxeu/terraform-cloudflare-ezdns` (see SECURITY.md)
+- The `$id` of the JSON Schema points to the new repository
+- The module is called ezdns: the schema title, the suggested local copy directory (`modules/ezdns`) and YAML file pattern (`*.ezdns.yaml`, `examples/yaml/records.ezdns.yaml`), and the comment that marks end-to-end test records (`ezdns-e2e`) use the new name. Existing copies and file mappings keep working
+
 ## [2.12.0] - 2026-10-04
 
 ### Added
@@ -370,33 +379,34 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.12.0...HEAD
-[2.12.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.11.1...v2.12.0
-[2.11.1]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.11.0...v2.11.1
-[2.11.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.10.4...v2.11.0
-[2.10.4]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.10.3...v2.10.4
-[2.10.3]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.10.2...v2.10.3
-[2.10.2]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.10.1...v2.10.2
-[2.10.1]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.10.0...v2.10.1
-[2.10.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.9.0...v2.10.0
-[2.9.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.8.2...v2.9.0
-[2.8.2]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.8.1...v2.8.2
-[2.8.1]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.8.0...v2.8.1
-[2.8.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.7.0...v2.8.0
-[2.7.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.6.4...v2.7.0
-[2.6.4]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.6.3...v2.6.4
-[2.6.3]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.6.2...v2.6.3
-[2.6.2]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.6.1...v2.6.2
-[2.6.1]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.6.0...v2.6.1
-[2.6.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.5.3...v2.6.0
-[2.5.3]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.5.2...v2.5.3
-[2.5.2]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.5.1...v2.5.2
-[2.5.1]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.5.0...v2.5.1
-[2.5.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.4.0...v2.5.0
-[2.4.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.3.0...v2.4.0
-[2.3.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.2.0...v2.3.0
-[2.2.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.1.0...v2.2.0
-[2.1.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v2.0.0...v2.1.0
-[2.0.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v1.1.0...v2.0.0
-[1.1.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/i386dev/terraform-cloudflare-easy-dns/releases/tag/v1.0.0
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...HEAD
+[2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
+[2.12.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.1...v2.12.0
+[2.11.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.0...v2.11.1
+[2.11.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.4...v2.11.0
+[2.10.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.3...v2.10.4
+[2.10.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.2...v2.10.3
+[2.10.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.1...v2.10.2
+[2.10.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.0...v2.10.1
+[2.10.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.9.0...v2.10.0
+[2.9.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.8.2...v2.9.0
+[2.8.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.8.1...v2.8.2
+[2.8.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.8.0...v2.8.1
+[2.8.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.7.0...v2.8.0
+[2.7.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.6.4...v2.7.0
+[2.6.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.6.3...v2.6.4
+[2.6.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.6.2...v2.6.3
+[2.6.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.6.1...v2.6.2
+[2.6.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.6.0...v2.6.1
+[2.6.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.5.3...v2.6.0
+[2.5.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.5.2...v2.5.3
+[2.5.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.5.1...v2.5.2
+[2.5.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.5.0...v2.5.1
+[2.5.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/releases/tag/v1.0.0

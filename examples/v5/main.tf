@@ -1,6 +1,6 @@
 module "dns" {
   # Outside of this repository, with a local copy of the module (see the README):
-  #   source = "./modules/easy-dns"
+  #   source = "./modules/ezdns"
   source = "../.."
 
   zone_id   = var.zone_id

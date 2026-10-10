@@ -11,7 +11,7 @@ Fixes go into the latest release. Older versions do not get backports: upgrade t
 
 ## Reporting a Vulnerability
 
-Do not open a public issue. Report it privately through [GitHub private vulnerability reporting](https://github.com/i386dev/terraform-cloudflare-easy-dns/security/advisories/new) with:
+Do not open a public issue. Report it privately through [GitHub private vulnerability reporting](https://github.com/5xxeu/terraform-cloudflare-ezdns/security/advisories/new) with:
 
 - the affected version and wrapper (root module, `modules/dns/v4`, `modules/dns/v5`);
 - the configuration that shows the problem (without real tokens or zone IDs);
@@ -34,7 +34,9 @@ Out of scope: bugs of the Cloudflare provider, the Cloudflare API and Terraform 
 Each release archive has a checksum in `SHA256SUMS` and signed build provenance, see [Local Copy](README.md#local-copy). From 2.10.4, the release workflow builds the archives and the GitHub release only after CI passed for the tagged commit (the tag itself, used by Git sources, exists as soon as it is pushed):
 
 ```sh
-gh attestation verify terraform-cloudflare-easy-dns-<version>.tar.gz \
-  --repo i386dev/terraform-cloudflare-easy-dns \
-  --signer-workflow i386dev/terraform-cloudflare-easy-dns/.github/workflows/release.yml
+gh attestation verify terraform-cloudflare-ezdns-<version>.tar.gz \
+  --repo 5xxeu/terraform-cloudflare-ezdns \
+  --signer-workflow 5xxeu/terraform-cloudflare-ezdns/.github/workflows/release.yml
 ```
+
+Releases up to 2.12.0 were built in the previous repository, [i386dev/terraform-cloudflare-easy-dns](https://github.com/i386dev/terraform-cloudflare-easy-dns/releases): their archives are named `terraform-cloudflare-easy-dns-<version>.tar.gz` and are verified with `--repo i386dev/terraform-cloudflare-easy-dns --signer-workflow i386dev/terraform-cloudflare-easy-dns/.github/workflows/release.yml`.

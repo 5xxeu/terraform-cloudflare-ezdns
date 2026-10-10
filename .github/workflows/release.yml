@@ -56,8 +56,8 @@ jobs:
       # migration moved block
       - name: Module archives
         run: |
-          full="terraform-cloudflare-easy-dns-${GITHUB_REF_NAME}.tar.gz"
-          v5="terraform-cloudflare-easy-dns-v5-${GITHUB_REF_NAME}.tar.gz"
+          full="terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz"
+          v5="terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
           mkdir -p dist/module dist/module-v5
           git archive HEAD -- ':(glob)*.tf' modules schema README.md CHANGELOG.md LICENSE \
             ':(exclude,glob)modules/**/tests/**' | tar -x -C dist/module
@@ -70,8 +70,8 @@ jobs:
           (cd dist && sha256sum "${full}" "${v5}" >SHA256SUMS)
 
       # Signed SLSA build provenance of the archives, checked with
-      # gh attestation verify <archive> --repo i386dev/terraform-cloudflare-easy-dns \
-      #   --signer-workflow i386dev/terraform-cloudflare-easy-dns/.github/workflows/release.yml
+      # gh attestation verify <archive> --repo 5xxeu/terraform-cloudflare-ezdns \
+      #   --signer-workflow 5xxeu/terraform-cloudflare-ezdns/.github/workflows/release.yml
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -82,5 +82,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest \
-            "dist/terraform-cloudflare-easy-dns-${GITHUB_REF_NAME}.tar.gz" \
-            "dist/terraform-cloudflare-easy-dns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
+            "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
+            "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS

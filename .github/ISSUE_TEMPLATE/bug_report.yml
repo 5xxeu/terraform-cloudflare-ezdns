@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Do not report security problems here, see [SECURITY.md](https://github.com/i386dev/terraform-cloudflare-easy-dns/blob/main/SECURITY.md).
+        Do not report security problems here, see [SECURITY.md](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/SECURITY.md).
         Remove tokens and real zone IDs from everything you paste.
   - type: input
     id: version

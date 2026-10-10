@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deletes records left by end-to-end runs. Only records that have the comment
-# "easy-dns-e2e" AND a name with an e2e run label are touched, so records managed
+# "ezdns-e2e" AND a name with an e2e run label are touched, so records managed
 # otherwise in the zone are never deleted.
 #
 # Usage: sweep.sh <label>     records of one run (label e.g. e2e-123)
@@ -11,7 +11,7 @@ set -euo pipefail
 api="https://api.cloudflare.com/client/v4/zones/${E2E_ZONE_ID}/dns_records"
 auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
 
-records=$(curl -fsS "${auth[@]}" "${api}?comment.exact=easy-dns-e2e&per_page=5000000" | jq -c '.result[]')
+records=$(curl -fsS "${auth[@]}" "${api}?comment.exact=ezdns-e2e&per_page=5000000" | jq -c '.result[]')
 [ -n "$records" ] || exit 0
 
 if [ "${1:-}" = "--stale" ]; then
