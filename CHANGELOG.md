@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-10-10
+
 ### Changed
 
 - The repository moved to [5xxeu/terraform-cloudflare-ezdns](https://github.com/5xxeu/terraform-cloudflare-ezdns) (with all earlier tags), and the module is published on the Terraform Registry again, as `5xxeu/ezdns/cloudflare`. The README describes the Registry source and switching `source` from the old repository or from `NikitaPuglachenko/easy-dns/cloudflare`; the module itself is unchanged, so no addresses in the state change. Releases up to 2.12.0 stay in `i386dev/terraform-cloudflare-easy-dns`
@@ -377,7 +379,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...HEAD
+[2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.10.4...v2.11.0
