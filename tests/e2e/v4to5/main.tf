@@ -13,6 +13,6 @@ module "dns" {
   zone_id         = var.zone_id
   zone_name       = var.zone_name
   default_ttl     = 300
-  default_comment = "easy-dns-e2e"
+  default_comment = "ezdns-e2e"
   records         = module.fixture.migration_records
 }

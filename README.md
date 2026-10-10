@@ -25,7 +25,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 
 ```hcl
 module "dns" {
-  source = "./modules/easy-dns"
+  source = "./modules/ezdns"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -159,18 +159,18 @@ sha256sum --check --ignore-missing SHA256SUMS   # macOS: shasum -a 256 --check
 # Optional: the archive was built by the release workflow of this repository (releases up to 2.12.0: see SECURITY.md)
 gh attestation verify "${ARCHIVE}" --repo 5xxeu/terraform-cloudflare-ezdns \
   --signer-workflow 5xxeu/terraform-cloudflare-ezdns/.github/workflows/release.yml
-mkdir -p modules/easy-dns
-tar -xzf "${ARCHIVE}" -C modules/easy-dns
+mkdir -p modules/ezdns
+tar -xzf "${ARCHIVE}" -C modules/ezdns
 ```
 
-Commit `modules/easy-dns` together with your configuration and use it as a local module:
+Commit `modules/ezdns` together with your configuration and use it as a local module:
 
 | Cloudflare provider | `source` |
 |:--------------------|:---------|
-| v5 | `./modules/easy-dns` |
-| v4 | `./modules/easy-dns/modules/dns/v4` |
+| v5 | `./modules/ezdns` |
+| v4 | `./modules/ezdns/modules/dns/v4` |
 
-Keep the directory together: the wrappers use the shared core module through a relative path. The Cloudflare provider is still installed from the Terraform Registry on `terraform init`; for fully offline use, set up a provider mirror with `terraform providers mirror`. `modules/easy-dns/VERSION` shows the version of the copy; to upgrade, replace the directory with the archive of the new version and follow [Upgrading and Migration](#upgrading-and-migration).
+Keep the directory together: the wrappers use the shared core module through a relative path. The Cloudflare provider is still installed from the Terraform Registry on `terraform init`; for fully offline use, set up a provider mirror with `terraform providers mirror`. `modules/ezdns/VERSION` shows the version of the copy; to upgrade, replace the directory with the archive of the new version and follow [Upgrading and Migration](#upgrading-and-migration).
 
 #### In a Larger Repository
 
@@ -207,7 +207,7 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 
 ```hcl
 module "dns" {
-  source = "./modules/easy-dns"
+  source = "./modules/ezdns"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -468,7 +468,7 @@ Values that most records share can be set once for the module call, and overridd
 
 ```hcl
 module "dns" {
-  source = "./modules/easy-dns"
+  source = "./modules/ezdns"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -503,26 +503,26 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 Records can be kept in a YAML file and passed with `yamldecode`:
 
 ```hcl
-records = yamldecode(file("${path.module}/records.easy-dns.yaml")).records
+records = yamldecode(file("${path.module}/records.ezdns.yaml")).records
 ```
 
-`schema/records.schema.json` is a JSON Schema for such a file (a document with a `records` key). Editors use it for completion of record types, attributes and `data` fields, and highlight mistakes such as `proxid`, `ttl: 5m` or a CAA `tag` that does not exist before `terraform plan`. With a [local copy](#local-copy), the schema is at `modules/easy-dns/schema/records.schema.json`.
+`schema/records.schema.json` is a JSON Schema for such a file (a document with a `records` key). Editors use it for completion of record types, attributes and `data` fields, and highlight mistakes such as `proxid`, `ttl: 5m` or a CAA `tag` that does not exist before `terraform plan`. With a [local copy](#local-copy), the schema is at `modules/ezdns/schema/records.schema.json`.
 
-Name the files `*.easy-dns.yaml` (e.g. `records.easy-dns.yaml`) and map this pattern to the schema once:
+Name the files `*.ezdns.yaml` (e.g. `records.ezdns.yaml`) and map this pattern to the schema once:
 
-- **JetBrains IDEs**: Settings, Languages & Frameworks, Schemas and DTDs, JSON Schema Mappings: add the schema file with the file path pattern `*.easy-dns.yaml`.
+- **JetBrains IDEs**: Settings, Languages & Frameworks, Schemas and DTDs, JSON Schema Mappings: add the schema file with the file path pattern `*.ezdns.yaml`.
 - **VS Code** (with the YAML extension): in the workspace settings,
 
   ```json
   "yaml.schemas": {
-    "./modules/easy-dns/schema/records.schema.json": "*.easy-dns.yaml"
+    "./modules/ezdns/schema/records.schema.json": "*.ezdns.yaml"
   }
   ```
 
 Alternatively, a comment at the top of a file links the schema regardless of its name (the path is relative to the file):
 
 ```yaml
-# yaml-language-server: $schema=modules/easy-dns/schema/records.schema.json
+# yaml-language-server: $schema=modules/ezdns/schema/records.schema.json
 ```
 
 See [`examples/yaml`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples/yaml).
@@ -654,7 +654,7 @@ To read the values, pass the output through in the root module and read it from 
 
 ```hcl
 module "dns" {
-  source           = "./modules/easy-dns"
+  source           = "./modules/ezdns"
   zone_id          = var.zone_id
   report_unmanaged = true
   records          = { "@" = { A = [{ content = "192.0.2.1" }] } }
@@ -743,11 +743,11 @@ The v5 wrapper contains a `moved` block from `cloudflare_record` to `cloudflare_
 
 Up to 2.12.0, the module was developed in `i386dev/terraform-cloudflare-easy-dns`, and up to 2.6.0 it was published on the Terraform Registry as `NikitaPuglachenko/easy-dns/cloudflare`, which is no longer available. The repository now is `5xxeu/terraform-cloudflare-ezdns`, with all earlier tags, and the Registry source is `5xxeu/ezdns/cloudflare`. Git sources of the old repository and the archives of its releases keep working, but new versions are published only here.
 
-Change `source` to the [Terraform Registry](#terraform-registry) (with `version`), a [Git source](#git-source) of the new repository or a [local copy](#local-copy) of the same version, keeping the module name and the path (root module or `//modules/dns/v4`, `//modules/dns/v5`): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes.
+Change `source` to the [Terraform Registry](#terraform-registry) (with `version`), a [Git source](#git-source) of the new repository or a [local copy](#local-copy) of the same version, keeping the module name and the path (root module or `//modules/dns/v4`, `//modules/dns/v5`): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes. The module is now called ezdns: the README suggests `modules/ezdns` for a local copy and `*.ezdns.yaml` for records in YAML, but an existing copy in `modules/easy-dns` and existing `*.easy-dns.yaml` mappings keep working, since neither affects the state.
 
 ### From the v5 Submodule to the Root Module
 
-The root module wraps the v5 submodule, so its records have one more level in their address. When switching `source` from the `v5` submodule (`./modules/easy-dns/modules/dns/v5` or `//modules/dns/v5` in a Git source) to the root module, add a `moved` block next to the module call, so the records are not recreated:
+The root module wraps the v5 submodule, so its records have one more level in their address. When switching `source` from the `v5` submodule (`./modules/ezdns/modules/dns/v5` or `//modules/dns/v5` in a Git source) to the root module, add a `moved` block next to the module call, so the records are not recreated:
 
 ```hcl
 moved {
@@ -787,7 +787,7 @@ CI runs `terraform fmt`, `validate` and `test` for the root module, the core mod
 2. Changes values: a record without a `key` is replaced, a record with a `key` is updated in place.
 3. Adopts the same records into an empty state with `import_existing` and checks that all of them are imported, none created, and each one under the ID of the record created in step 1.
 4. Creates records with the v4 wrapper and opens the state with the v5 wrapper: the records must be moved, not recreated, and keep their keys and Cloudflare IDs.
-5. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `easy-dns-e2e` and a run label in the name.
+5. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
 
 ```sh
 CLOUDFLARE_API_TOKEN=... E2E_ZONE_ID=... E2E_ZONE_NAME=example.com tests/e2e/run.sh

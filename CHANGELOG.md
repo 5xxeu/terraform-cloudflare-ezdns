@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file. The format is b
 - The repository moved to [5xxeu/terraform-cloudflare-ezdns](https://github.com/5xxeu/terraform-cloudflare-ezdns) (with all earlier tags), and the module is published on the Terraform Registry again, as `5xxeu/ezdns/cloudflare`. The README describes the Registry source and switching `source` from the old repository or from `NikitaPuglachenko/easy-dns/cloudflare`; the module itself is unchanged, so no addresses in the state change. Releases up to 2.12.0 stay in `i386dev/terraform-cloudflare-easy-dns`
 - Release archives are named `terraform-cloudflare-ezdns-<version>.tar.gz` and `terraform-cloudflare-ezdns-v5-<version>.tar.gz`, and their provenance is verified with `--repo 5xxeu/terraform-cloudflare-ezdns` (see SECURITY.md)
 - The `$id` of the JSON Schema points to the new repository
+- The module is called ezdns: the schema title, the suggested local copy directory (`modules/ezdns`) and YAML file pattern (`*.ezdns.yaml`, `examples/yaml/records.ezdns.yaml`), and the comment that marks end-to-end test records (`ezdns-e2e`) use the new name. Existing copies and file mappings keep working
 
 ## [2.12.0] - 2026-10-04
 

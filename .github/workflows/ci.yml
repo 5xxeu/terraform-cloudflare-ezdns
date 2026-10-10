@@ -133,7 +133,7 @@ jobs:
       - name: Check that the schema is up to date
         run: git diff --exit-code schema/ || { echo "The schema is outdated, run scripts/generate-schema.py"; exit 1; }
       # The same documents through the module: the schema and the validation must agree
-      - run: python3 scripts/test-schema.py --terraform examples/yaml/records.easy-dns.yaml
+      - run: python3 scripts/test-schema.py --terraform examples/yaml/records.ezdns.yaml
 
   tflint:
     name: TFLint
