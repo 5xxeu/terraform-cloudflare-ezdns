@@ -25,6 +25,11 @@ run "records" {
     error_message = "Group defaults and fully qualified names must be applied"
   }
 
+  assert {
+    condition     = output.records["@ A 192.0.2.1"].ttl == 1 && output.records["mail A 192.0.2.2"].ttl == 3600
+    error_message = "Proxied records get TTL 1, like in the wrappers"
+  }
+
   # The kind of assertion a user's test can make about a zone
   assert {
     condition     = length([for r in output.records : r if r.type == "MX"]) > 0 && !anytrue([for r in output.records : r.proxied if r.fqdn == "mail.example.com"])
