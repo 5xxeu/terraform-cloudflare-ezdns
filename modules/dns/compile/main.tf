@@ -34,14 +34,21 @@ locals {
     ]
   ])
 
-  all_records = {
-    for name in distinct(concat(keys(var.records), [for e in local.group_entries : e.name])) : name => {
-      for type in distinct(concat(flatten([for n, types in var.records : keys(types) if n == name]), [for e in local.group_entries : e.type if e.name == name])) : type => concat(
-        flatten([for n, types in var.records : [for t, list in types : list if t == type] if n == name]),
-        [for e in local.group_entries : e.record if e.name == name && e.type == type],
+  # One pass over records (no lookups by name, which would need try() or a full pass
+  # per name); without groups the loops over group_entries are empty
+  all_records = merge(
+    {
+      for name, types in var.records : name => merge(
+        { for type, list in types : type => concat([for record in list : record], [for e in local.group_entries : e.record if e.name == name && e.type == type]) },
+        { for type in distinct([for e in local.group_entries : e.type if e.name == name && !contains(keys(types), e.type)]) : type => [for e in local.group_entries : e.record if e.name == name && e.type == type] },
       )
-    }
-  }
+    },
+    {
+      for name in distinct([for e in local.group_entries : e.name if !contains(keys(var.records), e.name)]) : name => {
+        for type in distinct([for e in local.group_entries : e.type if e.name == name]) : type => [for e in local.group_entries : e.record if e.name == name && e.type == type]
+      }
+    },
+  )
 }
 
 module "records" {

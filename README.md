@@ -1169,8 +1169,8 @@ With the module from the Terraform Registry or Git, `terraform init` puts the sc
 
 - `--max-deletes N` and `--max-replacements N` allow up to N deletions or replacements (default 0). A changed value without a `key` is a deletion and a creation, so it counts as a deletion.
 - `--allow ADDRESS` leaves out the changes of resources whose address matches (`*` matches any characters, e.g. `--allow 'module.dns.*["www A *"]'`), for a change that was reviewed.
-- `--allow-proxy-disable` allows turning off the proxy. A proxy status that is not known until apply also fails without it.
-- `--require NAME:TYPE[:MIN]` requires at least MIN records (default 1) of a type on a name after the apply, with names as in `records` and `--zone` to qualify them.
+- `--allow-proxy-disable` allows turning off the proxy. Without it, the plan also fails when a proxied record is replaced or deleted and an unproxied record of the same type is created on its name (a changed value without a `key`), and when a proxy status is not known until apply.
+- `--require NAME:TYPE[:MIN]` requires at least MIN records (default 1) of a type on a name after the apply, with names as in `records` and `--zone` to qualify them. When the plan has records of several zones, give `--zone-id ID` to count the records of one zone.
 - `--module module.dns` checks only the records of one module call, with all its instances when it has `count` or `for_each` (`module.dns[0]`, `module.dns["prod"]`); `--module 'module.dns["prod"]'` checks one instance.
 
 Apply the checked plan file (`terraform apply tfplan`), not a new plan: a new plan can differ from the checked one. The script checks `cloudflare_dns_record` and `cloudflare_record` resources of any configuration, also outside the module. Exit status 1 means the plan has changes that are not allowed, 2 that the plan cannot be read.

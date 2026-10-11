@@ -82,6 +82,26 @@ class PlanGuardTest(unittest.TestCase):
         problems = run(p, "--max-replacements", "1")
         self.assertIn("turns off the proxy", problems[0])
 
+    def test_proxy_disable_through_a_new_key_fails(self):
+        # A changed value without a key: the proxied record is deleted, an unproxied one
+        # is created on the same name
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z", "name": "web.example.com"}, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "z", "content": "192.0.2.9", "proxied": False}),
+        )
+        problems = run(p, "--max-deletes", "1")
+        self.assertIn("turns off the proxy", problems[0])
+        self.assertIn("192.0.2.9", problems[1])
+        self.assertEqual(run(p, "--max-deletes", "1", "--allow-proxy-disable"), [])
+
+    def test_new_key_that_stays_proxied_passes(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "z", "content": "192.0.2.9"}),
+            record(BASE.format("other A 192.0.2.8"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "proxied": False}),
+        )
+        self.assertEqual(run(p, "--max-deletes", "1", "--zone", "example.com"), [])
+
     def test_proxied_delete_is_not_a_proxy_disable(self):
         p = plan(record(BASE.format("web A 192.0.2.1"), ["delete"], WEB, None))
         self.assertEqual(run(p, "--max-deletes", "1"), [])
@@ -105,6 +125,19 @@ class PlanGuardTest(unittest.TestCase):
         after = {k: v for k, v in MX.items() if k != "name"}
         p = plan(record(BASE.format("@ MX mx.example.com"), ["create"], None, after, {"name": True}))
         self.assertIn("0 after the apply", run(p, "--zone", "example.com", "--require", "@:MX")[0])
+
+    def test_required_set_of_several_zones(self):
+        # The MX of another zone must not count for this one
+        other = {**MX, "zone_id": "other"}
+        p = plan(
+            record(BASE.format("@ MX mx.example.com"), ["delete"], {**MX, "zone_id": "z"}, None),
+            record('module.other.cloudflare_dns_record.record["@ MX mx.example.com"]', ["no-op"], other, other),
+        )
+        problems = run(p, "--max-deletes", "1", "--zone", "example.com", "--require", "@:MX")
+        self.assertIn("several zones", "\n".join(problems))
+        problems = run(p, "--max-deletes", "1", "--zone", "example.com", "--zone-id", "z", "--require", "@:MX")
+        self.assertEqual(problems, ["MX records of example.com: 0 after the apply, at least 1 required"])
+        self.assertEqual(run(p, "--max-deletes", "1", "--zone", "example.com", "--zone-id", "other", "--require", "@:MX"), [])
 
     def test_required_minimum(self):
         p = plan(record(BASE.format("@ MX mx.example.com"), ["no-op"], MX, MX))

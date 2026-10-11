@@ -43,6 +43,8 @@ def parse_args(argv):
                         help="record set that must have at least MIN records (default 1) after the apply, "
                              "e.g. @:MX or www:CNAME; NAME as in the records input; needs --zone; repeat for more")
     parser.add_argument("--zone", metavar="NAME", help="zone name, to qualify the names of --require and of the records")
+    parser.add_argument("--zone-id", metavar="ID",
+                        help="only count records of this zone for --require; needed when the plan has records of several zones")
     parser.add_argument("--module", metavar="ADDRESS",
                         help="only check records of this module call and the modules in it (e.g. module.dns)")
     args = parser.parse_args(argv)
@@ -87,11 +89,24 @@ def allowed(address, patterns):
     return any(re.fullmatch(".*".join(re.escape(part) for part in p.split("*")), address) for p in patterns)
 
 
+def same_name(a, b, zone):
+    """Whether two record names are the same name: fully qualified with --zone; without
+    it, a name as written (www) also matches the fully qualified one (www.example.com)."""
+    a, b = fqdn(a, zone), fqdn(b, zone)
+    return a == b or (not zone and (a.startswith(b + ".") or b.startswith(a + ".")))
+
+
 def check(plan, args):
     """Returns the list of problems of the plan (empty: the plan passes)."""
     deletes, replacements, proxy_off, unknown_proxy = [], [], [], []
     # Record sets after the apply: (fqdn, type) -> number of records
     after_sets = {}
+    # Zones of the records of the plan, to catch a --require over several zones
+    zones = set()
+    # Proxied records that are deleted, and records that are created: a new key (a
+    # changed value without a key) deletes the record and creates another one, which
+    # must stay proxied too
+    deleted_proxied, created = [], []
 
     for rc in plan.get("resource_changes", []):
         if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
@@ -108,12 +123,20 @@ def check(plan, args):
         # A record counts for its set only if its name and type are known at plan: a name
         # computed at apply could end up anywhere (and a missing name is not the apex)
         if actions != ["delete"] and after and not after_unknown.get("name") and not after_unknown.get("type") \
-                and after.get("name") and after.get("type"):
+                and after.get("name") and after.get("type") \
+                and (args.zone_id is None or (after.get("zone_id") == args.zone_id and not after_unknown.get("zone_id"))):
             key = (fqdn(after.get("name"), args.zone), str(after.get("type")).upper())
             after_sets[key] = after_sets.get(key, 0) + 1
+        zones.update(v.get("zone_id") for v in (before, after) if v.get("zone_id"))
+        if after_unknown.get("zone_id"):
+            zones.add("unknown")
 
         if allowed(address, args.allow):
             continue
+        if actions == ["delete"] and before.get("proxied") is True:
+            deleted_proxied.append(before)
+        if actions == ["create"]:
+            created.append((address, after, after_unknown))
         if actions == ["delete"]:
             deletes.append(address)
         elif "delete" in actions and "create" in actions:
@@ -124,6 +147,16 @@ def check(plan, args):
                 unknown_proxy.append(address)
             elif after.get("proxied") is not True:
                 proxy_off.append(address)
+
+    for address, after, after_unknown in created:
+        if after.get("proxied") is True:
+            continue
+        for before in deleted_proxied:
+            if str(before.get("type", "")).upper() == str(after.get("type", "")).upper() \
+                    and before.get("zone_id") == after.get("zone_id") \
+                    and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)):
+                (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
+                break
 
     problems = []
     if len(deletes) > args.max_deletes:
@@ -141,6 +174,8 @@ def check(plan, args):
         problems.append("Whether these proxied records stay proxied is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]
 
+    if args.require and args.zone_id is None and len(zones) > 1:
+        problems.append("The plan has records of several zones, so --require cannot tell them apart: give --zone-id")
     for spec in args.require:
         parts = spec.split(":")
         if len(parts) not in (2, 3) or not parts[0] or not parts[1]:
