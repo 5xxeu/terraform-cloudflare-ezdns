@@ -21,16 +21,17 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
-- **Values of `data` fields out of range now fail at `plan`** (see "To 2.13" in the README); the Cloudflare API rejected them at apply before
+- **Values of `data` fields out of range now fail at `plan`** (see "To 2.13" in [docs/upgrading.md](docs/upgrading.md)); the Cloudflare API rejected them at apply before
 - The lookups of `import_existing` and `report_unmanaged` read up to 100,000 records per type instead of 10,000 (a limit of the module; the provider reads the records in pages)
 - The warning about numbers in text values no longer reports attributes set to `null`
 - README and examples: the module calls use the Terraform Registry source (`5xxeu/ezdns/cloudflare`) instead of a local copy, so they work as written; the local copy and the Git source stay described under Usage
+- The README keeps what is needed to use the module; the longer guides moved to `docs`: recipes, importing existing records, records not in the configuration, checking plans, upgrading and testing. The README sections stay with a short summary and a link, so links to them still work. `CONTRIBUTING.md` lists the rules the code keeps (stable keys, wrappers in sync, keys known at plan, Terraform 1.8, linear work)
 
 ### Internal
 
 - The records module takes `owned_names` and `unmanaged_ignore`, and an internal `source` attribute of records, which the wrappers set for grouped records so that errors say where a record is defined
 - `scripts/check-sync.sh` also checks that the `idna` submodule has the interface of the root module, and that the wrappers and the `compile` submodule merge `record_groups` and check records with the same code, and that `compile` has the variables of the v4 wrapper except `zone_id` and `zone_name`
-- CI tests the `compile` and `idna` submodules and the tools (unit tests, and the YAML that `zone-to-ezdns.py` writes from a fixture through the module); the full release archive contains `tools`
+- CI tests the `compile` and `idna` submodules and the tools (unit tests, and the YAML that `zone-to-ezdns.py` writes from a fixture through the module); the full release archive contains `tools`, both archives contain `docs`
 - The end-to-end test creates and imports an `HTTPS` record with service parameters as fields, so that the value the module writes is checked against the form Cloudflare stores
 
 ## [2.12.2] - 2026-10-11

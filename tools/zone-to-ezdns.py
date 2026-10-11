@@ -20,8 +20,8 @@ Every value is written as a quoted string, so YAML 1.1 does not turn it into a b
 or a number. Records that differ only in what is not a part of their key (MX priority,
 CAA flags) get a key; copies of one record are written once and reported, since the
 module cannot import them unambiguously while the zone has several. Then adopt the records with
-import_existing = true and import blocks (see "Importing Existing Records" in the
-README) and check that the plan creates and deletes nothing.
+import_existing = true and import blocks (see docs/importing.md) and check that the
+plan creates and deletes nothing.
 
 Python 3.8 or later, standard library only. Exit status: 0, or 1 when records were
 skipped or are copies of each other (the YAML is written anyway), 2 for bad input.
