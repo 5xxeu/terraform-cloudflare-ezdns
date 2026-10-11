@@ -1024,7 +1024,7 @@ records:
         proxied: true
 ```
 
-The script exits with 1 when it skipped records or found copies (the file is written anyway), so a CI step can stop on it, and with 2 when the input cannot be read (nothing is written).
+The script exits with 1 when it skipped records or found copies (the file is written anyway), so a CI step can stop on it, and with 2 when the input cannot be read or has a record of an unexpected shape (nothing is written).
 
 - Every value is quoted, so YAML 1.1 keeps it as text. Records with the TTL of `--default-ttl` (the `default_ttl` of the module call) are written without one, proxied records without TTL. The proxy status of `A`, `AAAA` and `CNAME` records is written both ways (`proxied: false` too), so a `default_proxied = true` or the defaults of a group do not change a record of the zone.
 - `MX` and `URI` records that differ only in priority, and `CAA` records that differ only in flags, get a `key` each, since they would have the same record key. When these keys repeat within a name and type (two MX hosts, each with priorities 10 and 20), the target goes into the key (`mx1.example.com-priority-10`). Copies of one record in the zone (also with another TTL, comment or tags) are written once and reported with their IDs, not their values (the value of a proxied record is its origin address): the import of such a record stops until the zone has one copy.
@@ -1169,11 +1169,11 @@ With the module from the Terraform Registry or Git, `terraform init` puts the sc
 
 - `--max-deletes N` and `--max-replacements N` allow up to N deletions or replacements (default 0). A changed value without a `key` is a deletion and a creation, so it counts as a deletion.
 - `--allow ADDRESS` leaves out the changes of resources whose address matches (`*` matches any characters, e.g. `--allow 'module.dns.*["www A *"]'`), for a change that was reviewed.
-- `--allow-proxy-disable` allows turning off the proxy. Without it, the plan also fails when a proxied record is replaced, deleted or moved and an unproxied `A`, `AAAA` or `CNAME` record is created on its name or moved there (a changed value without a `key`, another record type, a renamed record), and when a proxy status is not known until apply. Without `--zone`, the apex (`@`) is taken to match every name, as the script cannot tell `@` from the zone name.
+- `--allow-proxy-disable` allows turning off the proxy. Without it, the plan also fails when a proxied record is replaced, deleted or moved and an unproxied `A`, `AAAA` or `CNAME` record on its name publishes something new: it is created, moved there, or gets another type or content (a changed value without a `key`, another record type, a renamed record). An unproxied record that stays as it was does not count. The plan also fails when a proxy status is not known until apply. Without `--zone`, the apex (`@`) is taken to match every name, as the script cannot tell `@` from the zone name.
 - `--require NAME:TYPE[:MIN]` requires at least MIN records (default 1) of a type on a name after the apply, with names as in `records` and `--zone` to qualify them. When the plan has records of several zones, give `--zone-id ID` to count the records of one zone.
 - `--module module.dns` checks only the records of one module call, with all its instances when it has `count` or `for_each` (`module.dns[0]`, `module.dns["prod"]`); `--module 'module.dns["prod"]'` checks one instance.
 
-Apply the checked plan file (`terraform apply tfplan`), not a new plan: a new plan can differ from the checked one. The script checks `cloudflare_dns_record` and `cloudflare_record` resources of any configuration, also outside the module. Exit status 1 means the plan has changes that are not allowed, 2 that the plan cannot be read or the arguments are wrong.
+Apply the checked plan file (`terraform apply tfplan`), not a new plan: a new plan can differ from the checked one. The script checks `cloudflare_dns_record` and `cloudflare_record` resources of any configuration, also outside the module. Exit status 1 means the plan has changes that are not allowed, 2 that the plan cannot be read, has an unexpected structure or the arguments are wrong.
 
 ## Stability
 

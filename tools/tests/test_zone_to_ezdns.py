@@ -8,6 +8,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import tempfile
 import unittest
 
 HERE = pathlib.Path(__file__).parent
@@ -112,6 +113,17 @@ class YamlTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
             z.load("/nonexistent/zone.json")
         self.assertEqual(e.exception.code, 2)
+
+    def test_record_of_an_unexpected_shape_is_exit_code_2(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump([{"id": "1", "name": 42, "type": "A", "content": "192.0.2.1", "ttl": 1}], f)
+        try:
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                self.assertEqual(z.main([f.name, "--zone", "example.com"]), 2)
+            self.assertEqual(out.getvalue(), "")
+        finally:
+            pathlib.Path(f.name).unlink()
 
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)

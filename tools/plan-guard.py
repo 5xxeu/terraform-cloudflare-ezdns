@@ -112,6 +112,15 @@ def moved(before, after, after_unknown, zone):
                 or fqdn(before.get("name"), zone) != fqdn(after.get("name"), zone))
 
 
+def published(before, after, after_unknown, zone):
+    """Whether the record published the same unproxied value on the same name before the
+    plan, so the apply publishes nothing new (another type, content, name or zone does)."""
+    return bool(before) and before.get("proxied") is False and not moved(before, after, after_unknown, zone) \
+        and not after_unknown.get("type") and not after_unknown.get("content") \
+        and str(before.get("type", "")).upper() == str(after.get("type", "")).upper() \
+        and before.get("content") == after.get("content")
+
+
 def check(plan, args):
     """Returns the list of problems of the plan (empty: the plan passes)."""
     deletes, replacements, proxy_off, unknown_proxy = [], [], [], []
@@ -153,7 +162,7 @@ def check(plan, args):
             deleted_proxied.append(before)
         if allowed(address, args.allow):
             continue
-        if actions != ["delete"] and after and (not before or moved(before, after, after_unknown, args.zone)):
+        if actions != ["delete"] and after and not published(before, after, after_unknown, args.zone):
             created.append((address, after, after_unknown))
         if actions == ["delete"]:
             deletes.append(address)
@@ -220,7 +229,17 @@ def main(argv=None):
     if not isinstance(plan, dict) or "format_version" not in plan or "planned_values" not in plan:
         print(f"plan-guard: {args.plan} is not a plan in the JSON format of terraform show -json", file=sys.stderr)
         return 2
-    problems = check(plan, args)
+    changes = plan.get("resource_changes", [])
+    if not isinstance(changes, list) or not all(isinstance(rc, dict) for rc in changes):
+        print(f"plan-guard: {args.plan}: resource_changes is not a list of changes", file=sys.stderr)
+        return 2
+    # Any other unexpected shape (a name that is not text, a change that is not an
+    # object) is a broken input too, not a failing plan
+    try:
+        problems = check(plan, args)
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        print(f"plan-guard: {args.plan} has an unexpected structure: {e!r}", file=sys.stderr)
+        return 2
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return 1

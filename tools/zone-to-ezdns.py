@@ -264,9 +264,16 @@ def to_yaml(records, zone, count):
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     raw = load(args.input)
-    records, notes = convert(raw, args.zone, args.default_ttl)
-    count = sum(len(recs) for types in records.values() for recs in types.values())
-    sys.stdout.write(to_yaml(records, args.zone.rstrip("."), count))
+    # A record of an unexpected shape (a name that is not text, data that is not an
+    # object) is a broken input: nothing is written and the exit status is 2
+    try:
+        records, notes = convert(raw, args.zone, args.default_ttl)
+        count = sum(len(recs) for types in records.values() for recs in types.values())
+        out = to_yaml(records, args.zone.rstrip("."), count)
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        print(f"zone-to-ezdns: {args.input} has a record of an unexpected shape: {e!r}", file=sys.stderr)
+        return 2
+    sys.stdout.write(out)
     for note in notes:
         print(f"zone-to-ezdns: {note}", file=sys.stderr)
     return 1 if notes else 0

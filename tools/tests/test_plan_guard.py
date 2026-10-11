@@ -147,6 +147,24 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
+    def test_record_turned_into_an_unproxied_address_fails(self):
+        # The same resource replaced from TXT into an unproxied AAAA, next to a deleted proxied A
+        txt = {"name": "web", "type": "TXT", "content": "x", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web x"), ["delete", "create"], txt, {**txt, "type": "AAAA", "content": "2001:db8::9"}),
+        )
+        problems = run(p, "--allow", BASE.format("web A 192.0.2.1"), "--max-replacements", "1")
+        self.assertIn("turns off the proxy", problems[0])
+
+    def test_new_content_of_an_unproxied_record_fails(self):
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web AAAA"), ["update"], aaaa, {**aaaa, "content": "2001:db8::9"}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
     def test_text_record_on_the_name_of_a_proxied_record_passes(self):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
@@ -263,6 +281,13 @@ class MainTest(unittest.TestCase):
                     unittest.mock.patch("sys.stdin", io.StringIO('{"format_version": "1.2", "planned_values": {}}')):
                 plan_guard.main(argv)
             self.assertEqual(e.exception.code, 2)
+
+    def test_unexpected_structure_is_exit_code_2(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}, "resource_changes": None}), 2)
+            broken = plan(record(BASE.format("web"), ["update"], {**WEB, "proxied": True, "name": 42}, {**WEB, "name": 42, "proxied": False}))
+            broken["resource_changes"][0]["change"]["after_unknown"] = []
+            self.assertEqual(self.exit_code(broken), 2)
 
     def test_failing_plan(self):
         p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))
