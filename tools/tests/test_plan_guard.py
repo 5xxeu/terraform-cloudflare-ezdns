@@ -183,6 +183,19 @@ class PlanGuardTest(unittest.TestCase):
         self.assertIn("replaces 1 records", problems[0])
         self.assertIn("turns off the proxy", problems[2])
 
+    def test_zone_qualifies_only_the_names_of_its_zone(self):
+        # --zone example.com is the zone of --zone-id primary; in zone "other" (other.com)
+        # the name web.other.com is the name web, so the unproxied web there is a successor
+        p = plan(
+            record(BASE.format("web.other.com A 192.0.2.1"), ["delete"], {**WEB, "name": "web.other.com", "zone_id": "other"}, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "other", "content": "192.0.2.9", "proxied": False}),
+            record(BASE.format("@ MX mx.example.com"), ["no-op"], {**MX, "zone_id": "primary"}, {**MX, "zone_id": "primary"}),
+        )
+        problems = run(p, "--zone", "example.com", "--zone-id", "primary", "--require", "@:MX", "--max-deletes", "1")
+        self.assertIn("turns off the proxy", problems[0])
+        # Without --zone-id the plan has several zones, so --zone is not applied either
+        self.assertIn("turns off the proxy", run(p, "--zone", "example.com", "--max-deletes", "1")[0])
+
     def test_records_outside_the_module_on_other_names_pass(self):
         other = {"name": "api", "type": "A", "content": "192.0.2.5", "proxied": False, "zone_id": "z"}
         p = plan(

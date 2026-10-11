@@ -139,6 +139,25 @@ def check(plan, args):
     # delete the old record first, and the name is unhidden until the new one exists
     remaining_proxied = []
 
+    # --zone qualifies the names of one zone: of --zone-id, or of a plan with one zone.
+    # Names of other zones are compared without it (a name as written also matches the
+    # fully qualified one, the apex every name), which may flag more but misses nothing
+    record_changes = [rc for rc in plan.get("resource_changes", [])
+                      if rc.get("mode") == "managed" and rc.get("type") in RECORD_TYPES]
+    plan_zones = set()
+    for rc in record_changes:
+        change = rc.get("change", {})
+        for side in (change.get("before") or {}, change.get("after") or {}):
+            plan_zones.add(side.get("zone_id"))
+        if (change.get("after_unknown") or {}).get("zone_id"):
+            plan_zones.add("unknown")
+    plan_zones.discard(None)
+
+    def zone_of(record):
+        if args.zone_id is not None:
+            return args.zone if record.get("zone_id") == args.zone_id else None
+        return args.zone if len(plan_zones) <= 1 else None
+
     for rc in plan.get("resource_changes", []):
         if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
             continue
@@ -157,15 +176,15 @@ def check(plan, args):
         # A replacement that deletes first (["delete", "create"]; create_before_destroy gives
         # ["create", "delete"]) leaves the name unhidden until the new record exists
         if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (
-                moved(before, after, after_unknown, args.zone) or after_unknown.get("proxied") or after.get("proxied") is not True))):
+                moved(before, after, after_unknown, zone_of(before)) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append((before, own))
         if actions in (["no-op"], ["update"]) and before.get("proxied") is True and after.get("proxied") is True \
-                and not after_unknown.get("proxied") and not moved(before, after, after_unknown, args.zone) \
+                and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(after)
         if not own:
             if actions != ["delete"] and after and not allowed(address, args.allow):
-                created.append((address, after, after_unknown, not published(before, after, after_unknown, args.zone), False))
+                created.append((address, after, after_unknown, not published(before, after, after_unknown, zone_of(after)), False))
             continue
 
         # A record counts for its set only if its name and type are known at plan: a name
@@ -185,7 +204,7 @@ def check(plan, args):
         if allowed(address, args.allow):
             continue
         if actions != ["delete"] and after:
-            created.append((address, after, after_unknown, not published(before, after, after_unknown, args.zone), True))
+            created.append((address, after, after_unknown, not published(before, after, after_unknown, zone_of(after)), True))
         if actions == ["delete"]:
             deletes.append(address)
         elif "delete" in actions and "create" in actions:
@@ -202,7 +221,7 @@ def check(plan, args):
     # stays as it was publishes its address only if the name keeps no proxied record
     # (exactly the same name: a name in another form does not count)
     def still_proxied(before):
-        return any(r.get("zone_id") == before.get("zone_id") and fqdn(r.get("name"), args.zone) == fqdn(before.get("name"), args.zone)
+        return any(r.get("zone_id") == before.get("zone_id") and fqdn(r.get("name"), zone_of(before)) == fqdn(before.get("name"), zone_of(before))
                    for r in remaining_proxied)
 
     for address, after, after_unknown, new, own in created:
@@ -212,7 +231,7 @@ def check(plan, args):
             continue
         for before, before_own in deleted_proxied:
             if (own or before_own) and (after_unknown.get("zone_id") or before.get("zone_id") == after.get("zone_id")) \
-                    and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)) \
+                    and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), zone_of(before))) \
                     and (new or not still_proxied(before)):
                 (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
                 break

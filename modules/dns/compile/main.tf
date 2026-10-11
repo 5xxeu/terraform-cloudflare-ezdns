@@ -34,19 +34,24 @@ locals {
     ]
   ])
 
-  # One pass over records (no lookups by name, which would need try() or a full pass
-  # per name); without groups the loops over group_entries are empty
+  # The entries of the groups by name, built once, so that merging them takes one
+  # lookup per name instead of a pass over all entries (quadratic with many groups).
+  # Names are known, so the keys stay known also with computed values; without groups
+  # the lookups are empty
+  group_names  = { for e in local.group_entries : e.name => e... }
+  record_names = toset(keys(var.records))
+
   all_records = merge(
     {
       for name, types in var.records : name => merge(
-        { for type, list in types : type => concat([for record in list : record], [for e in local.group_entries : e.record if e.name == name && e.type == type]) },
-        { for type in distinct([for e in local.group_entries : e.type if e.name == name && !contains(keys(types), e.type)]) : type => [for e in local.group_entries : e.record if e.name == name && e.type == type] },
+        { for type, list in types : type => concat([for record in list : record], [for e in lookup(local.group_names, name, []) : e.record if e.type == type]) },
+        { for type in distinct([for e in lookup(local.group_names, name, []) : e.type if !contains(keys(types), e.type)]) : type => [for e in lookup(local.group_names, name, []) : e.record if e.type == type] },
       )
     },
     {
-      for name in distinct([for e in local.group_entries : e.name if !contains(keys(var.records), e.name)]) : name => {
-        for type in distinct([for e in local.group_entries : e.type if e.name == name]) : type => [for e in local.group_entries : e.record if e.name == name && e.type == type]
-      }
+      for name, entries in local.group_names : name => {
+        for type in distinct([for e in entries : e.type]) : type => [for e in entries : e.record if e.type == type]
+      } if !contains(local.record_names, name)
     },
   )
 }
