@@ -301,6 +301,20 @@ run "svc_ech_not_padded" {
   expect_failures = [var.records]
 }
 
+run "svc_empty_params" {
+  command = plan
+
+  variables {
+    records = {
+      "@"    = { HTTPS = [{ data = { priority = 1, target = ".", alpn = "" } }] }
+      "svc"  = { SVCB = [{ data = { priority = 1, target = ".", ech = "" } }] }
+      "svc2" = { SVCB = [{ data = { priority = 1, target = ".", ipv4hint = "" } }] }
+    }
+  }
+
+  expect_failures = [var.records]
+}
+
 run "svc_alpn_with_spaces" {
   command = plan
 

@@ -481,7 +481,7 @@ variable "records" {
                     mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
                     ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
                   } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
-                  if lookup(data, field, null) != null && !can(regex(pattern, coalesce(lookup(data, field, null), "x")))
+                  if lookup(data, field, null) == null ? false : lookup(data, field, null) == "" || !can(regex(pattern, lookup(data, field, null)))
                 ],
                 [
                   for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
@@ -489,8 +489,8 @@ variable "records" {
                 ],
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
-                  if lookup(data, field, null) != null && !alltrue([
-                    for address in split(",", coalesce(lookup(data, field, null), "x")) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                  if lookup(data, field, null) == null ? false : !alltrue([
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
                   ])
                 ],
               )
@@ -512,7 +512,7 @@ variable "records" {
                     mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
                     ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
                   } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
-                  if lookup(data, field, null) != null && !can(regex(pattern, coalesce(lookup(data, field, null), "x")))
+                  if lookup(data, field, null) == null ? false : lookup(data, field, null) == "" || !can(regex(pattern, lookup(data, field, null)))
                 ],
                 [
                   for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
@@ -520,8 +520,8 @@ variable "records" {
                 ],
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
-                  if lookup(data, field, null) != null && !alltrue([
-                    for address in split(",", coalesce(lookup(data, field, null), "x")) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                  if lookup(data, field, null) == null ? false : !alltrue([
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
                   ])
                 ],
               )
