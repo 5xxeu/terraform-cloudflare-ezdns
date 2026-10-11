@@ -64,9 +64,31 @@ def data_fields():
     return allowed, required
 
 
+def data_ranges():
+    """Returns {type: {field: (minimum, maximum, whole)}} from the range validation of the
+    records module."""
+    text = core_text()
+    marker = "for field, range in lookup({"
+    start = text.index(marker) + len(marker)
+    block = text[start:text.index("}, kind, {})", start)]
+    ranges = {}
+    for record_type, body in re.findall(r"([A-Z]+)\s*=\s*\{([^}]*)\}", block):
+        ranges[record_type] = {
+            field: (float(low), float(high), whole == "true")
+            for field, low, high, whole in re.findall(r"([a-z_]+)\s*=\s*\[(-?[0-9.]+),\s*(-?[0-9.]+),\s*(true|false)\]", body)
+        }
+    return ranges
+
+
+def number(value):
+    return int(value) if value.is_integer() else value
+
+
 def core_attributes(indent):
+    """Attributes of the typed records of the module, except source, which the wrappers
+    set for grouped records (not an input)."""
     block = re.search(r'variable "records" \{.*?\n\}', core_text(), re.S).group(0)
-    return sorted(re.findall(rf"^ {{{indent}}}([a-z0-9_]+) +=.*optional\(", block, re.M))
+    return sorted(a for a in re.findall(rf"^ {{{indent}}}([a-z0-9_]+) +=.*optional\(", block, re.M) if a != "source")
 
 
 def number_or_string():
@@ -75,6 +97,16 @@ def number_or_string():
 
 def schema():
     allowed, required = data_fields()
+    ranges = data_ranges()
+
+    def numeric(record_type, field):
+        """A number or a string (Terraform accepts both); numbers in the range of the
+        module, a whole number where it requires one."""
+        if field not in ranges.get(record_type, {}):
+            return number_or_string()
+        low, high, whole = ranges[record_type][field]
+        bounds = {"minimum": number(low), "maximum": number(high), **({"multipleOf": 1} if whole else {})}
+        return {"anyOf": [{"type": "number", **bounds}, {"type": "string"}]}
 
     common = {
         "ttl": {
@@ -134,7 +166,7 @@ def schema():
             {
                 "content": {"description": "Value, e.g. letsencrypt.org", "type": "string"},
                 "tag": {"description": "Property", "enum": ["issue", "issuewild", "iodef"]},
-                "flags": {"description": "Flags (default: 0)", "type": "integer"},
+                "flags": {"description": "Flags (default: 0)", "type": "integer", "minimum": 0, "maximum": 255},
             },
             ["content", "tag"], "CAA record",
         ),
@@ -148,12 +180,12 @@ def schema():
             "properties": {
                 field: ENUMS.get(field) and {"enum": ENUMS[field]}
                 or ((record_type, field) in DATA_HOSTNAMES and hostname("Hostname, . for none", "."))
-                or (number_or_string() if field in NUMERIC and not (record_type == "NAPTR" and field == "flags") else {"type": "string"})
+                or (numeric(record_type, field) if field in NUMERIC and not (record_type == "NAPTR" and field == "flags") else {"type": "string"})
                 for field in fields
             },
         }
         if record_type == "DNSKEY":
-            data["properties"]["flags"] = number_or_string()
+            data["properties"]["flags"] = numeric(record_type, "flags")
         properties = {"data": data}
         required_fields = ["data"]
         if record_type == "URI":

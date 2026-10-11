@@ -4,13 +4,19 @@ output "record_names" {
 }
 
 output "records" {
-  description = "Managed records keyed by their stable identifier, with id, name, type and content"
+  description = "Managed records keyed by their stable identifier: id, zone_id, name (as returned by Cloudflare), fqdn (fully qualified, lower case, from the configuration, so known at plan), type, content, ttl, proxied, priority and data (structured records, as configured), e.g. for monitoring or certificates of these names"
   value = {
     for key, r in cloudflare_dns_record.record : key => {
-      id      = r.id
-      name    = r.name
-      type    = r.type
-      content = r.content
+      id       = r.id
+      zone_id  = r.zone_id
+      name     = r.name
+      fqdn     = module.records.flat_records[key].fqdn
+      type     = r.type
+      content  = r.content
+      ttl      = r.ttl
+      proxied  = r.proxied
+      priority = r.priority
+      data     = module.records.flat_records[key].data
     }
   }
 }
@@ -34,4 +40,11 @@ output "unmanaged_records" {
   description = "Records in the zone that the configuration does not describe (id, name, type, content, priority, data). Empty unless report_unmanaged is true. Sensitive: the content of a proxied record is the origin address that Cloudflare hides"
   value       = [for r in module.records.unmanaged_records : r if var.report_unmanaged]
   sensitive   = true
+
+  # unmanaged_policy = "error": the report stops the plan instead of the warning of
+  # check.unmanaged_records (import.tf), with the same list
+  precondition {
+    condition     = !var.report_unmanaged || var.unmanaged_policy != "error" || length(local.unmanaged_summary) + length(local.ambiguous_summary) == 0
+    error_message = join("\n\n", compact([local.unmanaged_message, local.ambiguous_message, "unmanaged_policy is \"error\", so the plan stops."]))
+  }
 }

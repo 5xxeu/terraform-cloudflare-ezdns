@@ -28,6 +28,11 @@ output "flat_records" {
   }
 
   precondition {
+    condition     = length(local.not_owned) == 0
+    error_message = "These records are outside owned_names (included: ${join(", ", local.owned_include)}; excluded: ${length(local.owned_exclude) == 0 ? "none" : join(", ", local.owned_exclude)}), the part of the zone that this module call manages:\n${join("\n", local.not_owned)}"
+  }
+
+  precondition {
     condition     = length(local.cname_conflicts) == 0
     error_message = "A CNAME record cannot share its name with other records (except at the zone apex), and a name has at most one CNAME. Names that already have a CNAME next to other records in the zone can be listed in allowed_cname_conflicts:\n${join("\n", local.cname_conflicts)}"
   }

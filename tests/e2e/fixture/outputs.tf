@@ -25,6 +25,11 @@ output "records" {
       HTTPS = [{ data = { priority = 1, target = ".", value = "alpn=\"h2\"" } }]
       SVCB  = [{ data = { priority = 1, target = "svc.example.com", value = "port=\"8443\"" } }]
     }
+    # Service parameters as fields: Cloudflare must store the value the module writes,
+    # or the second plan and the import of this record fail
+    "svc2.${local.p}" = {
+      HTTPS = [{ data = { priority = 1, target = ".", alpn = "h3,h2", port = 443, ipv4hint = "192.0.2.1,192.0.2.2", ipv6hint = "2001:db8::1" } }]
+    }
     "_25._tcp.${local.p}" = {
       TLSA = [{ data = { usage = 3, selector = 1, matching_type = 1, certificate = "0000000000000000000000000000000000000000000000000000000000000001" } }]
     }

@@ -4,6 +4,10 @@
 # updated in place when its value changes.
 
 locals {
+  # Service parameters of HTTPS and SVCB records that can be set as fields of data, in
+  # the order of their keys (mandatory 0, alpn 1, port 3, ipv4hint 4, ech 5, ipv6hint 6)
+  svc_params = ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
+
   # Resolved records: ALIASES become CNAMEs, prefixes are prepended to the base name
   resolved = [
     for i, e in local.entries : {
@@ -84,10 +88,15 @@ locals {
       data = (
         r.type == "CAA" ? tomap({ flags = tostring(r.rec.flags), tag = r.rec.tag, value = r.content }) :
         # Cloudflare returns SVCB and HTTPS targets as fully qualified names, so they
-        # get the trailing dot here to avoid a diff on every plan
-        contains(["HTTPS", "SVCB"], r.type) ? merge(r.rec.data, {
-          target = endswith(r.rec.data.target, ".") ? r.rec.data.target : "${r.rec.data.target}."
-        }) :
+        # get the trailing dot here to avoid a diff on every plan. Service parameters
+        # set as fields go into value, in the order of their keys (RFC 9460)
+        contains(["HTTPS", "SVCB"], r.type) ? merge(
+          { for field, value in r.rec.data : field => value if !contains(local.svc_params, field) },
+          { target = endswith(r.rec.data.target, ".") ? r.rec.data.target : "${r.rec.data.target}." },
+          length(setintersection(keys(r.rec.data), local.svc_params)) == 0 ? {} : {
+            value = join(" ", [for param in local.svc_params : "${param}=\"${r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
+          },
+        ) :
         # yamldecode reads an unquoted N as false (YAML 1.1); for LOC it can only mean north
         r.type == "LOC" ? merge(r.rec.data, lookup(r.rec.data, "lat_direction", "") == "false" ? { lat_direction = "N" } : {}) :
         contains(local.data_types, r.type) ? r.rec.data :

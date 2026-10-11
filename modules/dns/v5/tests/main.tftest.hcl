@@ -534,3 +534,61 @@ run "no_report_without_report_unmanaged" {
     error_message = "unmanaged_records is empty unless report_unmanaged is true"
   }
 }
+
+run "records_output" {
+  command = plan
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].fqdn == "app.example.com" && output.records["_sip._tcp SRV sip"].data.port == "5060"
+    error_message = "records must have the fully qualified name and the data from the configuration, known at plan"
+  }
+}
+
+run "unmanaged_policy_error_with_an_empty_report" {
+  command = plan
+
+  variables {
+    report_unmanaged = true
+    unmanaged_policy = "error"
+  }
+
+  assert {
+    condition     = output.unmanaged_records == []
+    error_message = "unmanaged_policy = error passes when the zone has no unmanaged records"
+  }
+}
+
+run "unmanaged_policy_unknown" {
+  command = plan
+
+  variables {
+    unmanaged_policy = "fail"
+  }
+
+  expect_failures = [var.unmanaged_policy]
+}
+
+run "owned_names_and_unmanaged_ignore_passed_to_the_core" {
+  command = plan
+
+  variables {
+    owned_names      = { include = ["app"] }
+    unmanaged_ignore = [{ types = ["TXT"] }]
+    records          = { "app" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = length(cloudflare_dns_record.record) == 1
+    error_message = "Records in owned_names must be planned"
+  }
+}
+
+run "owned_names_in_the_wrapper" {
+  command = plan
+
+  variables {
+    owned_names = { include = ["*"] }
+  }
+
+  expect_failures = [var.owned_names]
+}

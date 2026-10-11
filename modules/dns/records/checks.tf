@@ -92,6 +92,22 @@ locals {
   unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !contains(local.cname_shared, n)]
 }
 
+# owned_names: the part of the zone this module call manages, by whole labels. A name is
+# owned when it is an included name or below one, and neither an excluded name nor below
+# one
+locals {
+  owned_include = var.owned_names == null ? [lower(local.zone)] : distinct([for n in var.owned_names.include : local.fqdn[n]])
+  owned_exclude = var.owned_names == null ? [] : distinct([for n in var.owned_names.exclude : local.fqdn[n]])
+
+  not_owned = [
+    for r in local.records : "\"${r.fqdn}\" (${r.type}) from ${r.source}"
+    if !(
+      anytrue([for o in local.owned_include : r.fqdn == o || endswith(r.fqdn, ".${o}")])
+      && !anytrue([for o in local.owned_exclude : r.fqdn == o || endswith(r.fqdn, ".${o}")])
+    )
+  ]
+}
+
 check "allowed_cname_conflicts_in_use" {
   assert {
     condition     = length(local.unused_allowed_cname_conflicts) == 0

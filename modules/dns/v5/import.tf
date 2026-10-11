@@ -42,8 +42,10 @@ data "cloudflare_dns_records" "existing" {
 }
 
 locals {
-  # Records read per type; a lookup that returns this many was probably cut off
-  import_max_items = 10000
+  # Records read per type, a limit of the module (the provider pages through the API
+  # without one): a lookup that returns this many was probably cut off. Raised from
+  # 10,000 in 2.13.0, so that larger zones can use the import and the report
+  import_max_items = 100000
 
   existing_records = flatten([
     for type, lookup in data.cloudflare_dns_records.existing : [
@@ -80,7 +82,7 @@ locals {
 
 check "unmanaged_records" {
   assert {
-    condition     = !var.report_unmanaged || length(local.unmanaged_summary) + length(local.ambiguous_summary) == 0
+    condition     = !var.report_unmanaged || var.unmanaged_policy == "error" || length(local.unmanaged_summary) + length(local.ambiguous_summary) == 0
     error_message = join("\n\n", compact([local.unmanaged_message, local.ambiguous_message]))
   }
 }

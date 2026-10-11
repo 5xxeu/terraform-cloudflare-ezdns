@@ -29,6 +29,8 @@ records:
     SRV: [{ data: { priority: "10", weight: "5", port: "5060", target: sip.example.com } }]
 """,
     "empty records": "records: {}",
+    "HTTPS service parameters as fields": 'records: { "@": { HTTPS: [{ data: { priority: 1, target: ".", alpn: "h3,h2", port: 443, ipv4hint: "192.0.2.1" } }] } }',
+    "data at the limits of their ranges": 'records: { _sip._tcp: { SRV: [{ data: { priority: 65535, weight: 0, port: 65535, target: sip.example.com } }] }, "@": { CAA: [{ content: letsencrypt.org, tag: issue, flags: 255 }] } }',
 }
 
 INVALID = {
@@ -46,6 +48,10 @@ INVALID = {
     "MX without priority": 'records: { app: { MX: [{ content: mx.example.com }] } }',
     "CAA with an unknown tag": 'records: { app: { CAA: [{ content: letsencrypt.org, tag: isue }] } }',
     "SRV without port": 'records: { _sip._tcp: { SRV: [{ data: { priority: 10, weight: 5, target: sip.example.com } }] } }',
+    "SRV port over 16 bits": 'records: { _sip._tcp: { SRV: [{ data: { priority: 10, weight: 5, port: 70000, target: sip.example.com } }] } }',
+    "fractional SRV weight": 'records: { _sip._tcp: { SRV: [{ data: { priority: 10, weight: 1.5, port: 5060, target: sip.example.com } }] } }',
+    "LOC latitude over 90": 'records: { o: { LOC: [{ data: { lat_degrees: 91, lat_minutes: 1, lat_seconds: 1, lat_direction: N, long_degrees: 1, long_minutes: 1, long_seconds: 1, long_direction: E } }] } }',
+    "CAA flags over 8 bits": 'records: { "@": { CAA: [{ content: letsencrypt.org, tag: issue, flags: 256 }] } }',
     "SRV with an unknown field": 'records: { _sip._tcp: { SRV: [{ data: { priority: 10, weight: 5, port: 1, target: x, proto: _tcp } }] } }',
     "data on an A record": 'records: { app: { A: [{ content: 192.0.2.10, data: { target: x } }] } }',
     "URI without priority": 'records: { _ftp._tcp: { URI: [{ data: { weight: 1, target: "ftp://x/" } }] } }',
@@ -79,6 +85,9 @@ TERRAFORM_ONLY = {
     "CNAME to its own name": 'records: { app: { CNAME: [{ content: app.example.com. }] } }',
     "TTL below minimum_ttl": 'records: { app: { A: [{ content: 192.0.2.1, ttl: 30 }] } }',
     "wildcard after combining a prefix": 'records: { "*": { _acme-challenge.TXT: [{ content: x }] } }',
+    "SRV port over 16 bits as a string": 'records: { _sip._tcp: { SRV: [{ data: { priority: 10, weight: 5, port: "70000", target: sip.example.com } }] } }',
+    "HTTPS value and service parameters": 'records: { "@": { HTTPS: [{ data: { priority: 1, target: ".", value: "alpn=h2", port: 443 } }] } }',
+    "HTTPS alpn with spaces": 'records: { "@": { HTTPS: [{ data: { priority: 1, target: ".", alpn: "h3, h2" } }] } }',
     "name over 253 characters with the zone": 'records: { ' + '.'.join(['a' * 63] * 3) + ': { ' + 'b' * 63 + '.TXT: [{ content: x }] } }',
 }
 
