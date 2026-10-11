@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+"""Write the records of an existing zone as an ezdns YAML file, to adopt the zone.
+
+The input is a JSON list of DNS records, in one of these forms:
+
+- the response of the Cloudflare API (GET /zones/<zone_id>/dns_records, with
+  per_page=5000000 or every page joined), with the records under "result":
+
+      curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \\
+        "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?per_page=5000000" > zone.json
+
+- a plain list of such records. The unmanaged_records output of the module
+  (report_unmanaged = true) has this form, but without TTL, proxy status, comments and
+  tags: records written from it get the defaults, so check them before the import (a
+  proxied record written as not proxied would publish its origin address)
+
+    python3 zone-to-ezdns.py zone.json --zone example.com > records.ezdns.yaml
+
+Every value is written as a quoted string, so YAML 1.1 does not turn it into a boolean
+or a number. Records that differ only in what is not a part of their key (MX priority,
+CAA flags) get a key; copies of one record are written once and reported, since the
+module cannot import them unambiguously while the zone has several. Then adopt the records with
+import_existing = true and import blocks (see "Importing Existing Records" in the
+README) and check that the plan creates and deletes nothing.
+
+Python 3.8 or later, standard library only. Exit status: 0, or 1 when records were
+skipped or are copies of each other (the YAML is written anyway), 2 for bad input.
+"""
+
+import argparse
+import hashlib
+import json
+import sys
+
+# Fields of the structured records, as the module takes them in data (other fields that
+# the API returns, such as name, proto and service of SRV records, are left out)
+DATA_FIELDS = {
+    "SRV": ["priority", "weight", "port", "target"],
+    "URI": ["weight", "target"],
+    "HTTPS": ["priority", "target", "value"],
+    "SVCB": ["priority", "target", "value"],
+    "TLSA": ["usage", "selector", "matching_type", "certificate"],
+    "SMIMEA": ["usage", "selector", "matching_type", "certificate"],
+    "SSHFP": ["algorithm", "type", "fingerprint"],
+    "DS": ["key_tag", "algorithm", "digest_type", "digest"],
+    "DNSKEY": ["flags", "protocol", "algorithm", "public_key"],
+    "CERT": ["type", "key_tag", "algorithm", "certificate"],
+    "NAPTR": ["order", "preference", "flags", "service", "regex", "replacement"],
+    "LOC": [
+        "lat_degrees", "lat_minutes", "lat_seconds", "lat_direction",
+        "long_degrees", "long_minutes", "long_seconds", "long_direction",
+        "altitude", "size", "precision_horz", "precision_vert",
+    ],
+}
+CONTENT_TYPES = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY"]
+PROXIABLE = ["A", "AAAA", "CNAME"]
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(description="Write the records of an existing zone as an ezdns YAML file.")
+    parser.add_argument("input", help="JSON records (Cloudflare API response or unmanaged_records), or - for standard input")
+    parser.add_argument("--zone", required=True, metavar="NAME", help="zone name, e.g. example.com")
+    parser.add_argument("--default-ttl", type=int, default=3600, metavar="SECONDS",
+                        help="default_ttl of the module call: records with this TTL are written without one (default 3600)")
+    return parser.parse_args(argv)
+
+
+def load(path):
+    try:
+        if path == "-":
+            data = json.load(sys.stdin)
+        else:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"zone-to-ezdns: cannot read {path}: {e}") from None
+    if isinstance(data, dict) and isinstance(data.get("result"), list):
+        data = data["result"]
+    if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
+        print(f"zone-to-ezdns: {path} is not a list of records (nor an API response with result)", file=sys.stderr)
+        raise SystemExit(2)
+    return data
+
+
+def relative(name, zone):
+    name = (name or "").rstrip(".").lower()
+    zone = zone.rstrip(".").lower()
+    if name == zone:
+        return "@"
+    if name.endswith("." + zone):
+        return name[: -len(zone) - 1]
+    return None
+
+
+def text(value):
+    """A value of data as text, the way the module keeps it (numbers without a fraction
+    as whole numbers)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def convert(records, zone, default_ttl):
+    """Returns ({name: {type: [record, ...]}}, notes); notes lists what needs attention."""
+    out, notes = {}, []
+    for r in records:
+        rtype = str(r.get("type", "")).upper()
+        name = relative(r.get("name"), zone)
+        label = f"{rtype} {r.get('name')} ({r.get('id', 'no ID')})"
+        if name is None:
+            notes.append(f"skipped {label}: not in the zone {zone}")
+            continue
+        if (r.get("meta") or {}).get("read_only") or r.get("read_only"):
+            notes.append(f"skipped {label}: read only, managed by Cloudflare")
+            continue
+        if rtype not in CONTENT_TYPES and rtype not in DATA_FIELDS and rtype != "CAA":
+            notes.append(f"skipped {label}: the module does not support {rtype} records")
+            continue
+
+        rec = {}
+        data = r.get("data") or {}
+        if rtype == "CAA":
+            rec["content"] = text(data.get("value", ""))
+            rec["tag"] = text(data.get("tag", ""))
+            flags = int(float(data.get("flags", 0) or 0))
+            if flags:
+                rec["flags"] = flags
+        elif rtype in DATA_FIELDS:
+            rec["data"] = {f: text(data[f]) for f in DATA_FIELDS[rtype] if data.get(f) is not None}
+        else:
+            rec["content"] = text(r.get("content", ""))
+        if rtype in ("MX", "URI") and r.get("priority") is not None:
+            rec["priority"] = int(float(r["priority"]))
+        if rtype in PROXIABLE and r.get("proxied") is True:
+            rec["proxied"] = True
+        if rtype in PROXIABLE and "proxied" not in r:
+            notes.append(f"{label}: the input does not say whether it is proxied, written as not proxied: check it")
+        ttl = r.get("ttl")
+        if ttl is not None and not rec.get("proxied") and int(ttl) != default_ttl:
+            rec["ttl"] = int(ttl)
+        if r.get("comment"):
+            rec["comment"] = r["comment"]
+        if r.get("tags"):
+            rec["tags"] = list(r["tags"])
+        settings = {k: True for k in ("flatten_cname", "ipv4_only", "ipv6_only") if (r.get("settings") or {}).get(k) is True}
+        if settings:
+            rec["settings"] = settings
+        out.setdefault(name, {}).setdefault(rtype, []).append(rec)
+
+    # Records that the module would give the same key: MX records that differ only in
+    # priority and CAA records that differ only in flags get a key each; other copies
+    # are copies of one record in the zone
+    for name, types in out.items():
+        for rtype, recs in types.items():
+            groups = {}
+            for rec in recs:
+                groups.setdefault(module_key(rtype, rec), []).append(rec)
+            for key, same in groups.items():
+                if len(same) < 2:
+                    continue
+                if rtype in ("MX", "URI", "CAA") and len({json.dumps(r, sort_keys=True) for r in same}) == len(same):
+                    for rec in same:
+                        rec["key"] = f"priority-{rec.get('priority', 0)}" if rtype != "CAA" else f"flags-{rec.get('flags', 0)}"
+                else:
+                    # Copies of one record: written once (the module rejects a record
+                    # listed twice), and the import of it stops until the zone has one
+                    for rec in same[1:]:
+                        recs.remove(rec)
+                    notes.append(f"{len(same)} copies of {rtype} {name} ({key}) in the zone, written once: delete the other copies in the zone before the import")
+    return out, notes
+
+
+def module_key(rtype, rec):
+    """The value part of the record key of the module, to find records that collide."""
+    if rtype == "CNAME":
+        return "CNAME"
+    if rtype == "CAA":
+        return f"{rec['tag']} {rec['content']}"
+    if rtype == "TXT":
+        return hashlib.sha1(rec["content"].encode()).hexdigest()[:12]
+    if "data" in rec:
+        return json.dumps(rec["data"], sort_keys=True)
+    return rec["content"]
+
+
+def quote(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    return json.dumps(value, ensure_ascii=False)
+
+
+def to_yaml(records, zone, count):
+    order = ["content", "key", "priority", "tag", "flags", "data", "ttl", "proxied", "comment", "tags", "settings"]
+    lines = [
+        "# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json",
+        f"# Records of {zone} written by zone-to-ezdns.py ({count} records). Review them, then adopt them with",
+        "# import_existing = true and import blocks, and check that the plan creates and deletes nothing.",
+        "records:",
+    ]
+    for name in sorted(records, key=lambda n: (n != "@", n.split(".")[::-1])):
+        lines.append(f"  {quote(name)}:")
+        for rtype in sorted(records[name]):
+            lines.append(f"    {rtype}:")
+            for rec in records[name][rtype]:
+                first = True
+                for field in order:
+                    if field not in rec:
+                        continue
+                    prefix = "      - " if first else "        "
+                    first = False
+                    value = rec[field]
+                    if isinstance(value, dict):
+                        lines.append(f"{prefix}{field}:")
+                        lines += [f"          {k}: {quote(v)}" for k, v in value.items()]
+                    elif isinstance(value, list):
+                        lines.append(f"{prefix}{field}: [{', '.join(quote(v) for v in value)}]")
+                    else:
+                        lines.append(f"{prefix}{field}: {quote(value)}")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None):
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    raw = load(args.input)
+    records, notes = convert(raw, args.zone, args.default_ttl)
+    count = sum(len(recs) for types in records.values() for recs in types.values())
+    sys.stdout.write(to_yaml(records, args.zone.rstrip("."), count))
+    for note in notes:
+        print(f"zone-to-ezdns: {note}", file=sys.stderr)
+    return 1 if notes else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

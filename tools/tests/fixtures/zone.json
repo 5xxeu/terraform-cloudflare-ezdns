@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "result": [
+    { "id": "1", "name": "example.com", "type": "A", "content": "192.0.2.1", "proxied": true, "ttl": 1, "comment": "web", "tags": ["team:web"], "settings": {}, "meta": {} },
+    { "id": "2", "name": "www.example.com", "type": "CNAME", "content": "example.com", "proxied": true, "ttl": 1, "settings": { "flatten_cname": false } },
+    { "id": "3", "name": "example.com", "type": "MX", "content": "mx.example.net", "priority": 10, "proxied": false, "ttl": 3600 },
+    { "id": "4", "name": "example.com", "type": "MX", "content": "mx.example.net", "priority": 20, "proxied": false, "ttl": 3600 },
+    { "id": "5", "name": "example.com", "type": "TXT", "content": "\"v=spf1 mx -all\"", "proxied": false, "ttl": 300 },
+    { "id": "6", "name": "_dmarc.example.com", "type": "TXT", "content": "v=DMARC1; p=reject", "proxied": false, "ttl": 3600 },
+    { "id": "7", "name": "example.com", "type": "CAA", "content": "0 issue \"letsencrypt.org\"", "data": { "flags": 0, "tag": "issue", "value": "letsencrypt.org" }, "proxied": false, "ttl": 3600 },
+    { "id": "8", "name": "example.com", "type": "CAA", "content": "128 issue \"letsencrypt.org\"", "data": { "flags": 128, "tag": "issue", "value": "letsencrypt.org" }, "proxied": false, "ttl": 3600 },
+    { "id": "9", "name": "_sip._tcp.example.com", "type": "SRV", "content": "5 5060 sip.example.com", "priority": 10, "data": { "priority": 10, "weight": 5, "port": 5060, "target": "sip.example.com", "service": "_sip", "proto": "_tcp", "name": "example.com" }, "proxied": false, "ttl": 3600 },
+    { "id": "10", "name": "Off.Example.com", "type": "TXT", "content": "off", "proxied": false, "ttl": 3600 },
+    { "id": "11", "name": "dup.example.com", "type": "A", "content": "192.0.2.5", "proxied": false, "ttl": 3600 },
+    { "id": "12", "name": "dup.example.com", "type": "A", "content": "192.0.2.5", "proxied": false, "ttl": 3600 },
+    { "id": "13", "name": "example.com", "type": "NS", "content": "ns1.cloudflare.com", "proxied": false, "ttl": 86400, "meta": { "read_only": true } },
+    { "id": "14", "name": "other.org", "type": "A", "content": "192.0.2.6", "proxied": false, "ttl": 3600 },
+    { "id": "15", "name": "example.com", "type": "SPF", "content": "v=spf1 -all", "proxied": false, "ttl": 3600 }
+  ]
+}

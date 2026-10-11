@@ -59,8 +59,8 @@ jobs:
           full="terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz"
           v5="terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
           mkdir -p dist/module dist/module-v5
-          git archive HEAD -- ':(glob)*.tf' modules schema README.md CHANGELOG.md LICENSE \
-            ':(exclude,glob)modules/**/tests/**' | tar -x -C dist/module
+          git archive HEAD -- ':(glob)*.tf' modules schema tools README.md CHANGELOG.md LICENSE \
+            ':(exclude,glob)modules/**/tests/**' ':(exclude)tools/tests' | tar -x -C dist/module
           git archive HEAD -- ':(glob)*.tf' modules/dns/v5 modules/dns/records schema README.md CHANGELOG.md LICENSE \
             ':(exclude,glob)modules/**/tests/**' ':(exclude)modules/dns/v5/migrate-from-v4.tf' | tar -x -C dist/module-v5
           echo "$GITHUB_REF_NAME" >dist/module/VERSION
