@@ -64,7 +64,17 @@ Each record is an instance of `module.dns.module.v5.cloudflare_dns_record.record
 | `www.example.com CNAME app.example.com` | `www CNAME` |
 
 - **Names**: `"app"` is the name within the zone (`"@"` for the apex). A prefix before the type (`"_acme-challenge.TXT"`) is added to the name.
-- **Addresses**: a record is addressed by its content, so adding or removing records in a list leaves the others alone. With `key`, the value can change without replacing the record, e.g. for tokens or DKIM keys.
+- **Addresses**: a record is addressed by its content, so adding or removing records in a list leaves the others alone. A changed value is a new record (the old one is deleted, the new one created, in no fixed order). With `key`, the key takes the place of the value in the address: a new value is an update in place, without a gap, and the value can come from another resource, known only after apply:
+
+  ```hcl
+  "app" = {
+    A = [
+      { content = aws_instance.web.public_ip, key = "web" }, # record key "app A web"
+    ]
+  }
+  ```
+
+  Give a `key` to every record whose value changes: addresses of servers, tokens, DKIM keys.
 - **Aliases**: `ALIASES` create CNAMEs that point to the name of the block.
 
 Everything else (all record types, defaults, import of existing records, validation) builds on this; see the [full example](#full-example) and the sections below.
