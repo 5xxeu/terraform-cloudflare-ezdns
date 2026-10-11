@@ -254,6 +254,11 @@ def check(plan, args):
 
     if args.require and args.zone_id is None and len(zones) > 1:
         problems.append("The plan has records of several zones, so --require cannot tell them apart: give --zone-id")
+    # Zones known only after apply cannot be told from each other (several new zones are
+    # all "unknown"), so the records may belong to any of them
+    elif args.require and args.zone_id is None and "unknown" in zones:
+        problems.append("The zone of some records is known only after apply, so --require cannot tell which "
+                        "zone they are in: apply the zone first, or run without --require")
     for spec in args.require:
         parts = spec.split(":")
         if len(parts) not in (2, 3) or not parts[0] or not parts[1]:

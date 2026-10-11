@@ -37,13 +37,12 @@ locals {
     ]
   ])
 
-  # Every name of the input that may need converting. Targets are converted where they
-  # are (below), not looked up here: a target known only after apply (the DNS name of
-  # a load balancer) would make this table, and so every name and key, unknown
+  # Every name of the input that is part of a key and may need converting. Targets,
+  # allowed_cname_conflicts and owned_names are converted where they are (below), not
+  # looked up here: a value known only after apply (the DNS name of a load balancer)
+  # would make this table, and so every name and key, unknown
   names = try(distinct(compact(flatten([
     var.zone_name == null ? "" : var.zone_name,
-    var.allowed_cname_conflicts,
-    var.owned_names == null ? [] : concat(var.owned_names.include, var.owned_names.exclude),
     [
       for records in values(local.inputs) : [
         for name, types in records : [
@@ -152,10 +151,10 @@ module "v5" {
   default_proxied         = var.default_proxied
   default_comment         = var.default_comment
   default_tags            = var.default_tags
-  allowed_cname_conflicts = [for n in var.allowed_cname_conflicts : local.ascii[n]]
+  allowed_cname_conflicts = [for n in var.allowed_cname_conflicts : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]
   minimum_ttl             = var.minimum_ttl
   owned_names = var.owned_names == null ? null : {
-    include = [for n in var.owned_names.include : local.ascii[n]]
-    exclude = [for n in var.owned_names.exclude : local.ascii[n]]
+    include = [for n in var.owned_names.include : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]
+    exclude = [for n in var.owned_names.exclude : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]
   }
 }

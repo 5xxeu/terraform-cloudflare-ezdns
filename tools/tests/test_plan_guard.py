@@ -196,6 +196,14 @@ class PlanGuardTest(unittest.TestCase):
         # Without --zone-id the plan has several zones, so --zone is not applied either
         self.assertIn("turns off the proxy", run(p, "--zone", "example.com", "--max-deletes", "1")[0])
 
+    def test_require_with_zones_known_only_after_apply_fails(self):
+        # Two new zones: both zone IDs are unknown, the MX may be in the other zone
+        p = plan(
+            record(BASE.format("@ A 192.0.2.1"), ["create"], None, {**WEB, "name": "@", "proxied": False}, {"zone_id": True}),
+            record(BASE.format("@ MX mx.example.com"), ["create"], None, MX, {"zone_id": True}),
+        )
+        self.assertIn("known only after apply", run(p, "--zone", "example.com", "--require", "@:MX")[0])
+
     def test_records_outside_the_module_on_other_names_pass(self):
         other = {"name": "api", "type": "A", "content": "192.0.2.5", "proxied": False, "zone_id": "z"}
         p = plan(
