@@ -140,6 +140,18 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
+    def test_allowed_proxy_disable_does_not_allow_the_neighbours(self):
+        # The proxy of the A is turned off and allowed by --allow; the unchanged unproxied
+        # AAAA of the name is published with it
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["update"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z", "proxied": False}),
+            record(BASE.format("web AAAA 2001:db8::1"), ["no-op"], aaaa, aaaa),
+        )
+        problems = run(p, "--allow", BASE.format("web A 192.0.2.1"))
+        self.assertIn("turns off the proxy", problems[0])
+        self.assertIn("AAAA", problems[1])
+
     def test_unproxied_record_next_to_a_remaining_proxied_one_passes(self):
         aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
         other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}

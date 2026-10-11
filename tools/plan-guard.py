@@ -128,9 +128,10 @@ def check(plan, args):
     after_sets = {}
     # Zones of the records of the plan, to catch a --require over several zones
     zones = set()
-    # Proxied records that leave their name (deleted, or moved by an update), and records
-    # that arrive on a name (created, or moved there): a new key (a changed value without
-    # a key) deletes the record and creates another one, which must stay proxied too
+    # Proxied records that leave their name (deleted, moved by an update, or no longer
+    # proxied), and records that arrive on a name (created, or moved there): a new key (a
+    # changed value without a key) deletes the record and creates another one, which must
+    # stay proxied too
     deleted_proxied, created = [], []
     # Proxied A, AAAA and CNAME records after the apply: while a name has one, Cloudflare
     # answers with its own addresses for the name, also for the unproxied records on it
@@ -159,9 +160,10 @@ def check(plan, args):
         if after_unknown.get("zone_id"):
             zones.add("unknown")
 
-        # Collected before the exceptions: allowing a delete does not allow a new record
-        # on the same name to come back unproxied
-        if before.get("proxied") is True and (actions == ["delete"] or (after and moved(before, after, after_unknown, args.zone))):
+        # Collected before the exceptions: allowing a delete (or turning off the proxy of
+        # one record) does not allow the other records of the name to be published
+        if before.get("proxied") is True and (actions == ["delete"] or (after and (
+                moved(before, after, after_unknown, args.zone) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append(before)
         if actions != ["delete"] and after.get("proxied") is True and not after_unknown.get("proxied") \
                 and not after_unknown.get("name") and not after_unknown.get("zone_id") and not after_unknown.get("type") \
