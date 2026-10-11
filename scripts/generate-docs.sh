@@ -5,6 +5,6 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
-for dir in modules/dns/records modules/dns/v4 modules/dns/v5; do
+for dir in modules/dns/compile modules/dns/idna modules/dns/records modules/dns/v4 modules/dns/v5; do
   terraform-docs --config .terraform-docs.yml "$dir"
 done
