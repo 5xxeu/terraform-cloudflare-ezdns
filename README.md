@@ -650,8 +650,8 @@ module "dns" {
 ```
 
 - An internationalized zone must set `zone_name`, see [Requirements](#requirements).
-- `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names only, not the record types under them (`"_acme-challenge.TXT"`), and convert targets where they are written: `content` of `CNAME`, `MX`, `NS`, `PTR` and `ALIASES`, `target` and `replacement` in `data`.
-- Record keys contain the ASCII form (`xn--bcher-kva CNAME`), the same as with names written in Punycode, so switching an existing configuration to the readable form changes no addresses in the state.
+- `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names only, not the record types under them (`"_acme-challenge.TXT"`), and convert targets where they are written: `content` of `CNAME`, `MX`, `NS`, `PTR` and `ALIASES`, `target` of `SRV`, `HTTPS` and `SVCB` and `replacement` of `NAPTR` in `data`. A `URI` target is a URI: convert only its host (`"https://${provider::idna::to_ascii("münchen.de")}/path"`).
+- Record keys contain the converted form (`xn--bcher-kva CNAME`). A configuration that wrote these names and targets in Punycode in lower case can switch to the readable form without changing addresses in the state. Keys keep a name as written, so a name written in another form (`XN--BCHER-KVA`) gets a new key: keep the record with a `moved` block, see [Record Keys](#record-keys).
 - With records in YAML, convert the names of the decoded map the same way. The JSON Schema accepts names in Punycode only, so the editor marks names in Unicode.
 
 ## Importing Existing Records
