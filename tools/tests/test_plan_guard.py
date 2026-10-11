@@ -3,11 +3,14 @@
     python3 -m unittest discover -s tools/tests
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import pathlib
 import tempfile
 import unittest
+import unittest.mock
 
 spec = importlib.util.spec_from_file_location("plan_guard", pathlib.Path(__file__).parent.parent / "plan-guard.py")
 plan_guard = importlib.util.module_from_spec(spec)
@@ -115,6 +118,32 @@ class PlanGuardTest(unittest.TestCase):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
             record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "content": "192.0.2.9", "proxied": False}, {"zone_id": True}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_unproxied_record_moved_onto_the_name_fails(self):
+        # An existing unproxied record renamed by an update onto the name of a deleted proxied one
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("old A 192.0.2.9"), ["update"], {**WEB, "zone_id": "z", "name": "old", "proxied": False},
+                   {**WEB, "zone_id": "z", "content": "192.0.2.9", "proxied": False}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_unproxied_record_that_stays_on_the_name_passes(self):
+        # Already unproxied on the name before the plan: nothing new is published
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web AAAA 2001:db8::1"), ["update"], aaaa, {**aaaa, "ttl": 300}),
+        )
+        self.assertEqual(run(p, "--max-deletes", "1"), [])
+
+    def test_apex_in_another_form_without_zone_fails(self):
+        apex = {**WEB, "name": "example.com", "zone_id": "z"}
+        p = plan(
+            record(BASE.format("example.com A 192.0.2.1"), ["delete"], apex, None),
+            record(BASE.format("@ A 192.0.2.9"), ["create"], None, {**apex, "name": "@", "content": "192.0.2.9", "proxied": False}),
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
@@ -226,6 +255,14 @@ class MainTest(unittest.TestCase):
         # terraform show -json without the plan file prints the state
         self.assertEqual(self.exit_code({"format_version": "1.0", "values": {}}), 2)
         self.assertEqual(self.exit_code({"format_version": "1.0"}), 2)
+
+    def test_unreadable_plan_and_bad_arguments(self):
+        # 2, not 1: a broken input must not pass where 1 (a failing plan) is handled
+        for argv in (["/nonexistent/plan.json"], ["-", "--require", "@"], ["-", "--require", "@:MX:x"]):
+            with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()), \
+                    unittest.mock.patch("sys.stdin", io.StringIO('{"format_version": "1.2", "planned_values": {}}')):
+                plan_guard.main(argv)
+            self.assertEqual(e.exception.code, 2)
 
     def test_failing_plan(self):
         p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))

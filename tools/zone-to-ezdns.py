@@ -74,7 +74,8 @@ def load(path):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
     except (OSError, ValueError) as e:
-        raise SystemExit(f"zone-to-ezdns: cannot read {path}: {e}") from None
+        print(f"zone-to-ezdns: cannot read {path}: {e}", file=sys.stderr)
+        raise SystemExit(2) from None
     if isinstance(data, dict) and isinstance(data.get("result"), list):
         data = data["result"]
     if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):

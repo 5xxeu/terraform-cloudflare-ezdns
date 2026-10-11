@@ -3,7 +3,9 @@
     python3 -m unittest discover -s tools/tests
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import pathlib
 import unittest
@@ -104,6 +106,12 @@ class YamlTest(unittest.TestCase):
     def test_line_breaks_of_yaml_escaped(self):
         # YAML reads NEL and U+2028 as line breaks; other non-ASCII text stays as written
         self.assertEqual(z.quote("a\u0085b\u2028c\x7fd ü"), '"a\\u0085b\\u2028c\\u007fd ü"')
+
+    def test_unreadable_input_is_exit_code_2(self):
+        # 1 means a YAML with notes, which CI accepts
+        with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
+            z.load("/nonexistent/zone.json")
+        self.assertEqual(e.exception.code, 2)
 
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)

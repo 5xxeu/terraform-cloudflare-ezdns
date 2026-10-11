@@ -60,7 +60,13 @@ def load_plan(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError) as e:
-        raise SystemExit(f"plan-guard: cannot read the plan {path}: {e}") from None
+        fail(f"cannot read the plan {path}: {e}")
+
+
+def fail(message):
+    """Stops with exit code 2: the input or the arguments are wrong (1 means the plan fails)."""
+    print(f"plan-guard: {message}", file=sys.stderr)
+    raise SystemExit(2)
 
 
 def fqdn(name, zone):
@@ -90,10 +96,20 @@ def allowed(address, patterns):
 
 
 def same_name(a, b, zone):
-    """Whether two record names are the same name: fully qualified with --zone; without
-    it, a name as written (www) also matches the fully qualified one (www.example.com)."""
+    """Whether two record names may be the same name: fully qualified with --zone; without
+    it, a name as written (www) also matches the fully qualified one (www.example.com),
+    and the apex (@) matches every name, as the zone name is not known."""
     a, b = fqdn(a, zone), fqdn(b, zone)
+    if not zone and (a in ("@", "") or b in ("@", "")):
+        return True
     return a == b or (not zone and (a.startswith(b + ".") or b.startswith(a + ".")))
+
+
+def moved(before, after, after_unknown, zone):
+    """Whether a record that existed is on another name or zone after the apply (or may be)."""
+    return bool(after_unknown.get("name") or after_unknown.get("zone_id")
+                or before.get("zone_id") != after.get("zone_id")
+                or fqdn(before.get("name"), zone) != fqdn(after.get("name"), zone))
 
 
 def check(plan, args):
@@ -103,9 +119,9 @@ def check(plan, args):
     after_sets = {}
     # Zones of the records of the plan, to catch a --require over several zones
     zones = set()
-    # Proxied records that are deleted, and records that are created: a new key (a
-    # changed value without a key) deletes the record and creates another one, which
-    # must stay proxied too
+    # Proxied records that leave their name (deleted, or moved by an update), and records
+    # that arrive on a name (created, or moved there): a new key (a changed value without
+    # a key) deletes the record and creates another one, which must stay proxied too
     deleted_proxied, created = [], []
 
     for rc in plan.get("resource_changes", []):
@@ -133,11 +149,11 @@ def check(plan, args):
 
         # Collected before the exceptions: allowing a delete does not allow a new record
         # on the same name to come back unproxied
-        if actions == ["delete"] and before.get("proxied") is True:
+        if before.get("proxied") is True and (actions == ["delete"] or (after and moved(before, after, after_unknown, args.zone))):
             deleted_proxied.append(before)
         if allowed(address, args.allow):
             continue
-        if actions == ["create"]:
+        if actions != ["delete"] and after and (not before or moved(before, after, after_unknown, args.zone)):
             created.append((address, after, after_unknown))
         if actions == ["delete"]:
             deletes.append(address)
@@ -153,7 +169,7 @@ def check(plan, args):
     # Any type that can point at the origin counts: a proxied CNAME replaced by an
     # unproxied A on the same name publishes the address just the same
     for address, after, after_unknown in created:
-        if after.get("proxied") is True:
+        if after.get("proxied") is True or address in proxy_off or address in unknown_proxy:
             continue
         if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
             continue
@@ -184,11 +200,11 @@ def check(plan, args):
     for spec in args.require:
         parts = spec.split(":")
         if len(parts) not in (2, 3) or not parts[0] or not parts[1]:
-            raise SystemExit(f"plan-guard: --require {spec!r} is not NAME:TYPE[:MIN]")
+            fail(f"--require {spec!r} is not NAME:TYPE[:MIN]")
         try:
             minimum = int(parts[2]) if len(parts) == 3 else 1
         except ValueError:
-            raise SystemExit(f"plan-guard: --require {spec!r}: MIN is not a number") from None
+            fail(f"--require {spec!r}: MIN is not a number")
         key = (fqdn(parts[0], args.zone), parts[1].upper())
         count = after_sets.get(key, 0)
         if count < minimum:
