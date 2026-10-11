@@ -2,8 +2,9 @@
 # adopted into the state instead of being created again. After the first apply,
 # remove the import block and import_existing.
 module "dns" {
-  # Outside of this repository, with a local copy of the module (see the README):
-  #   source = "./modules/ezdns"
+  # Outside of this repository, from the Terraform Registry (see the README for a local copy or Git):
+  #   source  = "5xxeu/ezdns/cloudflare"
+  #   version = "2.12.2"
   source = "../.."
 
   zone_id         = var.zone_id

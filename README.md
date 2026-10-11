@@ -25,7 +25,8 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 
 ```hcl
 module "dns" {
-  source = "./modules/ezdns"
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "2.12.2"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -207,7 +208,8 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 
 ```hcl
 module "dns" {
-  source = "./modules/ezdns"
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "2.12.2"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -468,7 +470,8 @@ Values that most records share can be set once for the module call, and overridd
 
 ```hcl
 module "dns" {
-  source = "./modules/ezdns"
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "2.12.2"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -690,7 +693,8 @@ To read the values, pass the output through in the root module and read it from 
 
 ```hcl
 module "dns" {
-  source           = "./modules/ezdns"
+  source           = "5xxeu/ezdns/cloudflare"
+  version          = "2.12.2"
   zone_id          = var.zone_id
   report_unmanaged = true
   records          = { "@" = { A = [{ content = "192.0.2.1" }] } }

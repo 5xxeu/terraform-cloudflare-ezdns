@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- README and examples: the module calls use the Terraform Registry source (`5xxeu/ezdns/cloudflare`) instead of a local copy, so they work as written; the local copy and the Git source stay described under Usage
+
 ## [2.12.2] - 2026-10-11
 
 ### Added
