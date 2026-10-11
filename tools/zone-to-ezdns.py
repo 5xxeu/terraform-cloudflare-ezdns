@@ -77,6 +77,13 @@ def load(path):
         print(f"zone-to-ezdns: cannot read {path}: {e}", file=sys.stderr)
         raise SystemExit(2) from None
     if isinstance(data, dict) and isinstance(data.get("result"), list):
+        # One page of a longer list would give the configuration of part of the zone
+        info = data.get("result_info")
+        total = info.get("total_count") if isinstance(info, dict) else None
+        if isinstance(total, int) and len(data["result"]) < total:
+            print(f"zone-to-ezdns: {path} has {len(data['result'])} of {total} records (one page of the "
+                  f"response): use per_page=5000000 or join every page", file=sys.stderr)
+            raise SystemExit(2)
         data = data["result"]
     if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
         print(f"zone-to-ezdns: {path} is not a list of records (nor an API response with result)", file=sys.stderr)
