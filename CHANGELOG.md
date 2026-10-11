@@ -17,7 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 - `modules/dns/compile` submodule: the checks of the wrappers without a provider and without resources, returning the records as the wrappers would create them, for `terraform test` of a configuration without Cloudflare credentials
 - `tools/plan-guard.py`: checks a saved plan (`terraform show -json`) and fails when it deletes or replaces records, turns off the proxy of a record or leaves a required record set (`--require @:MX`) empty, unless allowed
 - `tools/zone-to-ezdns.py`: writes the records of an existing zone (the response of the Cloudflare API) as an ezdns YAML file, with quoted values, keys for records that would collide, and a report of skipped records and copies
-- README: "Records in Several Files", "Changing Values Without a Gap" (why `create_before_destroy` does not help, and how to rotate values with a `key` or in steps), "The Part of the Zone a Module Call Owns", "Writing the Configuration of an Existing Zone", "Checking Plans Before Apply", "Testing Your Records" and "Stability"
+- README: "Records in Several Files", "Changing Values Without a Gap" (why `create_before_destroy` does not help, and how to rotate values with a `key` or in steps), "The Part of the Zone a Module Call Owns", "Writing the Configuration of an Existing Zone", "Checking Plans Before Apply", "Testing Your Records" and "Stability"; the examples show what they produce (plans, records, errors and warnings, the output of the tools), use addresses of the documentation ranges and the version 2.13.0, and records in YAML have a sample file
 
 ### Changed
 

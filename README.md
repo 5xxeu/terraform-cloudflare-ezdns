@@ -26,7 +26,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -44,6 +44,16 @@ module "dns" {
     }
   }
 }
+```
+
+`terraform plan` shows one resource per record:
+
+```text
+  # module.dns.module.v5.cloudflare_dns_record.record["_acme-challenge.app TXT acme"] will be created
+  # module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"] will be created
+  # module.dns.module.v5.cloudflare_dns_record.record["www CNAME"] will be created
+
+Plan: 3 to add, 0 to change, 0 to destroy.
 ```
 
 Each record is an instance of `module.dns.module.v5.cloudflare_dns_record.record`, with these keys:
@@ -150,7 +160,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
   # ...
 }
 ```
@@ -163,7 +173,7 @@ A copy in your repository needs neither GitHub nor the Terraform Registry to get
 
 ```sh
 REPO=https://github.com/5xxeu/terraform-cloudflare-ezdns
-VERSION=v2.12.2
+VERSION=v2.13.0
 ARCHIVE="terraform-cloudflare-ezdns-${VERSION}.tar.gz"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/SHA256SUMS"
@@ -199,10 +209,10 @@ What a copy may change without affecting the module:
 To fetch the module on `terraform init` instead, use a Git source with a tag (or the URL of your own mirror):
 
 ```hcl
-source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.12.2"
+source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.13.0"
 ```
 
-For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.12.2&depth=1`) to fetch only that commit instead of the whole history.
+For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.13.0&depth=1`) to fetch only that commit instead of the whole history.
 
 ### HCL or YAML
 
@@ -217,28 +227,80 @@ Records can be written directly in `records` or kept in a YAML file passed throu
 
 `merge()` of two decoded YAML files is shallow: when both have records on `"@"`, the second file replaces all `"@"` records of the first, without an error. `record_groups` merges them instead, by name and type, and each group can have defaults of its own:
 
+```yaml
+# mail.ezdns.yaml
+records:
+  "@":
+    MX:
+      - { content: "mx1.mail.example.net", priority: 10 }
+      - { content: "mx2.mail.example.net", priority: 20 }
+    TXT:
+      - content: "v=spf1 include:_spf.mail.example.net -all"
+  "_dmarc":
+    TXT:
+      - { content: "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com", ttl: 300 }
+```
+
+```yaml
+# web.ezdns.yaml
+records:
+  "@":
+    A:
+      - content: "192.0.2.10"
+    ALIASES:
+      - content: "www"
+  "status":
+    CNAME:
+      - { content: "status.provider.example.net", proxied: false }
+```
+
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
 
-  zone_id   = var.zone_id
-  zone_name = "example.com"
+  zone_id      = var.zone_id
+  zone_name    = "example.com"
+  default_tags = ["managed-by:terraform"]
 
   record_groups = {
     mail = {
-      defaults = { ttl = 3600, tags = ["team:mail"] }
+      defaults = { comment = "mail", tags = ["team:mail"] }
       records  = yamldecode(file("${path.module}/mail.ezdns.yaml")).records
     }
     web = {
-      defaults = { ttl = 300, proxied = true, comment = "web team" }
+      defaults = { ttl = 300, proxied = true, comment = "web" }
       records  = yamldecode(file("${path.module}/web.ezdns.yaml")).records
     }
   }
 }
 ```
 
-- The lists of records of the same name and type are joined: `records` first, then the groups in the order of their names. A record that two groups define fails as a duplicate, with both sources (`records["@"]["MX"][0] and record_groups["mail"].records["@"]["MX"][0]`), and every error names the group of a record.
+Both files have records on `"@"`, and all of them are kept, each with the defaults of its group:
+
+| Record key | TTL | Proxied | Comment | Tags |
+|:-----------|----:|:--------|:--------|:-----|
+| `@ A 192.0.2.10` | 1 | yes | web | `managed-by:terraform` |
+| `@ MX mx1.mail.example.net` | 3600 | no | mail | `managed-by:terraform`, `team:mail` |
+| `@ MX mx2.mail.example.net` | 3600 | no | mail | `managed-by:terraform`, `team:mail` |
+| `@ TXT dd970e4a51a4` | 3600 | no | mail | `managed-by:terraform`, `team:mail` |
+| `_dmarc TXT aa5f2cb9dc07` | 300 | no | mail | `managed-by:terraform`, `team:mail` |
+| `status CNAME` | 300 | no | web | `managed-by:terraform` |
+| `www CNAME` | 1 | yes | web | `managed-by:terraform` |
+
+Proxied records get TTL 1 (automatic) whatever the default; `status` sets `proxied: false` itself, and `_dmarc` its own TTL. With the same MX record also in `records`, the plan fails:
+
+```text
+Error: Module output value precondition failed
+
+Duplicate records (remove the duplicates or set a unique key for each of
+them; MX records that differ only in priority and CAA records that differ
+only in flags have the same key and need a key too):
+"@ MX mx1.mail.example.net" from records["@"]["MX"][0] and
+record_groups["mail"].records["@"]["MX"][0]
+```
+
+- The lists of records of the same name and type are joined: `records` first, then the groups in the order of their names. A record that two groups (or a group and `records`) define fails as a duplicate, with both sources, and every error names the group of a record.
 - `defaults` takes `ttl`, `proxied`, `comment` and `tags`. A record's own value wins over the group default, which wins over the module default (`default_ttl`, ...). `proxied` applies to `A`, `AAAA`, `CNAME` and `ALIASES` records only; group tags are added to `default_tags` and the record's tags.
 - The group name is not a part of the [record keys](#record-keys): moving a record from one group to another, or between a group and `records`, keeps it in the state. Changing a group default changes the records of the group in place.
 - `records` can be left out when every record is in a group. The checks of the module (CNAME conflicts, duplicates in different name forms, ...) see all records together.
@@ -250,7 +312,7 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -259,7 +321,7 @@ module "dns" {
     # Zone apex (example.com)
     "@" = {
       A = [
-        { content = "30.40.50.61", proxied = true },
+        { content = "192.0.2.1", proxied = true },
       ]
       # Result: TXT record for _dmarc.example.com
       "_dmarc.TXT" = [
@@ -278,7 +340,7 @@ module "dns" {
     # This will manage records for app.example.com
     "app" = {
       A = [
-        { content = "30.40.50.60", proxied = true },
+        { content = "192.0.2.10", proxied = true },
       ]
       # Aliases create CNAMEs pointing to 'app.example.com'
       # Result: support.example.com -> CNAME -> app.example.com
@@ -289,7 +351,7 @@ module "dns" {
         { content = "v=spf1 include:_spf.google.com ~all" },
       ]
       MX = [
-        { content = "mail.example.com", priority = 1 },
+        { content = "mail.example.com", priority = 10 },
       ]
       CAA = [
         { content = "letsencrypt.org", tag = "issue" },
@@ -317,6 +379,24 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | A | `192.0.2.1` | 1 | `@ A 192.0.2.1` |
+| `_dmarc.example.com` | TXT | `v=DMARC1; p=none` | 3600 | `_dmarc TXT 21541c4e7044` |
+| `google._domainkey.example.com` | TXT | `v=DKIM1; k=rsa; p=MIIBIjANBg...` | 3600 | `google._domainkey TXT dkim` |
+| `www.example.com` | CNAME | `example.com` | 1 | `www CNAME` |
+| `app.example.com` | A | `192.0.2.10` | 1 | `app A 192.0.2.10` |
+| `support.example.com` | CNAME | `app.example.com` | 1800 | `support CNAME` |
+| `app.example.com` | TXT | `v=spf1 include:_spf.google.com ~all` | 3600 | `app TXT 585509e95a34` |
+| `app.example.com` | MX | `mail.example.com` (priority 10) | 3600 | `app MX mail.example.com` |
+| `app.example.com` | CAA | `issue letsencrypt.org` | 3600 | `app CAA issue letsencrypt.org` |
+| `app.example.com` | CAA | `issuewild letsencrypt.org` | 3600 | `app CAA issuewild letsencrypt.org` |
+| `_acme-challenge.app.example.com` | TXT | `verification-token` | 3600 | `_acme-challenge.app TXT 2275f8d2b37d` |
+| `static.example.com` | CNAME | `cdn.app.example.com` | 3600 | `static CNAME` |
+| `_sip._tcp.example.com` | SRV | `10 5 5060 sip.example.com` | 3600 | `_sip._tcp SRV 9c61601f99e8` |
 
 Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
 
@@ -391,7 +471,7 @@ Each record is keyed in the state by its content, in the zone file format `<name
 
 | Record | Key |
 |--------|-----|
-| `A`, `AAAA`, `MX`, `NS`, `PTR` | `app A 30.40.50.60`, `@ MX mail.example.com` |
+| `A`, `AAAA`, `MX`, `NS`, `PTR` | `app A 192.0.2.10`, `@ MX mail.example.com` |
 | `TXT` | `_dmarc TXT 21541c4e7044` (first 12 characters of the SHA-1 of the value) |
 | Records with `data` (`SRV`, `TLSA`, ...) | `_sip._tcp SRV 9c61601f99e8` (first 12 characters of the SHA-1 of the data) |
 | `CNAME` and `ALIASES` | `www CNAME` (only one CNAME is allowed per name) |
@@ -399,7 +479,7 @@ Each record is keyed in the state by its content, in the zone file format `<name
 | Any record with `key` | `google._domainkey TXT dkim` |
 
 ```
-module.dns.module.v5.cloudflare_dns_record.record["app A 30.40.50.60"]
+module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"]
 ```
 
 With the `v5` submodule the address is `module.dns.cloudflare_dns_record.record[...]`, with the `v4` submodule `module.dns.cloudflare_record.record[...]`.
@@ -458,7 +538,16 @@ With the `//modules/dns/v5` submodule, the address has no `module.v5`; with the 
 
 A changed value without a `key` gives the record a new key, so Terraform deletes the old record and creates the new one. Between the two, resolvers can get an empty answer and cache it for the negative TTL of the zone (the minimum of its SOA record). `create_before_destroy` does not change this: the old and the new record are different instances, and the option only orders the replacement of one instance. Two ways avoid the gap:
 
-- **Update in place.** Give the record a `key` (see [When to Use `key`](#when-to-use-key)): the value changes on the same record, which answers with the old or the new value, never with none.
+- **Update in place.** Give the record a `key` (see [When to Use `key`](#when-to-use-key)): the value changes on the same record, which answers with the old or the new value, never with none. The plan shows the difference:
+
+  ```text
+  # without a key: two resources, a gap between them
+    # module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"] will be destroyed
+    # module.dns.module.v5.cloudflare_dns_record.record["app A 198.51.100.10"] will be created
+
+  # with key = "web": one resource, changed in place
+    # module.dns.module.v5.cloudflare_dns_record.record["app A web"] will be updated in place
+  ```
 - **Overlap in steps**, when old and new values should both answer for a while, or when the record type changes. For a server move:
 
   1. Lower the TTL of the record (e.g. to 300) and apply. Wait for the old TTL to expire, so that resolvers have the short one.
@@ -515,6 +604,27 @@ The `records` input (and the records of `record_groups`) is validated before any
 
   The listed names must be valid names, written like the names in `records`.
 
+A failed check stops the plan and lists every record that fails it, with where it is defined:
+
+```text
+Error: Invalid value for variable
+
+Record data fields and CAA flags must be in range:
+records["_sip._tcp"]["SRV"][0].data.port: "70000" (a whole number from 0 to
+65535)
+```
+
+Attributes that the module ignores only show a warning in 2.x:
+
+```text
+Warning: Check block assertion failed
+
+These attributes do not apply to the type of their record and are ignored
+(SRV keeps its priority in data; content is for records without data; tag and
+flags are for CAA). Remove them: from 3.0 they will fail the plan:
+records["app"]["A"][0].priority
+```
+
 ## Inputs
 
 Both wrappers take `zone_id`, `zone_name` (optional, looked up from `zone_id` when omitted; when set, it must be the name of that zone, see [Requirements](#requirements)), `records`, [`record_groups`](#records-in-several-files), the [defaults](#defaults-comments-and-tags), `minimum_ttl`, `allowed_cname_conflicts` (see [Validation](#validation)) and [`owned_names`](#the-part-of-the-zone-a-module-call-owns); the v5 wrapper also takes `import_existing`, `report_unmanaged`, `unmanaged_ignore` and `unmanaged_policy`. The [`compile`](#testing-your-records) submodule takes the inputs of the v4 wrapper without `zone_id`, with `zone_name` required, and the [`idna`](#internationalized-names) submodule the inputs of the root module, with names in Unicode.
@@ -553,7 +663,7 @@ Values that most records share can be set once for the module call, and overridd
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -582,6 +692,42 @@ Cloudflare supports record tags only on some plans and limits the length of comm
   ```hcl
   hosts = [for r in module.dns.records : r.fqdn if contains(["A", "AAAA", "CNAME"], r.type)]
   ```
+
+  In a plan, everything but `id` (and `content` of structured records, which Cloudflare computes) is known:
+
+  ```text
+  + records = {
+      + "app A 192.0.2.10"           = {
+          + content  = "192.0.2.10"
+          + data     = null
+          + fqdn     = "app.example.com"
+          + id       = (known after apply)
+          + name     = "app"
+          + priority = null
+          + proxied  = false
+          + ttl      = 3600
+          + type     = "A"
+          + zone_id  = "023e105f4ecef8ad9ca31a8372d0c353"
+        }
+      + "_sip._tcp SRV 9c61601f99e8" = {
+          + content  = (known after apply)
+          + data     = {
+              + port     = "5060"
+              + priority = "10"
+              + target   = "sip.example.com"
+              + weight   = "5"
+            }
+          + fqdn     = "_sip._tcp.example.com"
+          + id       = (known after apply)
+          + name     = "_sip._tcp"
+          + priority = 10
+          + proxied  = false
+          + ttl      = 3600
+          + type     = "SRV"
+          + zone_id  = "023e105f4ecef8ad9ca31a8372d0c353"
+        }
+    }
+  ```
 - `state_migration`: map of the record keys used by 1.x to the current ones, see [Upgrading from v1](#from-v1-to-v2)
 - `import_ids` (v5): import IDs of records that already exist in the zone, see [Importing Existing Records](#importing-existing-records)
 - `import_duplicates` (v5): records that cannot be imported unambiguously, with the IDs of their matches; while there are any, `plan` stops
@@ -589,7 +735,27 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 
 ## Records in YAML
 
-Records can be kept in a YAML file and passed with `yamldecode`:
+Records can be kept in a YAML file and passed with `yamldecode`. The file has the form of `records` under a `records` key:
+
+```yaml
+# records.ezdns.yaml
+records:
+  "@":
+    A:
+      - { content: "192.0.2.1", proxied: true }
+    MX:
+      - { content: "mx.example.net", priority: 10 }
+    "_dmarc.TXT":
+      - content: "v=DMARC1; p=reject"
+  app:
+    A:
+      - content: "192.0.2.10"
+    ALIASES:
+      - content: "www"
+  _sip._tcp:
+    SRV:
+      - data: { priority: 10, weight: 5, port: 5060, target: "sip.example.com" }
+```
 
 ```hcl
 records = yamldecode(file("${path.module}/records.ezdns.yaml")).records
@@ -719,7 +885,7 @@ The module expects internationalized names in Punycode, as the Cloudflare API do
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/idna"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_id   = var.zone_id
   zone_name = "münchen.de" # or null: the zone is looked up and its name converted
@@ -728,6 +894,14 @@ module "dns" {
     "bücher" = { CNAME = [{ content = "www.münchen.de" }] }
   }
 }
+```
+
+The plan shows the converted names, which are also in the record keys:
+
+```text
+  # module.dns.module.v5.cloudflare_dns_record.record["@ A 192.0.2.1"] will be created
+  # module.dns.module.v5.cloudflare_dns_record.record["@ MX mx.xn--mnchen-3ya.de"] will be created
+  # module.dns.module.v5.cloudflare_dns_record.record["xn--bcher-kva CNAME"] will be created
 ```
 
 - It has the inputs and outputs of the root module. `zone_name`, names, prefixes of record types (`"straße.A"`), `ALIASES`, the `content` of `CNAME`, `MX`, `NS` and `PTR` records, `target` of `SRV`, `HTTPS` and `SVCB` and `replacement` of `NAPTR` in `data`, the host of a `URI` target, `allowed_cname_conflicts` and `owned_names` are converted, in `records` and in `record_groups`. Other values (TXT content, comments) stay as written.
@@ -756,7 +930,7 @@ locals {
 
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_id   = var.zone_id
   zone_name = provider::idna::to_ascii("münchen.de")
@@ -790,7 +964,15 @@ Each lookup reads up to 100,000 records of one type (10,000 before 2.13.0), a li
 
    With the `//modules/dns/v5` submodule, the address has no `module.v5`: `module.dns.cloudflare_dns_record.record[each.key]`.
 
-3. Run `terraform plan`. Existing records are shown as imported, and only records missing in the zone are created. Check that no record you expect to be imported is shown as created.
+3. Run `terraform plan`. Existing records are shown as imported, and only records missing in the zone are created. Check that no record you expect to be imported is shown as created:
+
+   ```text
+     # module.dns.module.v5.cloudflare_dns_record.record["@ MX mx.example.net"] will be imported
+     # module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"] will be imported
+     # module.dns.module.v5.cloudflare_dns_record.record["new A 192.0.2.20"] will be created
+
+   Plan: 2 to import, 1 to add, 0 to change, 0 to destroy.
+   ```
 4. Run `terraform apply`, then remove the `import` block and `import_existing`, so the zone is not read on every plan.
 
 For structured records (`SRV`, `HTTPS`, `TLSA`, ...), provider v5 plans a one-time in-place update right after the import, without visible changes; after the `apply`, the plan is empty.
@@ -801,11 +983,48 @@ Matching ignores the case and a trailing dot of names, hostnames (`target`, `rep
 
 The import adopts the records that the configuration describes, so a zone with many records needs that configuration first. `tools/zone-to-ezdns.py` (Python 3.8 or later, no packages) writes it from the records that the Cloudflare API returns:
 
-```sh
-curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?per_page=5000000" > zone.json
-python3 tools/zone-to-ezdns.py zone.json --zone example.com --default-ttl 3600 > records.ezdns.yaml
+```console
+$ curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?per_page=5000000" > zone.json
+$ python3 tools/zone-to-ezdns.py zone.json --zone example.com --default-ttl 3600 > records.ezdns.yaml
+zone-to-ezdns: skipped NS example.com (372e67954025e0ba6aaa6d586b9e0b59): read only, managed by Cloudflare
 ```
+
+For a zone with a proxied apex and `www`, two MX records on one host, an SPF record with a TTL of 300 and an SRV record, `records.ezdns.yaml` is:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json
+# Records of example.com written by zone-to-ezdns.py (6 records). Review them, then adopt them with
+# import_existing = true and import blocks, and check that the plan creates and deletes nothing.
+records:
+  "@":
+    A:
+      - content: "192.0.2.10"
+        proxied: true
+    MX:
+      - content: "mx.example.net"
+        key: "priority-10"
+        priority: 10
+      - content: "mx.example.net"
+        key: "priority-20"
+        priority: 20
+    TXT:
+      - content: "\"v=spf1 mx -all\""
+        ttl: 300
+  "_sip._tcp":
+    SRV:
+      - data:
+          priority: "10"
+          weight: "5"
+          port: "5060"
+          target: "sip.example.com"
+  "www":
+    CNAME:
+      - content: "example.com"
+        proxied: true
+```
+
+The script exits with 1 when it skipped records or found copies (the file is written anyway), so a CI step can stop on it.
 
 - Every value is quoted, so YAML 1.1 keeps it as text. Records with the TTL of `--default-ttl` (the `default_ttl` of the module call) are written without one, proxied records without TTL.
 - `MX` and `URI` records that differ only in priority, and `CAA` records that differ only in flags, get a `key` each, since they would have the same record key. Copies of one record in the zone are written once and reported: the import of such a record stops until the zone has one copy.
@@ -823,7 +1042,7 @@ To read the values, pass the output through in the root module and read it from 
 ```hcl
 module "dns" {
   source           = "5xxeu/ezdns/cloudflare"
-  version          = "2.12.2"
+  version          = "2.13.0"
   zone_id          = var.zone_id
   report_unmanaged = true
   records          = { "@" = { A = [{ content = "192.0.2.1" }] } }
@@ -835,9 +1054,42 @@ output "unmanaged_records" {
 }
 ```
 
-```sh
-terraform plan -out=tfplan
-terraform show -json tfplan | jq '.planned_values.outputs.unmanaged_records.value'
+The plan warns with the type, name and ID of each record:
+
+```text
+Warning: Check block assertion failed
+
+The zone has 2 records that the configuration does not describe (records of
+other tools, such as external-dns, are listed too). Add them to records and
+adopt them with import blocks (import_existing gives their IDs), or delete
+them yourself. Their values are in the sensitive unmanaged_records output:
+pass it through as a root module output, then terraform plan -out=tfplan
+and terraform show -json tfplan:
+A old.example.com (372e67954025e0ba6aaa6d586b9e0b59)
+TXT example.com (9a7806061c88ada191ed06f989cc3dac)
+```
+
+```console
+$ terraform plan -out=tfplan
+$ terraform show -json tfplan | jq '.planned_values.outputs.unmanaged_records.value'
+[
+  {
+    "content": "192.0.2.9",
+    "data": null,
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "old.example.com",
+    "priority": null,
+    "type": "A"
+  },
+  {
+    "content": "google-site-verification=abc",
+    "data": null,
+    "id": "9a7806061c88ada191ed06f989cc3dac",
+    "name": "example.com",
+    "priority": null,
+    "type": "TXT"
+  }
+]
 ```
 
 The report needs the `DNS Read` permission and makes one lookup per record type (21) on every plan, and the provider reads the records of a type in pages, so a large zone takes more requests. Turn it on when reviewing the zone or in a scheduled CI job rather than on every plan. Like the import, a lookup that returns 100,000 records of one type (the limit) stops the plan, since the report would be incomplete. Records that Cloudflare manages itself and does not return as DNS records (the zone's own name servers) are not listed.
@@ -851,7 +1103,7 @@ unmanaged_ignore = [
 ]
 ```
 
-With `unmanaged_policy = "error"`, the report stops the plan instead of showing a warning, with the same list. Use it in CI for a zone (or the [part of a zone](#the-part-of-the-zone-a-module-call-owns)) that only this configuration may change: a record added by hand in the dashboard then fails the next plan until it is added to the configuration or deleted.
+With `unmanaged_policy = "error"`, the report stops the plan instead of showing a warning, with the same list and the line `unmanaged_policy is "error", so the plan stops.` Use it in CI for a zone (or the [part of a zone](#the-part-of-the-zone-a-module-call-owns)) that only this configuration may change: a record added by hand in the dashboard then fails the next plan until it is added to the configuration or deleted.
 
 ### The Part of the Zone a Module Call Owns
 
@@ -864,7 +1116,16 @@ owned_names = {
 }
 ```
 
-- A configured record outside this part fails at `plan`, with the name and where the record is defined. A typo in a name cannot create a record in the part of another team.
+- A configured record outside this part fails at `plan`, with the name and where the record is defined. A typo in a name cannot create a record in the part of another team:
+
+  ```text
+  Error: Module output value precondition failed
+
+  These records are outside owned_names (included: apps.example.com; excluded:
+  k8s.apps.example.com), the part of the zone that this module call manages:
+  "api.k8s.apps.example.com" (A) from records["api.k8s.apps"]["A"][0]
+  "app.example.com" (A) from records["app"]["A"][0]
+  ```
 - [`report_unmanaged`](#records-not-in-the-configuration) only looks at this part: records of other teams and tools are not reported as unmanaged.
 - `owned_names` is a rule of the configuration, not a lock: another tool can still write into this part of the zone. `null` (the default) is the whole zone.
 
@@ -878,6 +1139,33 @@ terraform show -json tfplan > tfplan.json
 python3 tools/plan-guard.py tfplan.json --zone example.com --require @:MX --require @:A
 terraform apply tfplan
 ```
+
+A plan after the YAML file with the MX records was deleted, the address of `app` changed without a `key`, and `proxied` removed from `www`:
+
+```console
+$ python3 tools/plan-guard.py tfplan.json --zone example.com --require @:MX
+The plan deletes 3 records (allowed: 0):
+  module.dns.module.v5.cloudflare_dns_record.record["@ MX mx1.mail.example.net"]
+  module.dns.module.v5.cloudflare_dns_record.record["@ MX mx2.mail.example.net"]
+  module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"]
+The plan turns off the proxy of records, which publishes their origin address (--allow-proxy-disable allows it):
+  module.dns.module.v5.cloudflare_dns_record.record["www CNAME"]
+MX records of example.com: 0 after the apply, at least 1 required
+$ echo $?
+1
+```
+
+A plan without such changes prints `plan-guard: the plan passes` and exits with 0. In CI, run it between `plan` and `apply`:
+
+```yaml
+# GitHub Actions
+- run: terraform plan -out=tfplan
+- run: terraform show -json tfplan > tfplan.json
+- run: python3 .terraform/modules/dns/tools/plan-guard.py tfplan.json --zone example.com --require @:MX
+- run: terraform apply tfplan
+```
+
+With the module from the Terraform Registry or Git, `terraform init` puts the script into `.terraform/modules/<module name>/tools/`; with a [local copy](#local-copy), it is in `modules/ezdns/tools/` (full archive).
 
 - `--max-deletes N` and `--max-replacements N` allow up to N deletions or replacements (default 0). A changed value without a `key` is a deletion and a creation, so it counts as a deletion.
 - `--allow ADDRESS` leaves out the changes of resources whose address matches (`*` matches any characters, e.g. `--allow 'module.dns.*["www A *"]'`), for a change that was reviewed.
@@ -1013,6 +1301,13 @@ CI runs `terraform fmt`, `validate` and `test` for the root module, the core mod
 
 The `compile` submodule runs the checks of the wrappers on a configuration and returns its records as the wrappers would create them, keyed by their record keys, without a provider and without credentials. A test of your own configuration can then check what matters for your zone:
 
+```text
+records.ezdns.yaml        # the records, also used by the module call that manages the zone
+tests/
+├── compile/main.tf       # the compile submodule with the same records
+└── dns.tftest.hcl        # assertions about the records
+```
+
 ```hcl
 # tests/dns.tftest.hcl, next to records.ezdns.yaml
 run "zone" {
@@ -1038,14 +1333,25 @@ run "zone" {
 # tests/compile/main.tf
 module "compiled" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/compile"
-  version = "2.12.2"
+  version = "2.13.0"
 
   zone_name = "example.com"
   records   = yamldecode(file("${path.module}/../../records.ezdns.yaml")).records
 }
 ```
 
-Pass the same inputs as to the module call that manages the zone (`record_groups`, the defaults, `owned_names`, ...), so the test sees the same records. Invalid records fail the test like they fail the plan.
+```console
+$ terraform init
+$ terraform test
+tests/dns.tftest.hcl... in progress
+  run "zone"... pass
+tests/dns.tftest.hcl... tearing down
+tests/dns.tftest.hcl... pass
+
+Success! 1 passed, 0 failed.
+```
+
+Pass the same inputs as to the module call that manages the zone (`record_groups`, the defaults, `owned_names`, ...), so the test sees the same records. Invalid records fail the test like they fail the plan, and a failed assertion shows its `error_message` (`Mail hosts must not be proxied`) with the records it checked.
 
 ### End-to-End Tests
 
