@@ -225,6 +225,30 @@ class PlanGuardTest(unittest.TestCase):
         p["resource_changes"][0]["change"]["actions"] = ["create", "delete"]
         self.assertEqual(run(p, "--max-replacements", "1"), [])
 
+    def test_unproxied_record_deleted_with_the_proxied_one_fails(self):
+        # The order of the deletes is not known: the A may go first, the AAAA is then
+        # published until it is deleted too (or for good if its delete fails)
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web AAAA 2001:db8::1"), ["delete"], aaaa, None),
+        )
+        problems = run(p, "--max-deletes", "2")
+        self.assertIn("turns off the proxy", problems[0])
+        self.assertIn("AAAA", problems[1])
+        # Moved away instead of deleted: the same
+        p["resource_changes"][1]["change"].update(actions=["update"], after={**aaaa, "name": "old"})
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_unproxied_record_deleted_next_to_a_remaining_proxied_one_passes(self):
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.2"), ["no-op"], other, other),
+            record(BASE.format("web AAAA 2001:db8::1"), ["delete"], aaaa, None),
+        )
+        self.assertEqual(run(p, "--max-deletes", "1"), [])
+
     def test_unproxied_record_next_to_a_remaining_proxied_one_passes(self):
         aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
         other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}
