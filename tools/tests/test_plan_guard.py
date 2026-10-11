@@ -182,6 +182,19 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertEqual(run(p, "--module", "module.web", "--max-deletes", "1", "--zone", "example.com"), [])
 
+    def test_replacement_of_a_proxied_record_unhides_the_name(self):
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        a = {**WEB, "zone_id": "z"}
+        p = plan(
+            record('module.web.cloudflare_dns_record.record["web A 192.0.2.1"]', ["delete", "create"], a, {**a, "ttl": 300}),
+            record('module.ipv6.cloudflare_dns_record.record["web AAAA 2001:db8::1"]', ["no-op"], aaaa, aaaa),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-replacements", "1")[0])
+        self.assertIn("turns off the proxy", run(p, "--module", "module.ipv6")[0])
+        # create_before_destroy: the new record exists before the old one is deleted
+        p["resource_changes"][0]["change"]["actions"] = ["create", "delete"]
+        self.assertEqual(run(p, "--max-replacements", "1"), [])
+
     def test_unproxied_record_next_to_a_remaining_proxied_one_passes(self):
         aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
         other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}

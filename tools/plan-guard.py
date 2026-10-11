@@ -153,7 +153,9 @@ def check(plan, args):
         # records of the module (and the other way round): the proxy hides a whole name,
         # whichever module call manages its records
         own = in_module(address, args.module)
-        if before.get("proxied") is True and (actions == ["delete"] or (after and (
+        # A replacement that deletes first (["delete", "create"]; create_before_destroy gives
+        # ["create", "delete"]) leaves the name unhidden until the new record exists
+        if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (
                 moved(before, after, after_unknown, args.zone) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append((before, own))
         if actions in (["no-op"], ["update"]) and before.get("proxied") is True and after.get("proxied") is True \
