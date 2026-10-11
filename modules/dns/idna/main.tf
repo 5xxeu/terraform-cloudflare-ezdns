@@ -17,8 +17,9 @@ locals {
   # Record types whose content is a name (ALIASES name the CNAME by their content)
   name_content_kinds = ["CNAME", "MX", "NS", "PTR", "ALIASES"]
 
-  # Scheme, host and the rest of a URI target; only the host is a name
-  uri = "^([A-Za-z][A-Za-z0-9+.-]*://)([^/:?#]+)(.*)$"
+  # Scheme with user information, host and the rest of a URI target; only the host is
+  # a name
+  uri = "^([A-Za-z][A-Za-z0-9+.-]*://(?:[^/?#@]*@)?)([^/:?#@]+)(.*)$"
 
   # records and the records of each group, by their origin; a group without records
   # stays as written, so the v5 wrapper reports it

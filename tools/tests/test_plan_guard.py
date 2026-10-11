@@ -103,6 +103,21 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
+    def test_allowed_delete_does_not_allow_an_unproxied_successor(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "z", "content": "192.0.2.9", "proxied": False}),
+        )
+        problems = run(p, "--allow", BASE.format("web A 192.0.2.1"))
+        self.assertIn("turns off the proxy", problems[0])
+
+    def test_unknown_zone_of_an_unproxied_successor_fails(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "content": "192.0.2.9", "proxied": False}, {"zone_id": True}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
     def test_text_record_on_the_name_of_a_proxied_record_passes(self):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),

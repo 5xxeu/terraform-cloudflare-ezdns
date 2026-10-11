@@ -89,12 +89,13 @@ locals {
         r.type == "CAA" ? tomap({ flags = tostring(r.rec.flags), tag = r.rec.tag, value = r.content }) :
         # Cloudflare returns SVCB and HTTPS targets as fully qualified names, so they
         # get the trailing dot here to avoid a diff on every plan. Service parameters
-        # set as fields go into value, in the order of their keys (RFC 9460)
+        # set as fields go into value, in the order of their keys (RFC 9460), port as a
+        # decimal number ("443.0" is 443)
         contains(["HTTPS", "SVCB"], r.type) ? merge(
           { for field, value in r.rec.data : field => value if !contains(local.svc_params, field) },
           { target = endswith(r.rec.data.target, ".") ? r.rec.data.target : "${r.rec.data.target}." },
           length(setintersection(keys(r.rec.data), local.svc_params)) == 0 ? {} : {
-            value = join(" ", [for param in local.svc_params : "${param}=\"${r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
+            value = join(" ", [for param in local.svc_params : "${param}=\"${param == "port" ? tonumber(r.rec.data[param]) : r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
           },
         ) :
         # yamldecode reads an unquoted N as false (YAML 1.1); for LOC it can only mean north

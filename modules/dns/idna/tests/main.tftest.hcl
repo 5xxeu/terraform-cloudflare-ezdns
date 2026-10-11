@@ -13,12 +13,15 @@ variables {
   zone_name = "münchen.de"
   records = {
     "@" = {
-      A                 = [{ content = "192.0.2.1" }]
-      "straße.A"        = [{ content = "192.0.2.2" }]
-      MX                = [{ content = "mx.münchen.de", priority = 10 }]
-      ALIASES           = [{ content = "www" }, { content = "größe" }]
-      "_sip._tcp.SRV"   = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.münchen.de" } }]
-      "_ftp._tcp.URI"   = [{ priority = 10, data = { weight = 1, target = "https://straße.münchen.de/Pfad?ä=1" } }]
+      A               = [{ content = "192.0.2.1" }]
+      "straße.A"      = [{ content = "192.0.2.2" }]
+      MX              = [{ content = "mx.münchen.de", priority = 10 }]
+      ALIASES         = [{ content = "www" }, { content = "größe" }]
+      "_sip._tcp.SRV" = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.münchen.de" } }]
+      "_ftp._tcp.URI" = [
+        { priority = 10, data = { weight = 1, target = "https://straße.münchen.de/Pfad?ä=1" } },
+        { priority = 20, data = { weight = 1, target = "ftp://user:pass@bücher.münchen.de:21/" } },
+      ]
       "_naptr.NAPTR"    = [{ data = { order = 100, preference = 10, replacement = "_sip._udp.münchen.de" } }]
       "_dmarc.TXT"      = [{ content = "v=DMARC1; p=reject; rua=mailto:dmarc@münchen.de" }]
       "Upper.CNAME"     = [{ content = "Target.Example.com" }]
@@ -52,8 +55,8 @@ run "converted" {
   }
 
   assert {
-    condition     = [for r in module.v5.records : r.data.target if r.type == "URI"] == ["https://xn--strae-oqa.xn--mnchen-3ya.de/Pfad?ä=1"]
-    error_message = "Only the host of a URI target is converted"
+    condition     = sort([for r in module.v5.records : r.data.target if r.type == "URI"]) == tolist(["ftp://user:pass@xn--bcher-kva.xn--mnchen-3ya.de:21/", "https://xn--strae-oqa.xn--mnchen-3ya.de/Pfad?ä=1"])
+    error_message = "Only the host of a URI target is converted, also after user information"
   }
 
   assert {

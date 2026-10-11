@@ -479,9 +479,13 @@ variable "records" {
                   for field, pattern in {
                     alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
                     mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
-                    ech       = "^[A-Za-z0-9+/]+=*$"
+                    ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
                   } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
                   if lookup(data, field, null) != null && !can(regex(pattern, coalesce(lookup(data, field, null), "x")))
+                ],
+                [
+                  for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
+                  if m == null ? false : length(distinct(split(",", m))) != length(split(",", m)) || anytrue([for param in split(",", m) : lookup(data, param, null) == null])
                 ],
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
@@ -495,7 +499,7 @@ variable "records" {
         ]
       ]
     ])) == 0
-    error_message = "HTTPS and SVCB service parameters must be valid: alpn a comma-separated list of protocol IDs (h2,h3), mandatory a list of the other parameters, ipv4hint and ipv6hint comma-separated addresses, ech base64, and value only without them:\n${join("\n", flatten([
+    error_message = "HTTPS and SVCB service parameters must be valid: alpn a comma-separated list of protocol IDs (h2,h3), mandatory a list of other parameters that are set, each once, ipv4hint and ipv6hint comma-separated addresses, ech padded base64, and value only without them:\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
@@ -506,9 +510,13 @@ variable "records" {
                   for field, pattern in {
                     alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
                     mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
-                    ech       = "^[A-Za-z0-9+/]+=*$"
+                    ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
                   } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
                   if lookup(data, field, null) != null && !can(regex(pattern, coalesce(lookup(data, field, null), "x")))
+                ],
+                [
+                  for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
+                  if m == null ? false : length(distinct(split(",", m))) != length(split(",", m)) || anytrue([for param in split(",", m) : lookup(data, param, null) == null])
                 ],
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"

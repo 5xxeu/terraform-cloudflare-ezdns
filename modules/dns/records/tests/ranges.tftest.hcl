@@ -265,6 +265,42 @@ run "svc_params_and_value_are_one_record" {
   expect_failures = [output.flat_records]
 }
 
+run "svc_port_as_a_decimal_number" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", port = "443.0" } }] } }
+  }
+
+  assert {
+    condition     = [for r in output.flat_records : r.data.value] == ["port=\"443\""]
+    error_message = "port must be written as a decimal number"
+  }
+}
+
+run "svc_mandatory_not_set" {
+  command = plan
+
+  variables {
+    records = {
+      "@"   = { HTTPS = [{ data = { priority = 1, target = ".", mandatory = "port", alpn = "h2" } }] }
+      "www" = { HTTPS = [{ data = { priority = 1, target = ".", mandatory = "alpn,alpn", alpn = "h2" } }] }
+    }
+  }
+
+  expect_failures = [var.records]
+}
+
+run "svc_ech_not_padded" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", ech = "A===" } }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
 run "svc_alpn_with_spaces" {
   command = plan
 

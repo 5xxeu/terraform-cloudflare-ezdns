@@ -131,10 +131,12 @@ def check(plan, args):
         if after_unknown.get("zone_id"):
             zones.add("unknown")
 
-        if allowed(address, args.allow):
-            continue
+        # Collected before the exceptions: allowing a delete does not allow a new record
+        # on the same name to come back unproxied
         if actions == ["delete"] and before.get("proxied") is True:
             deleted_proxied.append(before)
+        if allowed(address, args.allow):
+            continue
         if actions == ["create"]:
             created.append((address, after, after_unknown))
         if actions == ["delete"]:
@@ -156,7 +158,7 @@ def check(plan, args):
         if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
             continue
         for before in deleted_proxied:
-            if before.get("zone_id") == after.get("zone_id") \
+            if (after_unknown.get("zone_id") or before.get("zone_id") == after.get("zone_id")) \
                     and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)):
                 (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
                 break
