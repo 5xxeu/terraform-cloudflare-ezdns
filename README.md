@@ -69,9 +69,55 @@ Each record is an instance of `module.dns.module.v5.cloudflare_dns_record.record
 
 Everything else (all record types, defaults, import of existing records, validation) builds on this; see the [full example](#full-example) and the sections below.
 
+## Quick Start
+
+1. Create an API token for the zone with the permission Zone, DNS, Edit (see [Requirements](#requirements)), and find the zone ID on the overview page of the zone in the Cloudflare dashboard.
+2. Write the configuration, for example `main.tf`:
+
+   ```hcl
+   terraform {
+     required_providers {
+       cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.26" }
+     }
+   }
+
+   # The token comes from the CLOUDFLARE_API_TOKEN environment variable
+   provider "cloudflare" {}
+
+   variable "zone_id" {
+     type = string
+   }
+
+   module "dns" {
+     source  = "5xxeu/ezdns/cloudflare"
+     version = "2.13.0"
+
+     zone_id   = var.zone_id
+     zone_name = "example.com"
+
+     records = {
+       "@" = {
+         A       = [{ content = "192.0.2.10", proxied = true }]
+         ALIASES = [{ content = "www", proxied = true }]
+       }
+     }
+   }
+   ```
+3. Plan and apply:
+
+   ```sh
+   export CLOUDFLARE_API_TOKEN=...       # the token of step 1
+   export TF_VAR_zone_id=023e105f4ecef8ad9ca31a8372d0c353
+   terraform init
+   terraform plan -out=tfplan            # shows one resource per record
+   terraform apply tfplan
+   ```
+
+When the zone already has records, adopt them instead of creating them again: see [Importing Existing Records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records), which also writes the configuration of an existing zone. More setups (mail, websites, CAA, several teams) are in the [examples](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md).
+
 ## Contents
 
-- [Features](#features), [When Not to Use It](#when-not-to-use-it), [Structure](#structure), [Requirements](#requirements)
+- [Quick Start](#quick-start), [Features](#features), [When Not to Use It](#when-not-to-use-it), [Structure](#structure), [Requirements](#requirements)
 - [Usage](#usage): [Terraform Registry](#terraform-registry), [local copy](#local-copy), [Git source](#git-source), [HCL or YAML](#hcl-or-yaml), [records in several files](#records-in-several-files) and the [full example](#full-example)
 - [Record Model](#record-model): [record types](#record-types), [aliases](#the-aliases-logic), [record keys](#record-keys), [changing values without a gap](#changing-values-without-a-gap)
 - [Validation](#validation), [Inputs](#inputs), [Outputs](#outputs)
@@ -80,6 +126,7 @@ Everything else (all record types, defaults, import of existing records, validat
 - [Checking Plans Before Apply](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply)
 - [Stability](#stability), [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration)
 - [Testing](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing), [testing your records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records)
+- [Troubleshooting](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/troubleshooting.md): the common errors and warnings and what to do; all guides are listed in [docs](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/README.md)
 - [Examples](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md): mail (Google Workspace, Microsoft 365), websites (GitHub Pages, Netlify, Vercel), CAA, SRV, HTTPS records, several teams in one zone, moving a server, next to external-dns and cert-manager
 
 ## Features
@@ -142,6 +189,15 @@ Both wrappers share the same inputs, outputs and record keys, so switching betwe
 | `modules/dns/v5` | `>= 1.8.0` | `~> 5.26` |
 | `modules/dns/idna` | `>= 1.8.0` | `~> 5.26`, and [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) `~> 0.1` |
 | `modules/dns/compile` | `>= 1.8.0` | none |
+
+The API token of the provider needs these permissions for the zone (Cloudflare dashboard, My Profile, API Tokens, Create Token, Custom token):
+
+| Permission | Needed for |
+|------------|------------|
+| Zone, DNS, Edit | creating, changing and deleting the records (it includes reading them, which `import_existing` and `report_unmanaged` do) |
+| Zone, Zone, Read | looking up the zone name when `zone_name` is not set |
+
+Limit the token to the zones it manages (Zone Resources, Include, Specific zone). A token for `terraform plan` in pull requests can have DNS Read instead of Edit.
 
 If `zone_name` is not set, the module looks up the zone by `zone_id`, so the API token needs the `Zone:Read` permission. An internationalized zone (`münchen.de`) must set `zone_name` in Punycode (`xn--mnchen-3ya.de`): Cloudflare returns the names of such zones in Unicode, which cannot be used for the fully qualified names, so the lookup fails at `plan` with what to set. The [`idna` submodule](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#internationalized-names) converts names, also the looked-up zone name, to Punycode.
 
@@ -383,21 +439,25 @@ module "dns" {
 
 The module creates these records:
 
+<!-- BEGIN_RECORDS -->
+
 | Name | Type | Value | TTL | Record key |
 |:-----|:-----|:------|----:|:-----------|
-| `example.com` | A | `192.0.2.1` | 1 | `@ A 192.0.2.1` |
+| `example.com` | A | `192.0.2.1` | 1 (auto) | `@ A 192.0.2.1` |
+| `_acme-challenge.app.example.com` | TXT | `verification-token` | 3600 | `_acme-challenge.app TXT 2275f8d2b37d` |
 | `_dmarc.example.com` | TXT | `v=DMARC1; p=none` | 3600 | `_dmarc TXT 21541c4e7044` |
-| `google._domainkey.example.com` | TXT | `v=DKIM1; k=rsa; p=MIIBIjANBg...` | 3600 | `google._domainkey TXT dkim` |
-| `www.example.com` | CNAME | `example.com` | 1 | `www CNAME` |
-| `app.example.com` | A | `192.0.2.10` | 1 | `app A 192.0.2.10` |
-| `support.example.com` | CNAME | `app.example.com` | 1800 | `support CNAME` |
-| `app.example.com` | TXT | `v=spf1 include:_spf.google.com ~all` | 3600 | `app TXT 585509e95a34` |
-| `app.example.com` | MX | `mail.example.com` (priority 10) | 3600 | `app MX mail.example.com` |
+| `_sip._tcp.example.com` | SRV | `10 5 5060 sip.example.com` | 3600 | `_sip._tcp SRV 9c61601f99e8` |
+| `app.example.com` | A | `192.0.2.10` | 1 (auto) | `app A 192.0.2.10` |
 | `app.example.com` | CAA | `issue letsencrypt.org` | 3600 | `app CAA issue letsencrypt.org` |
 | `app.example.com` | CAA | `issuewild letsencrypt.org` | 3600 | `app CAA issuewild letsencrypt.org` |
-| `_acme-challenge.app.example.com` | TXT | `verification-token` | 3600 | `_acme-challenge.app TXT 2275f8d2b37d` |
+| `app.example.com` | MX | `mail.example.com` (priority 10) | 3600 | `app MX mail.example.com` |
+| `app.example.com` | TXT | `v=spf1 include:_spf.google.com ~all` | 3600 | `app TXT 585509e95a34` |
+| `google._domainkey.example.com` | TXT | `v=DKIM1; k=rsa; p=MIIBIjANBg...` | 3600 | `google._domainkey TXT dkim` |
 | `static.example.com` | CNAME | `cdn.app.example.com` | 3600 | `static CNAME` |
-| `_sip._tcp.example.com` | SRV | `10 5 5060 sip.example.com` | 3600 | `_sip._tcp SRV 9c61601f99e8` |
+| `support.example.com` | CNAME | `app.example.com` | 1800 | `support CNAME` |
+| `www.example.com` | CNAME | `example.com` | 1 (auto) | `www CNAME` |
+
+<!-- END_RECORDS -->
 
 More module calls for common setups (mail, websites, CAA, SRV, teams) are in [docs/examples.md](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md). Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
 

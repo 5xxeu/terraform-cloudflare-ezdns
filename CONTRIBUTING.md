@@ -24,7 +24,9 @@ terraform fmt -recursive
 ./scripts/generate-docs.sh     # after changing variables, outputs or requirements
 python3 scripts/generate-schema.py
 python3 scripts/test-schema.py --terraform
-python3 scripts/test-docs-examples.py   # every module call in the README and docs plans
+python3 scripts/test-docs-examples.py   # every module call in the README and docs plans,
+                                        # and the tables of their records match (--write updates them)
+python3 scripts/check-links.py          # links between the Markdown files
 tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 
 # in the changed module and its examples

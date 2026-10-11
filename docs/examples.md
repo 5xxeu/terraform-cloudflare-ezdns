@@ -2,7 +2,7 @@
 
 Part of the documentation of [ezdns](../README.md).
 
-Complete module calls for common setups. Each one is planned in CI against a mocked provider (`scripts/test-docs-examples.py`), so they stay valid for the current version. Values in angle brackets in the text, and the IDs, tokens and keys in the examples, are placeholders: take the real ones from the service you set up.
+Complete module calls for common setups, each with the records it creates. Each one is planned in CI against a mocked provider, and the tables are generated from the module (`scripts/test-docs-examples.py`), so both stay valid for the current version. Values in angle brackets in the text, and the IDs, tokens and keys in the examples, are placeholders: take the real ones from the service you set up.
 
 - [Mail: Google Workspace](#mail-google-workspace)
 - [Mail: Microsoft 365](#mail-microsoft-365)
@@ -40,6 +40,19 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | MX | `smtp.google.com` (priority 1) | 3600 | `@ MX smtp.google.com` |
+| `example.com` | TXT | `v=spf1 include:_spf.google.com ~all` | 3600 | `@ TXT spf` |
+| `_dmarc.example.com` | TXT | `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@example.com` | 3600 | `_dmarc TXT dmarc` |
+| `google._domainkey.example.com` | TXT | `v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA` | 3600 | `google._domainkey TXT dkim` |
+
+<!-- END_RECORDS -->
 
 - A zone has one SPF record: when another service sends mail for the domain too, add its `include:` to the same record instead of a second one.
 - Start DMARC with `p=none` to collect reports, then move to `quarantine` or `reject`. With `key = "dmarc"`, the change is an update in place.
@@ -81,6 +94,22 @@ module "dns" {
 }
 ```
 
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | MX | `example-com.mail.protection.outlook.com` (priority 0) | 3600 | `@ MX example-com.mail.protection.outlook.com` |
+| `example.com` | TXT | `v=spf1 include:spf.protection.outlook.com -all` | 3600 | `@ TXT spf` |
+| `_dmarc.example.com` | TXT | `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@example.com` | 3600 | `_dmarc TXT dmarc` |
+| `_sipfederationtls._tcp.example.com` | SRV | `100 1 5061 sipfed.online.lync.com` | 3600 | `_sipfederationtls._tcp SRV a2b69c9a8166` |
+| `autodiscover.example.com` | CNAME | `autodiscover.outlook.com` | 3600 | `autodiscover CNAME` |
+| `selector1._domainkey.example.com` | CNAME | `selector1-example-com._domainkey.contoso.onmicrosoft.com` | 3600 | `selector1._domainkey CNAME` |
+| `selector2._domainkey.example.com` | CNAME | `selector2-example-com._domainkey.contoso.onmicrosoft.com` | 3600 | `selector2._domainkey CNAME` |
+
+<!-- END_RECORDS -->
+
 The records of Intune (`enterpriseregistration`, `enterpriseenrollment`) are CNAME records too, written the same way as `autodiscover`.
 
 ## Website: GitHub Pages
@@ -121,6 +150,25 @@ module "dns" {
 }
 ```
 
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | A | `185.199.108.153` | 3600 | `@ A 185.199.108.153` |
+| `example.com` | A | `185.199.109.153` | 3600 | `@ A 185.199.109.153` |
+| `example.com` | A | `185.199.110.153` | 3600 | `@ A 185.199.110.153` |
+| `example.com` | A | `185.199.111.153` | 3600 | `@ A 185.199.111.153` |
+| `example.com` | AAAA | `2606:50c0:8000::153` | 3600 | `@ AAAA 2606:50c0:8000::153` |
+| `example.com` | AAAA | `2606:50c0:8001::153` | 3600 | `@ AAAA 2606:50c0:8001::153` |
+| `example.com` | AAAA | `2606:50c0:8002::153` | 3600 | `@ AAAA 2606:50c0:8002::153` |
+| `example.com` | AAAA | `2606:50c0:8003::153` | 3600 | `@ AAAA 2606:50c0:8003::153` |
+| `_github-pages-challenge-example-user.example.com` | TXT | `0123456789abcdef0123456789abcd` | 3600 | `_github-pages-challenge-example-user TXT d57fb43f336b` |
+| `www.example.com` | CNAME | `example-user.github.io` | 3600 | `www CNAME` |
+
+<!-- END_RECORDS -->
+
 With `default_proxied = false` in the module call, the `proxied = false` of each record can go.
 
 ## Website: Netlify or Vercel
@@ -149,6 +197,17 @@ module "dns" {
 }
 ```
 
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | CNAME | `apex-loadbalancer.netlify.com` | 3600 | `@ CNAME` |
+| `www.example.com` | CNAME | `brave-curie-12345.netlify.app` | 3600 | `www CNAME` |
+
+<!-- END_RECORDS -->
+
 A CNAME cannot share its name with other records (the module checks it), except on the apex: MX and TXT records of the apex stay possible next to the flattened CNAME.
 
 ## CAA: Only Let's Encrypt
@@ -174,6 +233,18 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | CAA | `iodef mailto:security@example.com` | 3600 | `@ CAA iodef mailto:security@example.com` |
+| `example.com` | CAA | `issue letsencrypt.org` | 3600 | `@ CAA issue letsencrypt.org` |
+| `example.com` | CAA | `issuewild ;` | 3600 | `@ CAA issuewild ;` |
+
+<!-- END_RECORDS -->
 
 CAA records apply to the name and all names below it that have none of their own, so the apex records cover the whole zone.
 
@@ -203,6 +274,18 @@ module "dns" {
 }
 ```
 
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `_xmpp-client._tcp.example.com` | SRV | `5 0 5222 xmpp.example.com` | 3600 | `_xmpp-client._tcp SRV 684e805d2526` |
+| `_xmpp-server._tcp.example.com` | SRV | `5 0 5269 xmpp.example.com` | 3600 | `_xmpp-server._tcp SRV 178141a91006` |
+| `xmpp.example.com` | A | `192.0.2.20` | 3600 | `xmpp A 192.0.2.20` |
+
+<!-- END_RECORDS -->
+
 The target of an SRV record must have an address record of its own (not a CNAME), and SRV targets are not proxied: Cloudflare proxies only HTTP and HTTPS.
 
 ## HTTPS Records
@@ -228,6 +311,18 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `app.example.com` | A | `192.0.2.30` | 3600 | `app A 192.0.2.30` |
+| `app.example.com` | AAAA | `2001:db8::30` | 3600 | `app AAAA 2001:db8::30` |
+| `app.example.com` | HTTPS | `1 . alpn="h3,h2" ipv4hint="192.0.2.30" ipv6hint="2001:db8::30"` | 3600 | `app HTTPS c2403c3d36f3` |
+
+<!-- END_RECORDS -->
 
 `target = "."` means the name itself. Cloudflare serves such records only when all records of the name are not proxied; for proxied names with HTTP/2 or HTTP/3 and Universal SSL it generates HTTPS records itself, and ignores ones added by hand.
 
@@ -286,6 +381,20 @@ module "dns_marketing" {
 }
 ```
 
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | A | `192.0.2.10` | 1 (auto) | `@ A 192.0.2.10` |
+| `api.example.com` | A | `192.0.2.11` | 1 (auto) | `api A 192.0.2.11` |
+| `www.example.com` | CNAME | `example.com` | 1 (auto) | `www CNAME` |
+| `_acme-challenge.promo.example.com` | TXT | `verification-token` | 3600 | `_acme-challenge.promo TXT 2275f8d2b37d` |
+| `promo.example.com` | CNAME | `promo.landing.example.net` | 3600 | `promo CNAME` |
+
+<!-- END_RECORDS -->
+
 - `include = ["@"]` is the whole zone, `exclude` takes names out of it with all names below them; a record outside the owned part fails at `plan` with its name.
 - With [`report_unmanaged`](unmanaged-records.md#records-not-in-the-configuration), each call reports the records of its own part only, so the records of the other team are not unmanaged for it.
 
@@ -311,6 +420,17 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `app.example.com` | A | `198.51.100.10` | 300 | `app A new` |
+| `app.example.com` | A | `192.0.2.10` | 300 | `app A old` |
+
+<!-- END_RECORDS -->
 
 When the new server works, remove the `old` record; the `new` one stays where it is. Without the overlap, a single record with `key = "web"` changes its value in place.
 
@@ -343,5 +463,16 @@ module "dns" {
   }
 }
 ```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | A | `192.0.2.10` | 1 (auto) | `@ A 192.0.2.10` |
+| `www.example.com` | CNAME | `example.com` | 1 (auto) | `www CNAME` |
+
+<!-- END_RECORDS -->
 
 Records of the zone that neither the module nor the two tools manage appear as a warning in the plan and in the sensitive `unmanaged_records` output; with `unmanaged_policy = "error"` they stop the plan. See [Next to external-dns](recipes.md#next-to-external-dns) for why the names must not overlap.
