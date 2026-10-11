@@ -6,7 +6,7 @@ variable "root_domain" {
   # while record names come back in Punycode; such zones need zone_name in Punycode
   validation {
     condition     = !can(regex("[^[:ascii:]]", var.root_domain))
-    error_message = "The zone name ${jsonencode(var.root_domain)} is not in Punycode: Cloudflare returns the names of internationalized zones in Unicode, so set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de)."
+    error_message = "The zone name ${jsonencode(var.root_domain)} is not in Punycode: Cloudflare returns the names of internationalized zones in Unicode, so set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de; provider::idna::to_ascii of the 5xxeu/idna provider converts it)."
   }
 
   validation {
