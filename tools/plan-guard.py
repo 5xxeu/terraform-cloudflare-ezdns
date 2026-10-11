@@ -148,12 +148,15 @@ def check(plan, args):
             elif after.get("proxied") is not True:
                 proxy_off.append(address)
 
+    # Any type that can point at the origin counts: a proxied CNAME replaced by an
+    # unproxied A on the same name publishes the address just the same
     for address, after, after_unknown in created:
         if after.get("proxied") is True:
             continue
+        if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
+            continue
         for before in deleted_proxied:
-            if str(before.get("type", "")).upper() == str(after.get("type", "")).upper() \
-                    and before.get("zone_id") == after.get("zone_id") \
+            if before.get("zone_id") == after.get("zone_id") \
                     and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)):
                 (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
                 break

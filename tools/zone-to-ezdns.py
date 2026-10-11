@@ -223,7 +223,11 @@ def quote(value):
         return "true" if value else "false"
     if isinstance(value, int):
         return str(value)
-    return json.dumps(value, ensure_ascii=False)
+    # JSON escapes the C0 controls; YAML also reads NEL and the Unicode line and
+    # paragraph separators as line breaks and rejects DEL, the C1 controls and the
+    # BOM, so these are escaped too. Other non-ASCII text stays readable
+    return re.sub("[\x7f-\x9f\u2028\u2029\ufeff\ufffe\uffff]", lambda m: f"\\u{ord(m.group()):04x}",
+                  json.dumps(value, ensure_ascii=False))
 
 
 def to_yaml(records, zone, count):

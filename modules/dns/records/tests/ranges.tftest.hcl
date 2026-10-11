@@ -248,6 +248,23 @@ run "svc_value_and_params" {
   expect_failures = [var.records]
 }
 
+run "svc_params_and_value_are_one_record" {
+  command = plan
+
+  variables {
+    records = {
+      "@" = {
+        HTTPS = [
+          { data = { priority = 1, target = ".", value = "alpn=\"h2\" port=\"443\"" } },
+          { data = { priority = 1, target = ".", alpn = "h2", port = 443 } },
+        ]
+      }
+    }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
 run "svc_alpn_with_spaces" {
   command = plan
 

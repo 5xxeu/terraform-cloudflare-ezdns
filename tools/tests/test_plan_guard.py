@@ -94,6 +94,22 @@ class PlanGuardTest(unittest.TestCase):
         self.assertIn("192.0.2.9", problems[1])
         self.assertEqual(run(p, "--max-deletes", "1", "--allow-proxy-disable"), [])
 
+    def test_proxy_disable_through_another_type_fails(self):
+        # A proxied CNAME deleted, an unproxied A created on the same name
+        cname = {"name": "web", "type": "CNAME", "content": "lb.example.net", "proxied": True, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web CNAME"), ["delete"], cname, None),
+            record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "z", "content": "192.0.2.9", "proxied": False}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_text_record_on_the_name_of_a_proxied_record_passes(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web TXT x"), ["create"], None, {"name": "web", "type": "TXT", "content": "x", "proxied": False, "zone_id": "z"}),
+        )
+        self.assertEqual(run(p, "--max-deletes", "1"), [])
+
     def test_new_key_that_stays_proxied_passes(self):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),

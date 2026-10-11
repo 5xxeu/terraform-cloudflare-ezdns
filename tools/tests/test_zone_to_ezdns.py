@@ -101,6 +101,10 @@ class YamlTest(unittest.TestCase):
         self.assertIn('  "@":', out)
         self.assertTrue(out.splitlines()[3] == "records:")
 
+    def test_line_breaks_of_yaml_escaped(self):
+        # YAML reads NEL and U+2028 as line breaks; other non-ASCII text stays as written
+        self.assertEqual(z.quote("a\u0085b\u2028c\x7fd ü"), '"a\\u0085b\\u2028c\\u007fd ü"')
+
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)
         names = [line.strip()[:-1] for line in z.to_yaml(records, "example.com", 0).splitlines() if line.startswith("  \"")]

@@ -4,8 +4,12 @@
 
 locals {
   # The same record written with different name forms ("www" and "www.example.com",
-  # "@" and the zone name) gets different keys, so it is checked separately
-  by_identity = { for r in local.records : "${r.fqdn} ${r.key_value}" => r... }
+  # "@" and the zone name) gets different keys, so it is checked separately. HTTPS and
+  # SVCB records compare their data as sent (service parameters as fields or in value,
+  # a target with or without the trailing dot), the key keeps the data as written
+  by_identity = {
+    for r in local.records : "${r.fqdn} ${contains(["HTTPS", "SVCB"], r.type) ? "${r.type} ${substr(sha1(jsonencode(r.data)), 0, 12)}" : r.key_value}" => r...
+  }
 
   duplicates = concat(
     [
