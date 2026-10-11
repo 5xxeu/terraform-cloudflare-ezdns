@@ -94,7 +94,9 @@ A record without a `key` is addressed by its value, so a new value is a new reco
 
 ### The plan deletes and creates a record whose name I only rewrote
 
-`www`, `WWW` and `www.example.com` are one DNS name, but the key keeps the name as written, so rewriting it gives the record a new address. Add a `moved` block from the old key to the new one, see [Record Keys](../README.md#record-keys).
+`www`, `WWW` and `www.example.com` are one DNS name, but the key keeps the name as written, so rewriting it gives the record a new address. Do not apply such a plan: the delete and the create run in no fixed order, so the name either stops answering for a moment or the create fails as a copy of the record that still exists. Add a `moved` block from the old key to the new one, see [Record Keys](../README.md#record-keys); the plan then changes nothing.
+
+A rename to another name (`app` to `api`) is a delete and a create too, and the old name stops answering at once, as it should. A `moved` block keeps the Cloudflare record (its ID and comment) and changes its name; to keep both names answering for a while, add the new name in one apply and remove the old one in the next.
 
 ### The plan creates records that exist in the zone
 
