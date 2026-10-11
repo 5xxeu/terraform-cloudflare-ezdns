@@ -1,6 +1,6 @@
 # DNS records without a provider
 
-Checks and normalizes records like the wrappers do, without a provider and without resources: the same inputs (except `zone_id`, and `zone_name` is required), the same validation and warnings, and the records as the wrappers would create them, keyed by their record keys. Use it to test a configuration with `terraform test` and no Cloudflare credentials, for example that the zone keeps its MX records or that mail hosts are not proxied. See the [main README](https://github.com/5xxeu/terraform-cloudflare-ezdns#testing-your-records) for an example.
+Checks and normalizes records like the wrappers do, without a provider and without resources: the same inputs (except `zone_id`, and `zone_name` is required), the same validation and warnings, and the records as the wrappers would create them, keyed by their record keys. Use it to test a configuration with `terraform test` and no Cloudflare credentials, for example that the zone keeps its MX records or that mail hosts are not proxied. See [Testing Your Records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records) for an example.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

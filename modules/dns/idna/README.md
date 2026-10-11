@@ -1,6 +1,6 @@
 # DNS records with internationalized names
 
-The v5 wrapper for zones and names in Unicode (`münchen.de`, `bücher`): converts `zone_name`, the names, prefixes of record types and targets that have non-ASCII characters to Punycode with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider, and passes everything to the v5 wrapper. It has the inputs and outputs of the root module, and its records have the same addresses. See the [main README](https://github.com/5xxeu/terraform-cloudflare-ezdns#internationalized-names) for usage.
+The v5 wrapper for zones and names in Unicode (`münchen.de`, `bücher`): converts `zone_name`, the names, prefixes of record types and targets that have non-ASCII characters to Punycode with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider, and passes everything to the v5 wrapper. It has the inputs and outputs of the root module, and its records have the same addresses. See [Internationalized Names](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#internationalized-names) for usage.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
