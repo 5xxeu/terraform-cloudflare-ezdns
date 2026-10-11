@@ -115,6 +115,18 @@ class PlanGuardTest(unittest.TestCase):
         self.assertEqual(run(p, "--module", "module.dns"), [])
         self.assertNotEqual(run(p), [])
 
+    def test_module_filter_with_instances(self):
+        # module calls with count or for_each have instance keys
+        p = plan(
+            record('module.dns[0].cloudflare_dns_record.record["web A 192.0.2.1"]', ["update"], WEB, {**WEB, "proxied": False}),
+            record('module.dns["prod"].cloudflare_dns_record.record["x"]', ["delete"], MX, None),
+            record('module.dnsx.cloudflare_dns_record.record["y"]', ["delete"], MX, None),
+        )
+        problems = run(p, "--module", "module.dns")
+        self.assertIn("deletes 1 records", problems[0])
+        self.assertTrue(any("turns off the proxy" in x for x in problems))
+        self.assertEqual(run(p, "--module", 'module.dns["prod"]', "--max-deletes", "1"), [])
+
     def test_other_resources_ignored(self):
         p = plan({"address": "cloudflare_zone.z", "mode": "managed", "type": "cloudflare_zone",
                   "change": {"actions": ["delete"], "before": {}, "after": None}})

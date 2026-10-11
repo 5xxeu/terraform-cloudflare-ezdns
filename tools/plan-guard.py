@@ -75,7 +75,10 @@ def fqdn(name, zone):
 
 
 def in_module(address, module):
-    return module is None or address.startswith(module + ".")
+    """Whether the resource is in the module call or in a module in it; a call with count
+    or for_each has an instance key (module.dns[0], module.dns["prod"]), which matches
+    unless the instance is given (module.dns["prod"] matches only that instance)."""
+    return module is None or address.startswith(module + ".") or (not module.endswith("]") and address.startswith(module + "["))
 
 
 def allowed(address, patterns):

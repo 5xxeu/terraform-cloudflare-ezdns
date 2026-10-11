@@ -134,8 +134,10 @@ def convert(records, zone, default_ttl):
             rec["content"] = text(r.get("content", ""))
         if rtype in ("MX", "URI") and r.get("priority") is not None:
             rec["priority"] = int(float(r["priority"]))
-        if rtype in PROXIABLE and r.get("proxied") is True:
-            rec["proxied"] = True
+        # Written both ways, so default_proxied or the defaults of a group do not change
+        # a record of the zone
+        if rtype in PROXIABLE and isinstance(r.get("proxied"), bool):
+            rec["proxied"] = r["proxied"]
         if rtype in PROXIABLE and "proxied" not in r:
             notes.append(f"{label}: the input does not say whether it is proxied, written as not proxied: check it")
         ttl = r.get("ttl")
@@ -148,32 +150,37 @@ def convert(records, zone, default_ttl):
         settings = {k: True for k in ("flatten_cname", "ipv4_only", "ipv6_only") if (r.get("settings") or {}).get(k) is True}
         if settings:
             rec["settings"] = settings
+        rec["_id"] = r.get("id", "no ID")
         out.setdefault(name, {}).setdefault(rtype, []).append(rec)
 
-    # Records that the module would give the same key: MX and URI records that differ
-    # only in priority and CAA records that differ only in flags get a key each; other
-    # copies are copies of one record in the zone
     for name, types in out.items():
         for rtype, recs in types.items():
+            # Copies of one record (also with another TTL, comment or tags): written once
+            # (the module rejects a record listed twice), and the import of it stops until
+            # the zone has one. Reported by ID, not by value: the value of a proxied
+            # record is the origin address
+            copies = {}
+            for rec in recs:
+                copies.setdefault(json.dumps(identity(rtype, rec), sort_keys=True), []).append(rec)
+            for same in copies.values():
+                if len(same) > 1:
+                    for rec in same[1:]:
+                        recs.remove(rec)
+                    ids = ", ".join(str(r["_id"]) for r in same)
+                    notes.append(f"{len(same)} copies of one {rtype} record of {name} in the zone (IDs {ids}), written once: delete the other copies in the zone before the import")
+
+            # Records that the module would give the same key: MX and URI records that
+            # differ only in priority and CAA records that differ only in flags get a key
+            # each
             groups = {}
             for rec in recs:
                 groups.setdefault(module_key(rtype, rec), []).append(rec)
             keyed = []
             for key, same in groups.items():
-                if len(same) < 2:
-                    continue
-                identities = {json.dumps(identity(rtype, r), sort_keys=True) for r in same}
-                if rtype in ("MX", "URI", "CAA") and len(identities) == len(same):
+                if len(same) > 1 and rtype in ("MX", "URI", "CAA"):
                     for rec in same:
                         rec["key"] = f"priority-{rec.get('priority', 0)}" if rtype != "CAA" else f"flags-{rec.get('flags', 0)}"
                     keyed.append((key, same))
-                else:
-                    # Copies of one record (also with another TTL or comment): written
-                    # once (the module rejects a record listed twice), and the import of
-                    # it stops until the zone has one
-                    for rec in same[1:]:
-                        recs.remove(rec)
-                    notes.append(f"{len(same)} copies of {rtype} {name} ({key}) in the zone, written once: delete the other copies in the zone before the import")
             # Keys are unique within the name and type: two MX targets with the same pair
             # of priorities both get priority-10, so the value goes into the key then
             used = [r.get("key") or module_key(rtype, r) for r in recs]
@@ -185,8 +192,11 @@ def convert(records, zone, default_ttl):
                     for rec in same:
                         rec["key"] = f"{value}-{rec['key']}"
             used = [r.get("key") or module_key(rtype, r) for r in recs]
-            for k in sorted({k for k in used if used.count(k) > 1}):
-                notes.append(f"{rtype} {name}: several records get the key {k}: give them keys by hand")
+            for rec in recs:
+                if used.count(rec.get("key") or module_key(rtype, rec)) > 1:
+                    notes.append(f"{rtype} record {rec['_id']} of {name} gets the same key as another record: give them keys by hand")
+            for rec in recs:
+                del rec["_id"]
     return out, notes
 
 

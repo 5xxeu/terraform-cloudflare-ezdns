@@ -1026,8 +1026,8 @@ records:
 
 The script exits with 1 when it skipped records or found copies (the file is written anyway), so a CI step can stop on it.
 
-- Every value is quoted, so YAML 1.1 keeps it as text. Records with the TTL of `--default-ttl` (the `default_ttl` of the module call) are written without one, proxied records without TTL.
-- `MX` and `URI` records that differ only in priority, and `CAA` records that differ only in flags, get a `key` each, since they would have the same record key. Copies of one record in the zone are written once and reported: the import of such a record stops until the zone has one copy.
+- Every value is quoted, so YAML 1.1 keeps it as text. Records with the TTL of `--default-ttl` (the `default_ttl` of the module call) are written without one, proxied records without TTL. The proxy status of `A`, `AAAA` and `CNAME` records is written both ways (`proxied: false` too), so a `default_proxied = true` or the defaults of a group do not change a record of the zone.
+- `MX` and `URI` records that differ only in priority, and `CAA` records that differ only in flags, get a `key` each, since they would have the same record key. When these keys repeat within a name and type (two MX hosts, each with priorities 10 and 20), the target goes into the key (`mx1.example.com-priority-10`). Copies of one record in the zone (also with another TTL, comment or tags) are written once and reported with their IDs, not their values (the value of a proxied record is its origin address): the import of such a record stops until the zone has one copy.
 - Records that the module does not manage are left out and reported: read-only records of Cloudflare, records outside the zone and types that the module does not support.
 - The output of [`unmanaged_records`](#records-not-in-the-configuration) has the same form, without TTL, proxy status, comments and tags. Records written from it get the module defaults, so check them before the import: a proxied record written as not proxied would publish its origin address after the apply.
 
@@ -1171,7 +1171,7 @@ With the module from the Terraform Registry or Git, `terraform init` puts the sc
 - `--allow ADDRESS` leaves out the changes of resources whose address matches (`*` matches any characters, e.g. `--allow 'module.dns.*["www A *"]'`), for a change that was reviewed.
 - `--allow-proxy-disable` allows turning off the proxy. A proxy status that is not known until apply also fails without it.
 - `--require NAME:TYPE[:MIN]` requires at least MIN records (default 1) of a type on a name after the apply, with names as in `records` and `--zone` to qualify them.
-- `--module module.dns` checks only the records of one module call.
+- `--module module.dns` checks only the records of one module call, with all its instances when it has `count` or `for_each` (`module.dns[0]`, `module.dns["prod"]`); `--module 'module.dns["prod"]'` checks one instance.
 
 Apply the checked plan file (`terraform apply tfplan`), not a new plan: a new plan can differ from the checked one. The script checks `cloudflare_dns_record` and `cloudflare_record` resources of any configuration, also outside the module. Exit status 1 means the plan has changes that are not allowed, 2 that the plan cannot be read.
 

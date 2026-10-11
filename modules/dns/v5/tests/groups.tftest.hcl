@@ -206,3 +206,22 @@ run "computed_values" {
     error_message = "Record keys must be known at plan when a value is known only after apply"
   }
 }
+
+# Records only in groups are imported too: their types are looked up
+run "import_lookup_of_grouped_types" {
+  command = plan
+
+  variables {
+    records         = {}
+    import_existing = true
+    record_groups = {
+      mail = { records = { "@" = { MX = [{ content = "mx.example.com", priority = 10 }] } } }
+      web  = { records = { "@" = { ALIASES = [{ content = "www" }] } } }
+    }
+  }
+
+  assert {
+    condition     = toset(keys(data.cloudflare_dns_records.existing)) == toset(["MX", "CNAME"])
+    error_message = "The types of grouped records must be looked up for import_existing"
+  }
+}

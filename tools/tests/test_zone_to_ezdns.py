@@ -49,7 +49,7 @@ class ConvertTest(unittest.TestCase):
               for i, ttl in enumerate([3600, 300])]
         records, notes = z.convert(mx, "example.com", 3600)
         self.assertEqual(records["@"]["MX"], [{"content": "mx.example.com", "priority": 10}])
-        self.assertTrue(any("2 copies of MX @" in n for n in notes))
+        self.assertTrue(any("2 copies of one MX record of @" in n for n in notes))
 
     def test_caa_from_data(self):
         self.assertEqual(self.records["@"]["CAA"][1], {"content": "letsencrypt.org", "tag": "issue", "flags": 128, "key": "flags-128"})
@@ -58,8 +58,26 @@ class ConvertTest(unittest.TestCase):
         self.assertEqual(self.records["_sip._tcp"]["SRV"], [{"data": {"priority": "10", "weight": "5", "port": "5060", "target": "sip.example.com"}}])
 
     def test_copies_written_once(self):
-        self.assertEqual(self.records["dup"]["A"], [{"content": "192.0.2.5"}])
-        self.assertTrue(any("2 copies of A dup" in n for n in self.notes))
+        self.assertEqual(self.records["dup"]["A"], [{"content": "192.0.2.5", "proxied": False}])
+        # Reported by ID, not by value (the value of a proxied record is its origin)
+        self.assertIn("2 copies of one A record of dup in the zone (IDs 11, 12)", "\n".join(self.notes))
+        self.assertNotIn("192.0.2.5", "\n".join(self.notes))
+
+    def test_not_proxied_written(self):
+        # So that default_proxied = true does not proxy a record of the zone
+        self.assertEqual(self.records["www"]["CNAME"][0]["proxied"], True)
+        self.assertEqual(self.records["dup"]["A"][0]["proxied"], False)
+
+    def test_copies_and_different_records_mixed(self):
+        # Priorities 10, 10, 20: one copy is dropped, the two others get keys
+        mx = [{"id": str(i), "name": "example.com", "type": "MX", "content": "mx.example.com", "priority": p, "proxied": False, "ttl": 3600}
+              for i, p in enumerate([10, 10, 20])]
+        records, notes = z.convert(mx, "example.com", 3600)
+        self.assertEqual(records["@"]["MX"], [
+            {"content": "mx.example.com", "key": "priority-10", "priority": 10},
+            {"content": "mx.example.com", "key": "priority-20", "priority": 20},
+        ])
+        self.assertEqual(notes, ["2 copies of one MX record of @ in the zone (IDs 0, 1), written once: delete the other copies in the zone before the import"])
 
     def test_skipped(self):
         joined = "\n".join(self.notes)
