@@ -132,6 +132,9 @@ def check(plan, args):
     # that arrive on a name (created, or moved there): a new key (a changed value without
     # a key) deletes the record and creates another one, which must stay proxied too
     deleted_proxied, created = [], []
+    # Proxied A, AAAA and CNAME records after the apply: while a name has one, Cloudflare
+    # answers with its own addresses for the name, also for the unproxied records on it
+    remaining_proxied = []
 
     for rc in plan.get("resource_changes", []):
         if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
@@ -160,10 +163,14 @@ def check(plan, args):
         # on the same name to come back unproxied
         if before.get("proxied") is True and (actions == ["delete"] or (after and moved(before, after, after_unknown, args.zone))):
             deleted_proxied.append(before)
+        if actions != ["delete"] and after.get("proxied") is True and not after_unknown.get("proxied") \
+                and not after_unknown.get("name") and not after_unknown.get("zone_id") and not after_unknown.get("type") \
+                and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
+            remaining_proxied.append(after)
         if allowed(address, args.allow):
             continue
-        if actions != ["delete"] and after and not published(before, after, after_unknown, args.zone):
-            created.append((address, after, after_unknown))
+        if actions != ["delete"] and after:
+            created.append((address, after, after_unknown, not published(before, after, after_unknown, args.zone)))
         if actions == ["delete"]:
             deletes.append(address)
         elif "delete" in actions and "create" in actions:
@@ -176,15 +183,22 @@ def check(plan, args):
                 proxy_off.append(address)
 
     # Any type that can point at the origin counts: a proxied CNAME replaced by an
-    # unproxied A on the same name publishes the address just the same
-    for address, after, after_unknown in created:
+    # unproxied A on the same name publishes the address just the same. A record that
+    # stays as it was publishes its address only if the name keeps no proxied record
+    # (exactly the same name: a name in another form does not count)
+    def still_proxied(before):
+        return any(r.get("zone_id") == before.get("zone_id") and fqdn(r.get("name"), args.zone) == fqdn(before.get("name"), args.zone)
+                   for r in remaining_proxied)
+
+    for address, after, after_unknown, new in created:
         if after.get("proxied") is True or address in proxy_off or address in unknown_proxy:
             continue
         if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
             continue
         for before in deleted_proxied:
             if (after_unknown.get("zone_id") or before.get("zone_id") == after.get("zone_id")) \
-                    and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)):
+                    and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), args.zone)) \
+                    and (new or not still_proxied(before)):
                 (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
                 break
 

@@ -144,6 +144,16 @@ run "ignore_invalid_regex" {
   expect_failures = [var.unmanaged_ignore]
 }
 
+run "ignore_empty_regex" {
+  command = plan
+
+  variables {
+    unmanaged_ignore = [{ name_regex = "", types = ["TXT"] }]
+  }
+
+  expect_failures = [var.unmanaged_ignore]
+}
+
 run "ignore_unknown_type" {
   command = plan
 

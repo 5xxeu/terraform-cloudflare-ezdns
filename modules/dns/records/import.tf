@@ -168,7 +168,7 @@ locals {
       anytrue([for o in local.owned_include : e.name == o || endswith(e.name, ".${o}")])
       && !anytrue([for o in local.owned_exclude : e.name == o || endswith(e.name, ".${o}")])
       && !anytrue([
-        for i in var.unmanaged_ignore : (i.name_regex == null ? true : length(regexall(coalesce(i.name_regex, "x"), e.name)) > 0) && (i.types == null ? true : contains(coalesce(i.types, []), e.type))
+        for i in var.unmanaged_ignore : (i.name_regex == null ? true : length(regexall(i.name_regex, e.name)) > 0) && (i.types == null ? true : contains(coalesce(i.types, []), e.type))
       ])
     )
   }

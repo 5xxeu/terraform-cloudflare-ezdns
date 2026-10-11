@@ -243,8 +243,8 @@ variable "unmanaged_ignore" {
   nullable = false
 
   validation {
-    condition     = alltrue([for i in var.unmanaged_ignore : (i.name_regex != null || i.types != null) && (i.name_regex == null || can(regexall(coalesce(i.name_regex, "x"), ""))) && length(setsubtract(coalesce(i.types, []), ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"])) == 0])
-    error_message = "Every unmanaged_ignore entry needs name_regex (a valid RE2 expression) or types (record types such as TXT), or both."
+    condition     = alltrue([for i in var.unmanaged_ignore : (i.name_regex != null || i.types != null) && (i.name_regex == null ? true : i.name_regex != "" && can(regexall(i.name_regex, ""))) && length(setsubtract(coalesce(i.types, []), ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"])) == 0])
+    error_message = "Every unmanaged_ignore entry needs name_regex (a valid, non-empty RE2 expression; an empty one matches every name, leave it out and use types) or types (record types such as TXT), or both."
   }
 }
 

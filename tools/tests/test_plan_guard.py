@@ -130,11 +130,22 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
-    def test_unproxied_record_that_stays_on_the_name_passes(self):
-        # Already unproxied on the name before the plan: nothing new is published
+    def test_unproxied_record_left_without_proxied_neighbours_fails(self):
+        # While a proxied A was on the name, Cloudflare answered for the whole name; without
+        # it the unproxied AAAA (unchanged, no-op) publishes its address
         aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web AAAA 2001:db8::1"), ["no-op"], aaaa, aaaa),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_unproxied_record_next_to_a_remaining_proxied_one_passes(self):
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.2"), ["no-op"], other, other),
             record(BASE.format("web AAAA 2001:db8::1"), ["update"], aaaa, {**aaaa, "ttl": 300}),
         )
         self.assertEqual(run(p, "--max-deletes", "1"), [])
