@@ -11,30 +11,35 @@ locals {
 # own value wins over the group default; proxied applies to the types that can be
 # proxied only
 locals {
+  # No try() over the records: try() returns an unknown result for a value that is not
+  # wholly known, so one value computed by another resource would make every key
+  # unknown. Malformed groups are reported by the validation of record_groups
   group_entries = flatten([
     for group, g in var.record_groups : [
-      for name, types in try(g.records, {}) : [
-        for type, list in types : [
-          for index, record in list : {
-            name = name
-            type = type
-            record = merge(record, {
-              ttl     = try(record.ttl, null) != null ? record.ttl : try(g.defaults.ttl, null)
-              proxied = try(record.proxied, null) != null ? record.proxied : contains(["A", "AAAA", "CNAME", "ALIASES"], element(split(".", type), length(split(".", type)) - 1)) ? try(g.defaults.proxied, null) : null
-              comment = try(record.comment, null) != null ? record.comment : try(g.defaults.comment, null)
-              tags    = length(concat(try([for tag in g.defaults.tags : tag], []), try([for tag in record.tags : tag], []))) > 0 ? concat(try([for tag in g.defaults.tags : tag], []), try([for tag in record.tags : tag], [])) : null
-              source  = "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]"
-            })
-          }
+      for records in [for x in [g] : lookup(x, "records", {}) if can(keys(x))] : [
+        for name, types in records : [
+          for type, list in types : [
+            for index, record in list : {
+              name = name
+              type = type
+              record = merge(record, {
+                ttl     = try(record.ttl, null) != null ? record.ttl : try(g.defaults.ttl, null)
+                proxied = try(record.proxied, null) != null ? record.proxied : contains(["A", "AAAA", "CNAME", "ALIASES"], element(split(".", type), length(split(".", type)) - 1)) ? try(g.defaults.proxied, null) : null
+                comment = try(record.comment, null) != null ? record.comment : try(g.defaults.comment, null)
+                tags    = length(concat(try([for tag in g.defaults.tags : tag], []), try([for tag in record.tags : tag], []))) > 0 ? concat(try([for tag in g.defaults.tags : tag], []), try([for tag in record.tags : tag], [])) : null
+                source  = "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]"
+              })
+            }
+          ]
         ]
-      ]
+      ] if can(keys(records))
     ]
   ])
 
   all_records = {
     for name in distinct(concat(keys(var.records), [for e in local.group_entries : e.name])) : name => {
-      for type in distinct(concat(keys(try(var.records[name], {})), [for e in local.group_entries : e.type if e.name == name])) : type => concat(
-        [for record in try(var.records[name][type], []) : record],
+      for type in distinct(concat(flatten([for n, types in var.records : keys(types) if n == name]), [for e in local.group_entries : e.type if e.name == name])) : type => concat(
+        flatten([for n, types in var.records : [for t, list in types : list if t == type] if n == name]),
         [for e in local.group_entries : e.record if e.name == name && e.type == type],
       )
     }
@@ -187,7 +192,9 @@ locals {
               tag      = ["CAA"]
               flags    = ["CAA"]
             } : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute}"
-            if try(record[attribute], null) != null && !contains(kinds, kind)
+            # a conditional, so a value known only after apply is not looked at where
+            # the attribute applies
+            if contains(kinds, kind) ? false : try(record[attribute], null) != null
           ]
           # unknown types fail in the records module
         ] if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)

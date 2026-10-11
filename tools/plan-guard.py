@@ -102,9 +102,11 @@ def check(plan, args):
         after = change.get("after") or {}
         after_unknown = change.get("after_unknown") or {}
 
-        if actions != ["delete"] and after:
-            # cloudflare_record (provider v4) has the fully qualified name in hostname
-            key = (fqdn(after.get("name"), args.zone), str(after.get("type", "")).upper())
+        # A record counts for its set only if its name and type are known at plan: a name
+        # computed at apply could end up anywhere (and a missing name is not the apex)
+        if actions != ["delete"] and after and not after_unknown.get("name") and not after_unknown.get("type") \
+                and after.get("name") and after.get("type"):
+            key = (fqdn(after.get("name"), args.zone), str(after.get("type")).upper())
             after_sets[key] = after_sets.get(key, 0) + 1
 
         if allowed(address, args.allow):
@@ -113,7 +115,8 @@ def check(plan, args):
             deletes.append(address)
         elif "delete" in actions and "create" in actions:
             replacements.append(address)
-        if before.get("proxied") is True and "delete" not in actions:
+        # Also a replacement: the record that is created again must stay proxied
+        if before.get("proxied") is True and actions != ["delete"]:
             if after_unknown.get("proxied"):
                 unknown_proxy.append(address)
             elif after.get("proxied") is not True:
@@ -153,7 +156,9 @@ def check(plan, args):
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     plan = load_plan(args.plan)
-    if not isinstance(plan, dict) or "format_version" not in plan:
+    # planned_values is in every plan, also one without changes (which has no
+    # resource_changes); the state (terraform show -json without a plan file) has values
+    if not isinstance(plan, dict) or "format_version" not in plan or "planned_values" not in plan:
         print(f"plan-guard: {args.plan} is not a plan in the JSON format of terraform show -json", file=sys.stderr)
         return 2
     problems = check(plan, args)

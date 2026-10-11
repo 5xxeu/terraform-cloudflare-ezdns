@@ -33,6 +33,24 @@ class ConvertTest(unittest.TestCase):
     def test_mx_that_differ_only_in_priority_get_keys(self):
         self.assertEqual([r["key"] for r in self.records["@"]["MX"]], ["priority-10", "priority-20"])
 
+    def test_keys_unique_across_targets(self):
+        # Two MX targets with the same pair of priorities: priority-10 alone would repeat
+        mx = [{"id": str(i), "name": "example.com", "type": "MX", "content": t, "priority": p, "proxied": False, "ttl": 3600}
+              for i, (t, p) in enumerate([("mx1.example.com", 10), ("mx1.example.com", 20), ("mx2.example.com", 10), ("mx2.example.com", 20)])]
+        records, notes = z.convert(mx, "example.com", 3600)
+        self.assertEqual([r["key"] for r in records["@"]["MX"]], [
+            "mx1.example.com-priority-10", "mx1.example.com-priority-20", "mx2.example.com-priority-10", "mx2.example.com-priority-20",
+        ])
+        self.assertEqual(notes, [])
+
+    def test_copies_with_another_ttl_written_once(self):
+        # TTL and comment are not part of what the record is: still copies of one record
+        mx = [{"id": str(i), "name": "example.com", "type": "MX", "content": "mx.example.com", "priority": 10, "proxied": False, "ttl": ttl}
+              for i, ttl in enumerate([3600, 300])]
+        records, notes = z.convert(mx, "example.com", 3600)
+        self.assertEqual(records["@"]["MX"], [{"content": "mx.example.com", "priority": 10}])
+        self.assertTrue(any("2 copies of MX @" in n for n in notes))
+
     def test_caa_from_data(self):
         self.assertEqual(self.records["@"]["CAA"][1], {"content": "letsencrypt.org", "tag": "issue", "flags": 128, "key": "flags-128"})
 

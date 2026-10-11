@@ -138,3 +138,19 @@ run "empty_zone_name" {
 
   expect_failures = [var.zone_name]
 }
+
+# A value computed by another resource must not make the names and keys unknown (try()
+# over the records would): the plan fails with "Invalid count argument" or "Invalid
+# for_each argument" then
+run "computed_values" {
+  command = plan
+
+  module {
+    source = "./tests/computed"
+  }
+
+  assert {
+    condition     = toset(output.keys) == toset(["xn--bcher-kva A 192.0.2.1", "xn--lden-loa A 192.0.2.2"])
+    error_message = "Converted names and keys must be known at plan when a value is known only after apply"
+  }
+}

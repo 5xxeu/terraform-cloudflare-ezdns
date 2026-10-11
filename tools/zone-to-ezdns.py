@@ -30,6 +30,7 @@ skipped or are copies of each other (the YAML is written anyway), 2 for bad inpu
 import argparse
 import hashlib
 import json
+import re
 import sys
 
 # Fields of the structured records, as the module takes them in data (other fields that
@@ -149,27 +150,49 @@ def convert(records, zone, default_ttl):
             rec["settings"] = settings
         out.setdefault(name, {}).setdefault(rtype, []).append(rec)
 
-    # Records that the module would give the same key: MX records that differ only in
-    # priority and CAA records that differ only in flags get a key each; other copies
-    # are copies of one record in the zone
+    # Records that the module would give the same key: MX and URI records that differ
+    # only in priority and CAA records that differ only in flags get a key each; other
+    # copies are copies of one record in the zone
     for name, types in out.items():
         for rtype, recs in types.items():
             groups = {}
             for rec in recs:
                 groups.setdefault(module_key(rtype, rec), []).append(rec)
+            keyed = []
             for key, same in groups.items():
                 if len(same) < 2:
                     continue
-                if rtype in ("MX", "URI", "CAA") and len({json.dumps(r, sort_keys=True) for r in same}) == len(same):
+                identities = {json.dumps(identity(rtype, r), sort_keys=True) for r in same}
+                if rtype in ("MX", "URI", "CAA") and len(identities) == len(same):
                     for rec in same:
                         rec["key"] = f"priority-{rec.get('priority', 0)}" if rtype != "CAA" else f"flags-{rec.get('flags', 0)}"
+                    keyed.append((key, same))
                 else:
-                    # Copies of one record: written once (the module rejects a record
-                    # listed twice), and the import of it stops until the zone has one
+                    # Copies of one record (also with another TTL or comment): written
+                    # once (the module rejects a record listed twice), and the import of
+                    # it stops until the zone has one
                     for rec in same[1:]:
                         recs.remove(rec)
                     notes.append(f"{len(same)} copies of {rtype} {name} ({key}) in the zone, written once: delete the other copies in the zone before the import")
+            # Keys are unique within the name and type: two MX targets with the same pair
+            # of priorities both get priority-10, so the value goes into the key then
+            used = [r.get("key") or module_key(rtype, r) for r in recs]
+            for key, same in keyed:
+                if any(used.count(r["key"]) > 1 for r in same):
+                    first = same[0]
+                    value = first.get("content") or (first.get("data") or {}).get("target") or key
+                    value = re.sub(r"\s+", "-", f"{first['tag']} {value}" if rtype == "CAA" else value)
+                    for rec in same:
+                        rec["key"] = f"{value}-{rec['key']}"
+            used = [r.get("key") or module_key(rtype, r) for r in recs]
+            for k in sorted({k for k in used if used.count(k) > 1}):
+                notes.append(f"{rtype} {name}: several records get the key {k}: give them keys by hand")
     return out, notes
+
+
+def identity(rtype, rec):
+    """The fields that make a DNS record (not its TTL, comment, tags or proxy)."""
+    return {k: rec[k] for k in ("content", "priority", "tag", "flags", "data") if k in rec}
 
 
 def module_key(rtype, rec):

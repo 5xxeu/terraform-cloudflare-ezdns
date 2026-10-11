@@ -191,3 +191,18 @@ run "null_attributes_are_not_numbers" {
     error_message = "Attributes set to null must not be reported as numbers"
   }
 }
+
+# A value computed by another resource must not make the keys unknown (try() over the
+# records would): the plan fails with "Invalid for_each argument" then
+run "computed_values" {
+  command = plan
+
+  module {
+    source = "./tests/computed"
+  }
+
+  assert {
+    condition     = toset(output.keys) == toset(["@ A 192.0.2.1", "www A 192.0.2.2"])
+    error_message = "Record keys must be known at plan when a value is known only after apply"
+  }
+}
