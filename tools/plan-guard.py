@@ -152,7 +152,8 @@ def check(plan, args):
         # Records outside --module are checked only as neighbours on the names of the
         # records of the module (and the other way round): the proxy hides a whole name,
         # whichever module call manages its records
-        own = in_module(address, args.module)
+        # A record moved out of the module (a moved block) still belongs to it
+        own = in_module(address, args.module) or in_module(rc.get("previous_address") or "", args.module)
         # A replacement that deletes first (["delete", "create"]; create_before_destroy gives
         # ["create", "delete"]) leaves the name unhidden until the new record exists
         if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (

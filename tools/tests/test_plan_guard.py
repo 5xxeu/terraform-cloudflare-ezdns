@@ -174,6 +174,15 @@ class PlanGuardTest(unittest.TestCase):
         # The other module alone: its records are checked against the names of the first
         self.assertIn("turns off the proxy", run(p, "--module", "module.ipv6")[0])
 
+    def test_record_moved_out_of_the_module_is_checked(self):
+        rc = record('module.other.cloudflare_dns_record.record["web A 192.0.2.1"]', ["update"], WEB, {**WEB, "proxied": False})
+        rc["previous_address"] = 'module.dns.cloudflare_dns_record.record["web A 192.0.2.1"]'
+        self.assertIn("turns off the proxy", run(plan(rc), "--module", "module.dns")[0])
+        rc["change"]["actions"] = ["delete", "create"]
+        problems = run(plan(rc), "--module", "module.dns")
+        self.assertIn("replaces 1 records", problems[0])
+        self.assertIn("turns off the proxy", problems[2])
+
     def test_records_outside_the_module_on_other_names_pass(self):
         other = {"name": "api", "type": "A", "content": "192.0.2.5", "proxied": False, "zone_id": "z"}
         p = plan(
