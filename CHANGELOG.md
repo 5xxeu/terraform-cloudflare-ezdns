@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file. The format is b
 - The warning about numbers in text values no longer reports attributes set to `null`
 - README and examples: the module calls use the Terraform Registry source (`5xxeu/ezdns/cloudflare`) instead of a local copy, so they work as written; the local copy and the Git source stay described under Usage
 - The README keeps what is needed to use the module; the longer guides moved to `docs`: recipes, importing existing records, records not in the configuration, checking plans, upgrading and testing. The README sections stay with a short summary and a link, so links to them still work. `CONTRIBUTING.md` lists the rules the code keeps (stable keys, wrappers in sync, keys known at plan, Terraform 1.8, linear work)
+- `docs/examples.md`: module calls for mail (Google Workspace, Microsoft 365), websites (GitHub Pages, Netlify, Vercel), CAA, SRV and HTTPS records, several teams in one zone, moving a server and a zone shared with external-dns and cert-manager. CI plans every whole module call of the README and the docs against a mocked provider (`scripts/test-docs-examples.py`), so the examples stay valid
 
 ### Internal
 

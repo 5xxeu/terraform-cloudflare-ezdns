@@ -157,6 +157,9 @@ jobs:
           terraform init -backend=false >/dev/null
           terraform test -verbose | tee test.log
           ! grep -q "Warning" test.log
+      # Every whole module call in the README and docs plans without errors or warnings
+      - name: Examples of the README and docs
+        run: python3 scripts/test-docs-examples.py
 
   tflint:
     name: TFLint

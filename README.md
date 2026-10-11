@@ -80,6 +80,7 @@ Everything else (all record types, defaults, import of existing records, validat
 - [Checking Plans Before Apply](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply)
 - [Stability](#stability), [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration)
 - [Testing](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing), [testing your records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records)
+- [Examples](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md): mail (Google Workspace, Microsoft 365), websites (GitHub Pages, Netlify, Vercel), CAA, SRV, HTTPS records, several teams in one zone, moving a server, next to external-dns and cert-manager
 
 ## Features
 
@@ -268,6 +269,7 @@ module "dns" {
       records  = yamldecode(file("${path.module}/mail.ezdns.yaml")).records
     }
     web = {
+      # ttl applies to the records that are not proxied (status); proxied ones get 1
       defaults = { ttl = 300, proxied = true, comment = "web" }
       records  = yamldecode(file("${path.module}/web.ezdns.yaml")).records
     }
@@ -397,7 +399,7 @@ The module creates these records:
 | `static.example.com` | CNAME | `cdn.app.example.com` | 3600 | `static CNAME` |
 | `_sip._tcp.example.com` | SRV | `10 5 5060 sip.example.com` | 3600 | `_sip._tcp SRV 9c61601f99e8` |
 
-Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
+More module calls for common setups (mail, websites, CAA, SRV, teams) are in [docs/examples.md](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md). Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
 
 ## Record Model
 
@@ -507,7 +509,9 @@ Without a `key`, a changed value is a new record: the old one is deleted and the
 
 ```hcl
 "web" = {
-  A = [{ key = "web", content = aws_instance.web.public_ip }]
+  A = [
+    { content = aws_instance.web.public_ip, key = "web" }, # record key "web A web"
+  ]
 }
 ```
 
