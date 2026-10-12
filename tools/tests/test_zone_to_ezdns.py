@@ -136,6 +136,10 @@ class YamlTest(unittest.TestCase):
         finally:
             pathlib.Path(f.name).unlink()
 
+    def test_empty_zone_is_an_empty_map(self):
+        # records: without a value would be null in YAML
+        self.assertTrue(z.to_yaml({}, "example.com", 0).rstrip().endswith("records: {}"))
+
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)
         names = [line.strip()[:-1] for line in z.to_yaml(records, "example.com", 0).splitlines() if line.startswith("  \"")]

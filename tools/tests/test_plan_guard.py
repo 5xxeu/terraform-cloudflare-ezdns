@@ -428,6 +428,14 @@ class MainTest(unittest.TestCase):
             broken["resource_changes"][0]["change"]["after_unknown"] = []
             self.assertEqual(self.exit_code(broken), 2)
 
+    def test_actions_of_another_shape_are_exit_code_2(self):
+        p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))
+        p["resource_changes"][0]["change"]["actions"] = "delete"
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.exit_code(p), 2)
+            p["resource_changes"][0]["change"]["actions"] = ["remove"]
+            self.assertEqual(self.exit_code(p), 2)
+
     def test_failing_plan(self):
         p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))
         self.assertEqual(self.exit_code(p), 1)

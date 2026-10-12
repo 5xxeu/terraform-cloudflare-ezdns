@@ -23,6 +23,8 @@ import re
 import sys
 
 RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
+# The actions of a change in a plan (terraform show -json)
+ACTIONS = {"no-op", "create", "read", "update", "delete", "forget"}
 
 
 def parse_args(argv):
@@ -295,6 +297,17 @@ def main(argv=None):
     if not isinstance(changes, list) or not all(isinstance(rc, dict) for rc in changes):
         print(f"plan-guard: {args.plan}: resource_changes is not a list of changes", file=sys.stderr)
         return 2
+    # The changes of records must have the shape of a plan: a wrong one (actions as a
+    # string) would not fail below, but skip the change
+    for rc in changes:
+        if rc.get("type") not in RECORD_TYPES:
+            continue
+        change = rc.get("change")
+        actions = change.get("actions") if isinstance(change, dict) else None
+        if not isinstance(actions, list) or not actions or not all(a in ACTIONS for a in actions) \
+                or not all(isinstance(change.get(side), (dict, type(None))) for side in ("before", "after", "after_unknown")):
+            print(f"plan-guard: {args.plan}: the change of {rc.get('address')!r} does not have the shape of a plan", file=sys.stderr)
+            return 2
     # Any other unexpected shape (a name that is not text, a change that is not an
     # object) is a broken input too, not a failing plan
     try:

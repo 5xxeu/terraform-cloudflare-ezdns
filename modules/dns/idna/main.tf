@@ -101,14 +101,15 @@ locals {
   ])
 
   # Names and type keys that differ only in their form ("bücher" and "xn--bcher-kva")
-  # are joined, like the same name written twice; the v5 wrapper then finds duplicates
+  # are joined, like the same name written twice; the v5 wrapper then finds duplicates.
+  # The entries are grouped by origin and name once, so the work grows linearly with
+  # the names (origins and types are few); names and origins have no newlines
+  grouped = local.entries == null ? null : { for e in local.entries : "${e.origin}\n${e.name}" => e... }
   converted = local.entries == null ? null : {
     for origin in keys(local.inputs) : origin => {
-      for name in distinct([for e in local.entries : e.name if e.origin == origin]) : name => {
-        for type in distinct([for e in local.entries : e.type if e.origin == origin && e.name == name]) : type => flatten([
-          for e in local.entries : e.list if e.origin == origin && e.name == name && e.type == type
-        ])
-      }
+      for k, es in local.grouped : es[0].name => {
+        for type in distinct([for e in es : e.type]) : type => flatten([for e in es : e.list if e.type == type])
+      } if es[0].origin == origin
     }
   }
 

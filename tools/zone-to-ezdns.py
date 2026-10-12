@@ -244,7 +244,8 @@ def to_yaml(records, zone, count):
         "# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json",
         f"# Records of {zone} written by zone-to-ezdns.py ({count} records). Review them, then adopt them with",
         "# import_existing = true and import blocks, and check that the plan creates and deletes nothing.",
-        "records:",
+        # An empty zone: records: without a value decodes to null, which the module rejects
+        "records:" if records else "records: {}",
     ]
     for name in sorted(records, key=lambda n: (n != "@", n.split(".")[::-1])):
         lines.append(f"  {quote(name)}:")
