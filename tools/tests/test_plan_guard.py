@@ -240,6 +240,25 @@ class PlanGuardTest(unittest.TestCase):
         p["resource_changes"][1]["change"].update(actions=["update"], after={**aaaa, "name": "old"})
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
+    def test_unproxied_record_that_turns_on_the_proxy_fails(self):
+        # The A may be deleted before the AAAA is updated: the old, unproxied AAAA is
+        # published until then
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web AAAA 2001:db8::1"), ["update"], aaaa, {**aaaa, "proxied": True}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
+
+    def test_proxy_turned_on_next_to_a_remaining_proxied_record_passes(self):
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
+        other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.2"), ["no-op"], other, other),
+            record(BASE.format("web AAAA 2001:db8::1"), ["update"], aaaa, {**aaaa, "proxied": True}),
+        )
+        self.assertEqual(run(p), [])
+
     def test_unproxied_record_deleted_next_to_a_remaining_proxied_one_passes(self):
         aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": False, "zone_id": "z"}
         other = {**WEB, "zone_id": "z", "content": "192.0.2.2"}

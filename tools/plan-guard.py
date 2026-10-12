@@ -182,11 +182,13 @@ def check(plan, args):
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(after)
-        # An unproxied record that leaves its name (deleted, moved, or replaced deleting
-        # first) stays there until Terraform gets to it, which may be after the proxied
-        # records of the name are gone: its value before the apply is a neighbour too
+        # An unproxied record that changes (deleted, moved, replaced, a new value, or the
+        # proxy turned on) keeps its old value until Terraform gets to it, which may be
+        # after the proxied records of the name are gone: that value is a neighbour too
         if before.get("proxied") is False and str(before.get("type", "")).upper() in ("A", "AAAA", "CNAME") \
-                and (actions in (["delete"], ["delete", "create"]) or (after and moved(before, after, after_unknown, zone_of(before)))) \
+                and actions not in (["no-op"], ["read"]) \
+                and not (after and after.get("proxied") is False and not after_unknown.get("proxied")
+                         and published(before, after, after_unknown, zone_of(after))) \
                 and not allowed(address, args.allow):
             created.append((address, before, {}, False, own))
         if not own:

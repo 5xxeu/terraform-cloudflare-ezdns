@@ -32,9 +32,15 @@ variable "records" {
   # Not a typed object: Terraform silently drops unknown attributes when converting to an
   # object type, so misspelled attributes are checked here and the typed structure is
   # built by the records module
-  type     = any
-  default  = {}
-  nullable = false
+  type    = any
+  default = {}
+  # Left out it is {}; an explicit null (an emptied YAML file) is rejected below instead
+  # of being taken as {}, which would delete every record
+
+  validation {
+    condition     = var.records != null
+    error_message = "records is null, for example from an empty YAML file or a records: key without records. Pass {} (or leave records out) to manage no records in records; null is rejected so that an emptied file does not delete every record."
+  }
 
   validation {
     condition = try(alltrue(flatten([
@@ -118,9 +124,15 @@ variable "record_groups" {
     `records` keeps it in the state.
   EOT
   # Not a typed object, like records: unknown attributes are checked here
-  type     = any
-  default  = {}
-  nullable = false
+  type    = any
+  default = {}
+  # Left out it is {}; an explicit null (an emptied YAML file) is rejected below instead
+  # of being taken as {}, which would delete every record
+
+  validation {
+    condition     = var.record_groups != null
+    error_message = "record_groups is null, for example from a YAML file that decodes to nothing. Pass {} (or leave record_groups out) for no groups; null is rejected so that an emptied file does not delete the records of every group."
+  }
 
   validation {
     condition = try(alltrue(flatten([

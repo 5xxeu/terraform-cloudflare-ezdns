@@ -180,3 +180,38 @@ run "unmanaged_inputs_passed_to_the_v5_wrapper" {
 
   expect_failures = [var.unmanaged_policy]
 }
+
+# An emptied YAML file decodes to null: it must stop the plan, not delete every record
+run "null_records" {
+  command = plan
+
+  variables {
+    records = null
+  }
+
+  expect_failures = [var.records]
+}
+
+run "null_record_groups" {
+  command = plan
+
+  variables {
+    record_groups = null
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "only_groups" {
+  command = plan
+
+  variables {
+    records       = {}
+    record_groups = { web = { records = { "@" = { A = [{ content = "192.0.2.1" }] } } } }
+  }
+
+  assert {
+    condition     = length(output.record_names) == 1
+    error_message = "Records only in groups must be planned"
+  }
+}
