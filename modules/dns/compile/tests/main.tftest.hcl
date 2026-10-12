@@ -76,3 +76,18 @@ run "zone_name_required_in_punycode" {
 
   expect_failures = [var.zone_name]
 }
+
+# null fields of data come from an object type with optional(...) attributes: they are not
+# text given as numbers (a failed check fails the run)
+run "null_data_fields" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", value = "alpn=h2", ipv4hint = null } }] } }
+  }
+
+  assert {
+    condition     = length([for r in values(output.records) : r if r.type == "HTTPS"]) == 1
+    error_message = "A null field of data must plan without the warning about numbers"
+  }
+}

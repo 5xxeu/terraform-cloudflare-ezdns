@@ -84,7 +84,7 @@ check "records_text_values_are_strings" {
           for record in list : concat(
             # fine: a JSON string, or a value that is not a number
             [for attribute in ["content", "key", "comment", "tag"] : try(record[attribute], null) == null || startswith(jsonencode(try(record[attribute], "")), "\"") || !can(tonumber(try(record[attribute], "")))],
-            [for field in setintersection(try(keys(record.data), []), local.text_data_fields) : startswith(jsonencode(try(record.data[field], "")), "\"") || !can(tonumber(try(record.data[field], "")))],
+            [for field in setintersection(try(keys(record.data), []), local.text_data_fields) : try(record.data[field], null) == null || startswith(jsonencode(try(record.data[field], "")), "\"") || !can(tonumber(try(record.data[field], "")))],
             # tags may be a list or a set (a set has no index), so the values are iterated
             try([for tag in record.tags : startswith(jsonencode(tag), "\"") || !can(tonumber(tag))], []),
           )
@@ -101,7 +101,7 @@ check "records_text_values_are_strings" {
             ],
             [
               for field in setintersection(try(keys(record.data), []), local.text_data_fields) : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.data.${field} is ${jsonencode(try(record.data[field], ""))}"
-              if !startswith(jsonencode(try(record.data[field], "")), "\"") && can(tonumber(try(record.data[field], "")))
+              if try(record.data[field], null) != null && !startswith(jsonencode(try(record.data[field], "")), "\"") && can(tonumber(try(record.data[field], "")))
             ],
             [
               for tag in try([for tag in record.tags : tag], []) : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.tags has ${jsonencode(tag)}"
