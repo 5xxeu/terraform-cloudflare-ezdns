@@ -129,6 +129,60 @@ def hidden_value(record):
         return "IP " + content.lower()
 
 
+# One word of the text of service parameters: a key with an optional value, in quotes or
+# not (the priority and the target in content are words without a value)
+SVC_PARAM = re.compile(r'\s*([^\s="]+)(?:=("(?:[^"\\]|\\.)*"|[^\s"]*))?')
+LOOSE_HINT = re.compile(r'(?:ipv4hint|ipv6hint)="?([^"\s]*)', re.IGNORECASE)
+
+
+def data_items(data):
+    """The data of a record as a list: an object in provider 5.x, a list of one in 4.x."""
+    return data if isinstance(data, list) else [data]
+
+
+def data_values(record):
+    """The texts of service parameters in data.value of a record."""
+    return [d.get("value") for d in data_items(record.get("data")) if isinstance(d, dict) and isinstance(d.get("value"), str)]
+
+
+def svcb_type(record, unknown):
+    """Whether a record is (or, with its type known only after apply, may be) HTTPS or SVCB."""
+    return bool(unknown.get("type")) or str(record.get("type", "")).upper() in ("HTTPS", "SVCB")
+
+
+def hints(record, unknown=None):
+    """The addresses in the ipv4hint and ipv6hint parameters of an HTTPS or SVCB record,
+    in the form of hidden_value (they are in data.value, and in content in provider 5.x).
+    Only whole parameters count, not the text of another one (alpn="ipv4hint=...")."""
+    if not svcb_type(record, unknown or {}):
+        return set()
+    addresses = set()
+    for text in data_values(record) + [record.get("content")]:
+        pos = 0
+        while isinstance(text, str):
+            m = SVC_PARAM.match(text, pos)
+            if not m or m.end() == pos:
+                # Text that does not parse (a quote that is not closed): any hint in the rest
+                # counts, as Cloudflare may read it otherwise
+                for value in LOOSE_HINT.findall(text[pos:]):
+                    addresses.update(hidden_value({"type": "A", "content": a.strip()}) for a in value.split(",") if a.strip())
+                break
+            pos = m.end()
+            if m.group(1).lower() in ("ipv4hint", "ipv6hint") and m.group(2):
+                value = re.sub(r"\\(.)", r"\1", m.group(2).strip('"'))
+                addresses.update(hidden_value({"type": "A", "content": a.strip()}) for a in value.split(",") if a.strip())
+    return addresses
+
+
+def hints_unknown(record, unknown):
+    """Whether the service parameters of an HTTPS or SVCB record are known only after apply:
+    data.value is, or content is and the record has no data (provider 5.x computes content
+    from data, so a known data is enough to check, also one without a value)."""
+    return svcb_type(record, unknown) and (
+        any(d is True or (isinstance(d, dict) and d.get("value")) for d in data_items(unknown.get("data")))
+        or (bool(unknown.get("content")) and not any(isinstance(d, dict) for d in data_items(record.get("data")))))
+
+
 def value_kinds(record, unknown):
     """The kinds of value an A, AAAA or CNAME record can have: both when its type is
     known only after apply."""
@@ -171,6 +225,9 @@ def check(plan, args):
     # The kinds of values ("IP ", "CNAME ") that proxied records hide but that are known
     # only after apply, with whether one of them is in the module
     hidden_unknown = {}
+    # HTTPS and SVCB records that get new addresses in ipv4hint or ipv6hint (or hints known
+    # only after apply): a hidden address there publishes the origin as an unproxied A does
+    hinted, hint_leaks = [], []
 
     # --zone qualifies the names of one zone: of --zone-id, or of a plan with one zone.
     # Names of other zones are compared without it (a name as written also matches the
@@ -200,6 +257,10 @@ def check(plan, args):
         before = change.get("before") or {}
         after = change.get("after") or {}
         after_unknown = change.get("after_unknown") or {}
+        # A forgotten record (a removed block with destroy = false) stays in Cloudflare as it
+        # is and only leaves the state, so for the checks it does not change
+        if actions == ["forget"]:
+            actions, after, after_unknown = ["no-op"], before, {}
 
         # Records outside --module are checked only as neighbours on the names of the
         # records of the module (and the other way round): the proxy hides a whole name,
@@ -221,6 +282,11 @@ def check(plan, args):
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(after)
+        # destroy = false on a replaced record (["forget", "create"]): the old record stays
+        # in Cloudflare as it is, next to the new one
+        kept = before if actions == ["forget", "create"] else None
+        if kept and kept.get("proxied") is True and str(kept.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
+            remaining_proxied.append(kept)
         # An unproxied record that changes (deleted, moved, replaced, a new value, or the
         # proxy turned on) keeps its old value until Terraform gets to it, which may be
         # after the proxied records of the name are gone: that value is a neighbour too
@@ -230,6 +296,10 @@ def check(plan, args):
                          and published(before, after, after_unknown, zone_of(after))) \
                 and not allowed(address, args.allow):
             created.append((address, before, {}, False, own))
+        if actions not in (["no-op"], ["read"], ["delete"]) and after and not allowed(address, args.allow):
+            new_hints = hints(after, after_unknown) - hints(before)
+            if new_hints or hints_unknown(after, after_unknown):
+                hinted.append((address, new_hints, hints_unknown(after, after_unknown), own))
         if not own:
             if actions != ["delete"] and after and not allowed(address, args.allow):
                 created.append((address, after, after_unknown, not published(before, after, after_unknown, zone_of(after)), False))
@@ -237,11 +307,11 @@ def check(plan, args):
 
         # A record counts for its set only if its name and type are known at plan: a name
         # computed at apply could end up anywhere (and a missing name is not the apex)
-        if actions != ["delete"] and after and not after_unknown.get("name") and not after_unknown.get("type") \
-                and after.get("name") and after.get("type") \
-                and (args.zone_id is None or (after.get("zone_id") == args.zone_id and not after_unknown.get("zone_id"))):
-            key = (fqdn(after.get("name"), args.zone), str(after.get("type")).upper())
-            after_sets[key] = after_sets.get(key, 0) + 1
+        for rec, unk in ([(after, after_unknown)] if actions != ["delete"] and after else []) + ([(kept, {})] if kept else []):
+            if not unk.get("name") and not unk.get("type") and rec.get("name") and rec.get("type") \
+                    and (args.zone_id is None or (rec.get("zone_id") == args.zone_id and not unk.get("zone_id"))):
+                key = (fqdn(rec.get("name"), args.zone), str(rec.get("type")).upper())
+                after_sets[key] = after_sets.get(key, 0) + 1
         zones.update(v.get("zone_id") for v in (before, after) if v.get("zone_id"))
         if after_unknown.get("zone_id"):
             zones.add("unknown")
@@ -298,6 +368,15 @@ def check(plan, args):
                 (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
                 break
 
+    for address, new_hints, unknown, own in hinted:
+        if address in proxy_off or address in unknown_proxy or address in unknown_value:
+            continue
+        if any(v in hidden and (own or hidden[v]) for v in new_hints):
+            hint_leaks.append(address)
+        elif ("IP " in hidden_unknown and (own or hidden_unknown["IP "])) \
+                or (unknown and any(v.startswith("IP ") and (own or o) for v, o in hidden.items())):
+            unknown_value.append(address)
+
     problems = []
     if len(deletes) > args.max_deletes:
         problems.append(f"The plan deletes {len(deletes)} records (allowed: {args.max_deletes}):")
@@ -310,6 +389,10 @@ def check(plan, args):
         problems.append("The plan turns off the proxy of records, which publishes their origin address "
                         "(--allow-proxy-disable allows it):")
         problems += [f"  {a}" for a in proxy_off]
+    if hint_leaks and not args.allow_proxy_disable:
+        problems.append("These HTTPS or SVCB records publish the origin address of a proxied record in "
+                        "ipv4hint or ipv6hint (--allow-proxy-disable or --allow allows it):")
+        problems += [f"  {a}" for a in hint_leaks]
     if unknown_proxy and not args.allow_proxy_disable:
         problems.append("Whether these proxied records stay proxied is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]

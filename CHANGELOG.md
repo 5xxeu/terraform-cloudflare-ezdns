@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.13.1] - 2026-10-13
+
+### Fixed
+
+- `tools/plan-guard.py`: an `HTTPS` or `SVCB` record that gets the address of a proxied record in `ipv4hint` or `ipv6hint` fails the plan, as it publishes the origin address (unless `--allow-proxy-disable` or `--allow`); service parameters known only after apply fail like an unknown value of an unproxied record
+- `tools/plan-guard.py`: a record that a `removed` block forgets (`lifecycle { destroy = false }`) stays in Cloudflare, so it no longer fails as a proxy that is turned off, and it counts for `--require`; so does the old record of a replacement with `destroy = false` (`["forget", "create"]`)
+
 ## [2.13.0] - 2026-10-12
 
 ### Added
@@ -425,7 +432,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...HEAD
+[2.13.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...v2.13.1
 [2.13.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...v2.13.0
 [2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
