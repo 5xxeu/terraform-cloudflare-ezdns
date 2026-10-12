@@ -4,8 +4,12 @@
 
 locals {
   # The same record written with different name forms ("www" and "www.example.com",
-  # "@" and the zone name) gets different keys, so it is checked separately
-  by_identity = { for r in local.records : "${r.fqdn} ${r.key_value}" => r... }
+  # "@" and the zone name) gets different keys, so it is checked separately. HTTPS and
+  # SVCB records compare their data as sent (service parameters as fields or in value,
+  # a target with or without the trailing dot), the key keeps the data as written
+  by_identity = {
+    for r in local.records : "${r.fqdn} ${contains(["HTTPS", "SVCB"], r.type) ? "${r.type} ${substr(sha1(jsonencode(r.data)), 0, 12)}" : r.key_value}" => r...
+  }
 
   duplicates = concat(
     [
@@ -90,6 +94,22 @@ locals {
 
   # Listed names that no longer have a conflict, so the list does not keep growing
   unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !contains(local.cname_shared, n)]
+}
+
+# owned_names: the part of the zone this module call manages, by whole labels. A name is
+# owned when it is an included name or below one, and neither an excluded name nor below
+# one
+locals {
+  owned_include = var.owned_names == null ? [lower(local.zone)] : distinct([for n in var.owned_names.include : local.fqdn[n]])
+  owned_exclude = var.owned_names == null ? [] : distinct([for n in var.owned_names.exclude : local.fqdn[n]])
+
+  not_owned = [
+    for r in local.records : "\"${r.fqdn}\" (${r.type}) from ${r.source}"
+    if !(
+      anytrue([for o in local.owned_include : r.fqdn == o || endswith(r.fqdn, ".${o}")])
+      && !anytrue([for o in local.owned_exclude : r.fqdn == o || endswith(r.fqdn, ".${o}")])
+    )
+  ]
 }
 
 check "allowed_cname_conflicts_in_use" {

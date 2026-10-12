@@ -92,6 +92,10 @@ variable "records" {
           # Stable key instead of the record value, so changing the value updates the record in place
           key = optional(string)
 
+          # Where the record is defined, for error messages; set by the wrappers for
+          # records of record_groups, not an input of its own (null: records[...])
+          source = optional(string)
+
           # Shown in the Cloudflare dashboard: comment replaces default_comment, tags are added to default_tags
           comment = optional(string)
           tags    = optional(list(string))
@@ -141,7 +145,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if rec.content == null || rec.content == ""
           ] if !contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
@@ -151,7 +155,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if rec.content == null || rec.content == ""
           ] if !contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
@@ -164,7 +168,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? rec.data == null || length(coalesce(rec.data, {})) == 0 : rec.data != null
           ]
         ]
@@ -174,7 +178,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? rec.data == null || length(coalesce(rec.data, {})) == 0 : rec.data != null
           ]
         ]
@@ -191,8 +195,8 @@ variable "records" {
               [for field in setsubtract(keys(coalesce(rec.data, {})), lookup({
                 SRV    = ["priority", "weight", "port", "target"]
                 URI    = ["weight", "target"]
-                HTTPS  = ["priority", "target", "value"]
-                SVCB   = ["priority", "target", "value"]
+                HTTPS  = ["priority", "target", "value", "mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
+                SVCB   = ["priority", "target", "value", "mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
                 TLSA   = ["usage", "selector", "matching_type", "certificate"]
                 SMIMEA = ["usage", "selector", "matching_type", "certificate"]
                 SSHFP  = ["algorithm", "type", "fingerprint"]
@@ -205,7 +209,7 @@ variable "records" {
                   "long_degrees", "long_minutes", "long_seconds", "long_direction",
                   "altitude", "size", "precision_horz", "precision_vert",
                 ]
-              }, kind, [])) : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data: unknown field \"${field}\""],
+              }, kind, [])) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: unknown field \"${field}\""],
               [for field in setsubtract(lookup({
                 SRV    = ["priority", "weight", "port", "target"]
                 URI    = ["weight", "target"]
@@ -222,7 +226,7 @@ variable "records" {
                   "lat_degrees", "lat_minutes", "lat_seconds", "lat_direction",
                   "long_degrees", "long_minutes", "long_seconds", "long_direction",
                 ]
-              }, kind, []), keys(coalesce(rec.data, {}))) : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data: missing field \"${field}\""],
+              }, kind, []), keys(coalesce(rec.data, {}))) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: missing field \"${field}\""],
             )
           ] if contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
@@ -236,8 +240,8 @@ variable "records" {
               [for field in setsubtract(keys(coalesce(rec.data, {})), lookup({
                 SRV    = ["priority", "weight", "port", "target"]
                 URI    = ["weight", "target"]
-                HTTPS  = ["priority", "target", "value"]
-                SVCB   = ["priority", "target", "value"]
+                HTTPS  = ["priority", "target", "value", "mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
+                SVCB   = ["priority", "target", "value", "mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
                 TLSA   = ["usage", "selector", "matching_type", "certificate"]
                 SMIMEA = ["usage", "selector", "matching_type", "certificate"]
                 SSHFP  = ["algorithm", "type", "fingerprint"]
@@ -250,7 +254,7 @@ variable "records" {
                   "long_degrees", "long_minutes", "long_seconds", "long_direction",
                   "altitude", "size", "precision_horz", "precision_vert",
                 ]
-              }, kind, [])) : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data: unknown field \"${field}\""],
+              }, kind, [])) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: unknown field \"${field}\""],
               [for field in setsubtract(lookup({
                 SRV    = ["priority", "weight", "port", "target"]
                 URI    = ["weight", "target"]
@@ -267,7 +271,7 @@ variable "records" {
                   "lat_degrees", "lat_minutes", "lat_seconds", "lat_direction",
                   "long_degrees", "long_minutes", "long_seconds", "long_direction",
                 ]
-              }, kind, []), keys(coalesce(rec.data, {}))) : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data: missing field \"${field}\""],
+              }, kind, []), keys(coalesce(rec.data, {}))) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: missing field \"${field}\""],
             )
           ] if contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
@@ -280,7 +284,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ttl ${rec.ttl}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ttl ${rec.ttl}"
             if !(rec.ttl == null || (floor(coalesce(rec.ttl, 1)) == coalesce(rec.ttl, 1) && (rec.ttl == 1 || (coalesce(rec.ttl, 1) >= 30 && coalesce(rec.ttl, 1) <= 86400))))
           ]
         ]
@@ -290,7 +294,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ttl ${rec.ttl}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ttl ${rec.ttl}"
             if !(rec.ttl == null || (floor(coalesce(rec.ttl, 1)) == coalesce(rec.ttl, 1) && (rec.ttl == 1 || (coalesce(rec.ttl, 1) >= 30 && coalesce(rec.ttl, 1) <= 86400))))
           ]
         ]
@@ -303,7 +307,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if coalesce(rec.proxied, false) && !contains(["A", "AAAA", "CNAME", "ALIASES"], kind)
           ]
         ]
@@ -313,7 +317,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if coalesce(rec.proxied, false) && !contains(["A", "AAAA", "CNAME", "ALIASES"], kind)
           ]
         ]
@@ -326,7 +330,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if rec.priority == null
           ] if contains(["MX", "URI"], kind)
         ]
@@ -336,7 +340,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if rec.priority == null
           ] if contains(["MX", "URI"], kind)
         ]
@@ -349,7 +353,7 @@ variable "records" {
     condition = length(flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
-          for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: priority ${rec.priority}"
+          for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: priority ${rec.priority}"
           if !(rec.priority == null || (floor(coalesce(rec.priority, 0)) == coalesce(rec.priority, 0) && coalesce(rec.priority, 0) >= 0 && coalesce(rec.priority, 0) <= 65535))
         ]
       ]
@@ -357,8 +361,172 @@ variable "records" {
     error_message = "priority must be a whole number between 0 and 65535:\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
-          for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: priority ${rec.priority}"
+          for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: priority ${rec.priority}"
           if !(rec.priority == null || (floor(coalesce(rec.priority, 0)) == coalesce(rec.priority, 0) && coalesce(rec.priority, 0) >= 0 && coalesce(rec.priority, 0) <= 65535))
+        ]
+      ]
+    ]))}"
+  }
+
+  # Numeric fields of data have the ranges of their DNS wire format (LOC as in RFC 1876),
+  # so a value out of range fails at plan instead of in the API. data is a map of
+  # strings: a value that is not a number fails too. lat_direction "false" is an
+  # unquoted N in YAML 1.1 (see keys.tf)
+  validation {
+    condition = length(flatten([
+      for base_name, type_map in var.records : [
+        for raw_key, recs in type_map : [
+          for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
+            for idx, rec in recs : concat(
+              [
+                for field, range in lookup({
+                  SRV    = { priority = [0, 65535, true], weight = [0, 65535, true], port = [0, 65535, true] }
+                  URI    = { weight = [0, 65535, true] }
+                  HTTPS  = { priority = [0, 65535, true], port = [0, 65535, true] }
+                  SVCB   = { priority = [0, 65535, true], port = [0, 65535, true] }
+                  TLSA   = { usage = [0, 255, true], selector = [0, 255, true], matching_type = [0, 255, true] }
+                  SMIMEA = { usage = [0, 255, true], selector = [0, 255, true], matching_type = [0, 255, true] }
+                  SSHFP  = { algorithm = [0, 255, true], type = [0, 255, true] }
+                  DS     = { key_tag = [0, 65535, true], algorithm = [0, 255, true], digest_type = [0, 255, true] }
+                  DNSKEY = { flags = [0, 65535, true], protocol = [0, 255, true], algorithm = [0, 255, true] }
+                  CERT   = { type = [0, 65535, true], key_tag = [0, 65535, true], algorithm = [0, 255, true] }
+                  NAPTR  = { order = [0, 65535, true], preference = [0, 65535, true] }
+                  LOC = {
+                    lat_degrees    = [0, 90, true], lat_minutes = [0, 59, true], lat_seconds = [0, 59.999, false],
+                    long_degrees   = [0, 180, true], long_minutes = [0, 59, true], long_seconds = [0, 59.999, false],
+                    altitude       = [-100000, 42849672.95, false], size = [0, 90000000, false],
+                    precision_horz = [0, 90000000, false], precision_vert = [0, 90000000, false],
+                  }
+                  }, kind, {}) : [
+                  for value in [lookup(coalesce(rec.data, {}), field, null)] : [
+                    for n in [try(tonumber(value), null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(value)} (${range[2] ? "a whole number" : "a number"} from ${range[0]} to ${range[1]})"
+                    if value != null && (n == null ? true : !(n >= range[0] && n <= range[1] && (range[2] ? floor(n) == n : true)))
+                  ]
+                ]
+              ],
+              [
+                for field, allowed in lookup({ LOC = { lat_direction = ["N", "S", "false"], long_direction = ["E", "W"] } }, kind, {}) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(coalesce(rec.data, {}), field, null))} (${join(" or ", [for a in allowed : a if a != "false"])})"
+                if lookup(coalesce(rec.data, {}), field, null) != null && !contains(allowed, lookup(coalesce(rec.data, {}), field, ""))
+              ],
+              [
+                for flags in [rec.flags] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.flags: ${flags} (a whole number from 0 to 255)"
+                if kind == "CAA" && !(flags == null || (floor(coalesce(flags, 0)) == coalesce(flags, 0) && coalesce(flags, 0) >= 0 && coalesce(flags, 0) <= 255))
+              ],
+            )
+          ]
+        ]
+      ]
+    ])) == 0
+    error_message = "Record data fields and CAA flags must be in range:\n${join("\n", flatten([
+      for base_name, type_map in var.records : [
+        for raw_key, recs in type_map : [
+          for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
+            for idx, rec in recs : concat(
+              [
+                for field, range in lookup({
+                  SRV    = { priority = [0, 65535, true], weight = [0, 65535, true], port = [0, 65535, true] }
+                  URI    = { weight = [0, 65535, true] }
+                  HTTPS  = { priority = [0, 65535, true], port = [0, 65535, true] }
+                  SVCB   = { priority = [0, 65535, true], port = [0, 65535, true] }
+                  TLSA   = { usage = [0, 255, true], selector = [0, 255, true], matching_type = [0, 255, true] }
+                  SMIMEA = { usage = [0, 255, true], selector = [0, 255, true], matching_type = [0, 255, true] }
+                  SSHFP  = { algorithm = [0, 255, true], type = [0, 255, true] }
+                  DS     = { key_tag = [0, 65535, true], algorithm = [0, 255, true], digest_type = [0, 255, true] }
+                  DNSKEY = { flags = [0, 65535, true], protocol = [0, 255, true], algorithm = [0, 255, true] }
+                  CERT   = { type = [0, 65535, true], key_tag = [0, 65535, true], algorithm = [0, 255, true] }
+                  NAPTR  = { order = [0, 65535, true], preference = [0, 65535, true] }
+                  LOC = {
+                    lat_degrees    = [0, 90, true], lat_minutes = [0, 59, true], lat_seconds = [0, 59.999, false],
+                    long_degrees   = [0, 180, true], long_minutes = [0, 59, true], long_seconds = [0, 59.999, false],
+                    altitude       = [-100000, 42849672.95, false], size = [0, 90000000, false],
+                    precision_horz = [0, 90000000, false], precision_vert = [0, 90000000, false],
+                  }
+                  }, kind, {}) : [
+                  for value in [lookup(coalesce(rec.data, {}), field, null)] : [
+                    for n in [try(tonumber(value), null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(value)} (${range[2] ? "a whole number" : "a number"} from ${range[0]} to ${range[1]})"
+                    if value != null && (n == null ? true : !(n >= range[0] && n <= range[1] && (range[2] ? floor(n) == n : true)))
+                  ]
+                ]
+              ],
+              [
+                for field, allowed in lookup({ LOC = { lat_direction = ["N", "S", "false"], long_direction = ["E", "W"] } }, kind, {}) : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(coalesce(rec.data, {}), field, null))} (${join(" or ", [for a in allowed : a if a != "false"])})"
+                if lookup(coalesce(rec.data, {}), field, null) != null && !contains(allowed, lookup(coalesce(rec.data, {}), field, ""))
+              ],
+              [
+                for flags in [rec.flags] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.flags: ${flags} (a whole number from 0 to 255)"
+                if kind == "CAA" && !(flags == null || (floor(coalesce(flags, 0)) == coalesce(flags, 0) && coalesce(flags, 0) >= 0 && coalesce(flags, 0) <= 255))
+              ],
+            )
+          ]
+        ]
+      ]
+    ]))}"
+  }
+
+  # Service parameters of HTTPS and SVCB records as fields of data (RFC 9460), which the
+  # module writes into value: alpn and mandatory are comma-separated lists, ipv4hint and
+  # ipv6hint comma-separated addresses, ech base64. value holds the same parameters as
+  # text, so a record sets one or the other
+  validation {
+    condition = length(flatten([
+      for base_name, type_map in var.records : [
+        for raw_key, recs in type_map : [
+          for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
+            for idx, rec in recs : [
+              for data in [coalesce(rec.data, {})] : concat(
+                lookup(data, "value", null) != null && length([for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null]) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", [for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null])} (set the parameters in value or as fields, not both)"] : [],
+                [
+                  for field, pattern in {
+                    alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
+                    mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
+                    ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                  } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
+                  if lookup(data, field, null) == null ? false : lookup(data, field, null) == "" || !can(regex(pattern, lookup(data, field, null)))
+                ],
+                [
+                  for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
+                  if m == null ? false : length(distinct(split(",", m))) != length(split(",", m)) || anytrue([for param in split(",", m) : lookup(data, param, null) == null])
+                ],
+                [
+                  for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
+                  if lookup(data, field, null) == null ? false : !alltrue([
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                  ])
+                ],
+              )
+            ]
+          ] if contains(["HTTPS", "SVCB"], kind)
+        ]
+      ]
+    ])) == 0
+    error_message = "HTTPS and SVCB service parameters must be valid: alpn a comma-separated list of protocol IDs (h2,h3), mandatory a list of other parameters that are set, each once, ipv4hint and ipv6hint comma-separated addresses, ech padded base64, and value only without them:\n${join("\n", flatten([
+      for base_name, type_map in var.records : [
+        for raw_key, recs in type_map : [
+          for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
+            for idx, rec in recs : [
+              for data in [coalesce(rec.data, {})] : concat(
+                lookup(data, "value", null) != null && length([for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null]) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", [for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null])} (set the parameters in value or as fields, not both)"] : [],
+                [
+                  for field, pattern in {
+                    alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
+                    mandatory = "^(alpn|port|ipv4hint|ech|ipv6hint)(,(alpn|port|ipv4hint|ech|ipv6hint))*$"
+                    ech       = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                  } : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
+                  if lookup(data, field, null) == null ? false : lookup(data, field, null) == "" || !can(regex(pattern, lookup(data, field, null)))
+                ],
+                [
+                  for m in [lookup(data, "mandatory", null)] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.mandatory: ${jsonencode(m)} (each parameter once, and set in data)"
+                  if m == null ? false : length(distinct(split(",", m))) != length(split(",", m)) || anytrue([for param in split(",", m) : lookup(data, param, null) == null])
+                ],
+                [
+                  for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
+                  if lookup(data, field, null) == null ? false : !alltrue([
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                  ])
+                ],
+              )
+            ]
+          ] if contains(["HTTPS", "SVCB"], kind)
         ]
       ]
     ]))}"
@@ -370,7 +538,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+            for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
             if rec.content == "." && rec.priority != null && rec.priority != 0
           ] if kind == "MX"
         ]
@@ -380,7 +548,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: priority ${rec.priority}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: priority ${rec.priority}"
             if rec.content == "." && rec.priority != null && rec.priority != 0
           ] if kind == "MX"
         ]
@@ -393,7 +561,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: tag ${jsonencode(rec.tag)}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: tag ${jsonencode(rec.tag)}"
             if !contains(["issue", "issuewild", "iodef"], coalesce(rec.tag, "none"))
           ] if kind == "CAA"
         ]
@@ -403,7 +571,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: tag ${jsonencode(rec.tag)}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: tag ${jsonencode(rec.tag)}"
             if !contains(["issue", "issuewild", "iodef"], coalesce(rec.tag, "none"))
           ] if kind == "CAA"
         ]
@@ -416,7 +584,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: key ${jsonencode(rec.key)}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: key ${jsonencode(rec.key)}"
             if !(rec.key == null || can(regex("^\\S+$", rec.key)))
           ]
         ]
@@ -426,7 +594,7 @@ variable "records" {
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-            for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: key ${jsonencode(rec.key)}"
+            for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: key ${jsonencode(rec.key)}"
             if !(rec.key == null || can(regex("^\\S+$", rec.key)))
           ]
         ]
@@ -451,7 +619,7 @@ variable "records" {
           for base_name, type_map in var.records : [
             for raw_key, recs in type_map : [
               for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-                for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ${jsonencode(rec.content)}"
+                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.content)}"
                 if rec.content != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.content, "x")))
               ] if kind == "ALIASES"
             ]
@@ -475,7 +643,7 @@ variable "records" {
           for base_name, type_map in var.records : [
             for raw_key, recs in type_map : [
               for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-                for idx, rec in recs : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ${jsonencode(rec.content)}"
+                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.content)}"
                 if rec.content != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.content, "x")))
               ] if kind == "ALIASES"
             ]
@@ -494,7 +662,7 @@ variable "records" {
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : [
-              for value in [coalesce(rec.content, "x")] : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
+              for value in [coalesce(rec.content, "x")] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
               if !(
                 kind == "A" ? can(cidrhost("${value}/32", 0)) && !strcontains(value, ":") :
                 kind == "AAAA" ? can(cidrhost("${value}/128", 0)) && strcontains(value, ":") :
@@ -520,7 +688,7 @@ variable "records" {
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : [
-              for value in [coalesce(rec.content, "x")] : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
+              for value in [coalesce(rec.content, "x")] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
               if !(
                 kind == "A" ? can(cidrhost("${value}/32", 0)) && !strcontains(value, ":") :
                 kind == "AAAA" ? can(cidrhost("${value}/128", 0)) && strcontains(value, ":") :
@@ -556,7 +724,7 @@ variable "records" {
             for idx, rec in recs : [
               for field in [kind == "NAPTR" ? "replacement" : "target"] : [
                 for raw in [lookup(coalesce(rec.data, {}), field, ".")] : [
-                  for value in [raw == null ? "" : raw] : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data.${field}: ${jsonencode(raw)}"
+                  for value in [raw == null ? "" : raw] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(raw)}"
                   if !(
                     value == "."
                     || (
@@ -579,7 +747,7 @@ variable "records" {
             for idx, rec in recs : [
               for field in [kind == "NAPTR" ? "replacement" : "target"] : [
                 for raw in [lookup(coalesce(rec.data, {}), field, ".")] : [
-                  for value in [raw == null ? "" : raw] : "records[\"${base_name}\"][\"${raw_key}\"][${idx}].data.${field}: ${jsonencode(raw)}"
+                  for value in [raw == null ? "" : raw] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(raw)}"
                   if !(
                     value == "."
                     || (
@@ -616,4 +784,33 @@ variable "existing_records" {
     data     = optional(map(string))
   }))
   default = []
+}
+
+variable "owned_names" {
+  description = "The part of the zone that this module call manages: names in include and below them, except names in exclude and below them (e.g. include = [\"apps\"], exclude = [\"k8s.apps\"]). Configured records outside it fail at plan, and only existing records inside it are reported as unmanaged. Names like in records, compared fully qualified and case-insensitively, by whole labels (\"apps\" covers \"x.apps\", not \"myapps\"). null: the whole zone"
+  type = object({
+    include = optional(list(string), ["@"])
+    exclude = optional(list(string), [])
+  })
+  default = null
+
+  validation {
+    condition     = var.owned_names == null || length(try(var.owned_names.include, [])) > 0 && length([for n in concat(try(var.owned_names.include, []), try(var.owned_names.exclude, [])) : n if !(n == "@" || can(regex("^[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*\\.?$", n)))]) == 0
+    error_message = "owned_names must include at least one name, and list names like in records, without wildcards (\"@\", \"apps\", \"apps.example.com\"):\n${join("\n", [for n in concat(try(var.owned_names.include, []), try(var.owned_names.exclude, [])) : jsonencode(n) if !(n == "@" || can(regex("^[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*\\.?$", n)))])}"
+  }
+}
+
+variable "unmanaged_ignore" {
+  description = "Existing records that are expected in the zone and left out of the report of unmanaged records, e.g. the TXT ownership records of external-dns: a record is left out when it matches all fields of an entry. name_regex is matched (RE2, unanchored: use ^ and $) against the fully qualified name in lower case without a trailing dot, types lists record types"
+  type = list(object({
+    name_regex = optional(string)
+    types      = optional(list(string))
+  }))
+  default  = []
+  nullable = false
+
+  validation {
+    condition     = alltrue([for i in var.unmanaged_ignore : (i.name_regex != null || i.types != null) && (i.name_regex == null ? true : i.name_regex != "" && can(regexall(i.name_regex, ""))) && length(setsubtract(coalesce(i.types, []), ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"])) == 0])
+    error_message = "Every unmanaged_ignore entry needs name_regex (a valid, non-empty RE2 expression; an empty one matches every name, leave it out and use types) or types (record types such as TXT), or both."
+  }
 }

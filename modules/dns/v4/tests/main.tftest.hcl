@@ -444,3 +444,52 @@ run "ipv6_sent_in_canonical_form" {
     error_message = "IPv6 addresses are sent in the canonical form"
   }
 }
+
+# The merge of record_groups is the code of the v5 wrapper (scripts/check-sync.sh), tested
+# there in detail
+run "record_groups" {
+  command = plan
+
+  variables {
+    record_groups = {
+      web = {
+        defaults = { ttl = 300 }
+        records  = { "www" = { A = [{ content = "192.0.2.1" }] } }
+      }
+    }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["www A 192.0.2.1"].ttl == 300 && cloudflare_record.record["app TXT spf"].ttl == 3600
+    error_message = "Grouped records must be merged with records and get the group defaults"
+  }
+}
+
+run "record_groups_unknown_attribute" {
+  command = plan
+
+  variables {
+    record_groups = { web = { records = { "www" = { A = [{ content = "192.0.2.1", proxid = true }] } } } }
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "records_output" {
+  command = plan
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].fqdn == "app.example.com" && output.records["_sip._tcp SRV sip"].data.port == "5060"
+    error_message = "records must have the fully qualified name and the data from the configuration, known at plan"
+  }
+}
+
+run "owned_names" {
+  command = plan
+
+  variables {
+    owned_names = { include = ["*"] }
+  }
+
+  expect_failures = [var.owned_names]
+}

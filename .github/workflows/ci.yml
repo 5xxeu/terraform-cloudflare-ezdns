@@ -30,6 +30,8 @@ jobs:
         dir:
           - .
           - modules/dns/records
+          - modules/dns/compile
+          - modules/dns/idna
           - modules/dns/v4
           - modules/dns/v5
           - examples/v4
@@ -68,6 +70,8 @@ jobs:
       - run: ./scripts/generate-docs.sh
       - name: Check that module READMEs are up to date
         run: git diff --exit-code || { echo "Module READMEs are outdated, run ./scripts/generate-docs.sh"; exit 1; }
+      - name: Check the links of the Markdown files
+        run: python3 scripts/check-links.py
 
   provider-min:
     name: Minimum provider (${{ matrix.dir }}, cloudflare ${{ matrix.provider }})
@@ -78,6 +82,7 @@ jobs:
         include:
           - { dir: modules/dns/v4, provider: 4.41.0 }
           - { dir: modules/dns/v5, provider: 5.26.0 }
+          - { dir: modules/dns/idna, provider: 5.26.0 }
           - { dir: ., provider: 5.26.0 }
     defaults:
       run:
@@ -135,6 +140,29 @@ jobs:
       # The same documents through the module: the schema and the validation must agree
       - run: python3 scripts/test-schema.py --terraform examples/yaml/records.ezdns.yaml
 
+  tools:
+    name: Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+      - run: python3 -m unittest discover -s tools/tests -v
+      # The YAML that zone-to-ezdns.py writes from the fixture must pass the module
+      # without errors or warnings (exit status 1: the fixture has records it skips)
+      - name: Generated records through the module
+        working-directory: tools/tests/terraform
+        run: |
+          set -o pipefail
+          python3 ../../zone-to-ezdns.py ../fixtures/zone.json --zone example.com > records.ezdns.yaml || [ $? -eq 1 ]
+          terraform init -backend=false >/dev/null
+          terraform test -verbose | tee test.log
+          ! grep -q "Warning" test.log
+      # Every whole module call in the README and docs plans without errors or warnings
+      - name: Examples of the README and docs
+        run: python3 scripts/test-docs-examples.py
+
   tflint:
     name: TFLint
     runs-on: ubuntu-latest
@@ -171,7 +199,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [fmt, test, docs, provider-min, e2e-config, schema, tflint, gitleaks]
+    needs: [fmt, test, docs, provider-min, e2e-config, schema, tools, tflint, gitleaks]
     runs-on: ubuntu-latest
     steps:
       - name: Check that all jobs passed

@@ -6,6 +6,7 @@ module "v5" {
   zone_id                 = var.zone_id
   zone_name               = var.zone_name
   records                 = var.records
+  record_groups           = var.record_groups
   import_existing         = var.import_existing
   report_unmanaged        = var.report_unmanaged
   default_ttl             = var.default_ttl
@@ -14,4 +15,7 @@ module "v5" {
   default_tags            = var.default_tags
   allowed_cname_conflicts = var.allowed_cname_conflicts
   minimum_ttl             = var.minimum_ttl
+  owned_names             = var.owned_names
+  unmanaged_ignore        = var.unmanaged_ignore
+  unmanaged_policy        = var.unmanaged_policy
 }

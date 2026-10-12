@@ -4,9 +4,41 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-12
+
+### Added
+
+- `record_groups` input (root module, both wrappers): further records in named groups, e.g. one YAML file per team, each with `defaults` (`ttl`, `proxied`, `comment`, `tags`). Groups and `records` are merged by name and type instead of the shallow `merge()` that silently drops records; a record defined twice fails as a duplicate, and errors name the group of a record (`record_groups["mail"].records["@"]["MX"][0]`). A record's own value wins over the group default, which wins over the module default. The group name is not a part of the record keys, so moving records between groups keeps them in the state. `records` now defaults to `{}` `records` and `record_groups` can be left out (they default to `{}`), but an explicit `null` (an emptied YAML file) fails at `plan` instead of deleting the records
+- `owned_names` input (root module, both wrappers): the part of the zone a module call manages (`include` and `exclude` names and everything below them, by whole labels). Configured records outside it fail at `plan`, and `report_unmanaged` only reports records inside it
+- `unmanaged_ignore` and `unmanaged_policy` inputs (root module, v5 wrapper): leave expected records out of the report of unmanaged records (by a regular expression of the name and by type, e.g. the TXT ownership records of external-dns), and stop the plan instead of the warning with `unmanaged_policy = "error"`
+- Service parameters of `HTTPS` and `SVCB` records as fields of `data` (`mandatory`, `alpn`, `port`, `ipv4hint`, `ech`, `ipv6hint`), checked at `plan` and written into `value` in the order of their keys; `value` as text still works, but not together with the fields. The same record written in both forms (or with and without the trailing dot of `target`) is reported as a duplicate at `plan`
+- Ranges of the numeric fields of `data` are checked at `plan`: priorities, weights, ports, key tags, NAPTR order and preference (0 to 65535), TLSA, SMIMEA and SSHFP fields and algorithms (0 to 255), LOC coordinates, altitude, size and precisions and their directions, and CAA `flags` (0 to 255). The JSON Schema has the same ranges
+- A warning for attributes that do not apply to the type of a record and are ignored: `content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`. They will fail from 3.0
+- The `records` output has `zone_id`, `fqdn` (fully qualified, from the configuration, known at `plan`), `ttl`, `proxied`, `priority` and `data`, for modules that use the managed names
+- `modules/dns/idna` submodule: the root module for names in Unicode. It converts `zone_name` (also a looked-up one, which Cloudflare returns in Unicode), names, prefixes of record types, `ALIASES` and the targets of `CNAME`, `MX`, `NS`, `PTR`, `SRV`, `HTTPS`, `SVCB`, `NAPTR` and `URI` records, `allowed_cname_conflicts` and `owned_names` to Punycode with `provider::idna::to_ascii` of the `5xxeu/idna` provider, then calls the v5 wrapper. Only values with non-ASCII characters are converted, so keys of ASCII names stay as written, and the records have the addresses of the root module: switching `source` needs no `moved` blocks. The root module does not depend on the provider
+- `modules/dns/compile` submodule: the checks of the wrappers without a provider and without resources, returning the records as the wrappers would create them, for `terraform test` of a configuration without Cloudflare credentials
+- `tools/plan-guard.py`: a best-effort check of a saved plan (`terraform show -json`) that fails when it deletes or replaces records, turns off the proxy of a record (also through a new key, another record type, a renamed record or new content of an unproxied record on the same name, and through an unproxied record with the value of a proxied one on another name) or leaves a required record set (`--require @:MX`, `--zone-id` for plans with several zones) empty, unless allowed
+- `tools/zone-to-ezdns.py`: writes the records of an existing zone (the response of the Cloudflare API) as an ezdns YAML file, with quoted values, keys for records that would collide, and a report of skipped records and copies
+- README: "Records in Several Files", "Changing Values Without a Gap" (why `create_before_destroy` does not help, and how to rotate values with a `key` or in steps), "The Part of the Zone a Module Call Owns", "Writing the Configuration of an Existing Zone", "Checking Plans Before Apply", "Testing Your Records" and "Stability"; the examples show what they produce (plans, records, errors and warnings, the output of the tools), use addresses of the documentation ranges and the version 2.13.0, and records in YAML have a sample file
+
 ### Changed
 
+- **Values of `data` fields out of range now fail at `plan`** (see "To 2.13" in [docs/upgrading.md](docs/upgrading.md)); the Cloudflare API rejected them at apply before
+- The lookups of `import_existing` and `report_unmanaged` read up to 100,000 records per type instead of 10,000 (a limit of the module; the provider reads the records in pages)
+- The warning about numbers in text values no longer reports attributes set to `null`
 - README and examples: the module calls use the Terraform Registry source (`5xxeu/ezdns/cloudflare`) instead of a local copy, so they work as written; the local copy and the Git source stay described under Usage
+- The README keeps what is needed to use the module; the longer guides moved to `docs`: recipes, importing existing records, records not in the configuration, checking plans, upgrading and testing. The README sections stay with a short summary and a link, so links to them still work. `CONTRIBUTING.md` lists the rules the code keeps (stable keys, wrappers in sync, keys known at plan, Terraform 1.8, linear work)
+- `docs/examples.md`: module calls for mail (Google Workspace, Microsoft 365), websites (GitHub Pages, Netlify, Vercel), CAA, SRV and HTTPS records, several teams in one zone, moving a server and a zone shared with external-dns and cert-manager. CI plans every whole module call of the README and the docs against a mocked provider (`scripts/test-docs-examples.py`), so the examples stay valid, and checks the tables of the records they create (generated from `modules/dns/compile`)
+- `docs/troubleshooting.md`: the common errors and warnings with their text, why they happen and what to do; `docs/README.md` lists the guides
+- README: a Quick Start (token, configuration, plan and apply) and the permissions of the API token (Zone, DNS, Edit; Zone, Zone, Read for the zone lookup)
+- CI checks the links between the Markdown files (`scripts/check-links.py`)
+
+### Internal
+
+- The records module takes `owned_names` and `unmanaged_ignore`, and an internal `source` attribute of records, which the wrappers set for grouped records so that errors say where a record is defined
+- `scripts/check-sync.sh` also checks that the `idna` submodule has the interface of the root module, and that the wrappers and the `compile` submodule merge `record_groups` and check records with the same code, and that `compile` has the variables of the v4 wrapper except `zone_id` and `zone_name`
+- CI tests the `compile` and `idna` submodules and the tools (unit tests, and the YAML that `zone-to-ezdns.py` writes from a fixture through the module); the full release archive contains `tools`, both archives contain `docs`
+- The end-to-end test creates and imports an `HTTPS` record with service parameters as fields, so that the value the module writes is checked against the form Cloudflare stores
 
 ## [2.12.2] - 2026-10-11
 
@@ -393,7 +425,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...HEAD
+[2.13.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...v2.13.0
 [2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.1...v2.12.0

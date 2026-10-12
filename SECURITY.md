@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Fixes go into the latest release. Older versions do not get backports: upgrade to the latest 2.x release, see [Upgrading and Migration](README.md#upgrading-and-migration).
+Fixes go into the latest release. Older versions do not get backports: upgrade to the latest 2.x release, see [Upgrading and Migration](docs/upgrading.md).
 
 | Version | Supported |
 |---------|-----------|

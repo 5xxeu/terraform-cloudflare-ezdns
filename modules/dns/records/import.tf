@@ -162,6 +162,16 @@ locals {
       ids  = ids
     } if length(ids) > 1
   }
+  # Only records in owned_names are reported, and none that unmanaged_ignore expects
+  reported = {
+    for e in local.existing : e.id => (
+      anytrue([for o in local.owned_include : e.name == o || endswith(e.name, ".${o}")])
+      && !anytrue([for o in local.owned_exclude : e.name == o || endswith(e.name, ".${o}")])
+      && !anytrue([
+        for i in var.unmanaged_ignore : (i.name_regex == null ? true : length(regexall(i.name_regex, e.name)) > 0) && (i.types == null ? true : contains(coalesce(i.types, []), e.type))
+      ])
+    )
+  }
   unmanaged_records = [
     for r in var.existing_records : {
       id       = r.id
@@ -171,6 +181,6 @@ locals {
       priority = r.priority
       data     = r.data
     }
-    if !contains(local.matched_ids, r.id)
+    if !contains(local.matched_ids, r.id) && local.reported[r.id]
   ]
 }

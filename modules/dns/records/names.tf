@@ -19,7 +19,7 @@ locals {
           idx       = idx
           prefix    = length(split(".", raw_key)) > 1 ? join(".", slice(split(".", raw_key), 0, length(split(".", raw_key)) - 1)) : null
           kind      = element(split(".", raw_key), length(split(".", raw_key)) - 1)
-          source    = "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
+          source    = rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"
         }
       ]
     ]
@@ -36,12 +36,16 @@ locals {
     )
   ]
 
+  # Names of owned_names; null is the whole zone
+  owned_input = var.owned_names == null ? [] : concat(var.owned_names.include, var.owned_names.exclude)
+
   # Every name fully qualified, in one place: "@" is the zone name, a name that
   # already ends with the zone name is kept, any other name gets the zone name
   # appended. qualified keeps the case as written (alias targets), fqdn is lower
-  # case (comparisons). For base names, record names, allowed_cname_conflicts.
+  # case (comparisons). For base names, record names, allowed_cname_conflicts and
+  # owned_names.
   qualified = {
-    for n in distinct(concat(keys(var.records), local.entry_names, var.allowed_cname_conflicts)) : n => (
+    for n in distinct(concat(keys(var.records), local.entry_names, var.allowed_cname_conflicts, local.owned_input)) : n => (
       trimsuffix(n, ".") == "@" ? local.zone :
       lower(trimsuffix(n, ".")) == lower(local.zone) || endswith(lower(trimsuffix(n, ".")), ".${lower(local.zone)}") ? trimsuffix(n, ".") :
       "${trimsuffix(n, ".")}.${local.zone}"

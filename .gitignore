@@ -15,3 +15,9 @@ tests/e2e/ids*
 
 # Local notes
 .todo
+
+# Written by the Tools job of CI from tools/tests/fixtures/zone.json
+tools/tests/terraform/records.ezdns.yaml
+
+# Left by an interrupted run of scripts/test-docs-examples.py
+.docs-example-*/
