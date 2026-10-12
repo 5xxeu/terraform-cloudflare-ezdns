@@ -4,5 +4,7 @@ module "dns" {
   source    = "../../.."
   zone_id   = "z"
   zone_name = "example.com"
-  records   = yamldecode(file("${path.module}/records.ezdns.yaml")).records
+  # Written by the Tools job of CI; without it (TFLint, a fresh clone) records is empty,
+  # and the test fails on the number of records
+  records = yamldecode(fileexists("${path.module}/records.ezdns.yaml") ? file("${path.module}/records.ezdns.yaml") : "records: {}").records
 }

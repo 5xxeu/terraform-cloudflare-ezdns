@@ -94,7 +94,7 @@ locals {
         contains(["HTTPS", "SVCB"], r.type) ? merge(
           { for field, value in r.rec.data : field => value if !contains(local.svc_params, field) },
           { target = endswith(r.rec.data.target, ".") ? r.rec.data.target : "${r.rec.data.target}." },
-          length(setintersection(keys(r.rec.data), local.svc_params)) == 0 ? {} : {
+          length([for param in local.svc_params : param if lookup(r.rec.data, param, null) != null]) == 0 ? {} : {
             value = join(" ", [for param in local.svc_params : "${param}=\"${param == "port" ? tonumber(r.rec.data[param]) : r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
           },
         ) :

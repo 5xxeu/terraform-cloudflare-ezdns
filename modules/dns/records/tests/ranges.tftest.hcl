@@ -315,6 +315,28 @@ run "svc_empty_params" {
   expect_failures = [var.records]
 }
 
+run "svc_null_params" {
+  command = plan
+
+  # null fields come from an object type with optional(...) attributes: they are not set
+  variables {
+    records = {
+      "@"   = { HTTPS = [{ data = { priority = 1, target = ".", value = "alpn=h2", ipv4hint = null } }] }
+      "svc" = { SVCB = [{ data = { priority = 1, target = ".", alpn = null, port = null } }] }
+    }
+  }
+
+  assert {
+    condition     = [for r in output.flat_records : r.data.value if r.type == "HTTPS"] == ["alpn=h2"]
+    error_message = "A null parameter next to value is not set"
+  }
+
+  assert {
+    condition     = [for r in output.flat_records : contains(keys(r.data), "value") if r.type == "SVCB"] == [false]
+    error_message = "Only null parameters write no value"
+  }
+}
+
 run "svc_alpn_with_spaces" {
   command = plan
 

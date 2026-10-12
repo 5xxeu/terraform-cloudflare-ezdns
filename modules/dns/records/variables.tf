@@ -474,7 +474,7 @@ variable "records" {
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : [
               for data in [coalesce(rec.data, {})] : concat(
-                lookup(data, "value", null) != null && length(setintersection(keys(data), ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"])) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", sort(setintersection(keys(data), ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"])))} (set the parameters in value or as fields, not both)"] : [],
+                lookup(data, "value", null) != null && length([for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null]) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", [for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null])} (set the parameters in value or as fields, not both)"] : [],
                 [
                   for field, pattern in {
                     alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
@@ -505,7 +505,7 @@ variable "records" {
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : [
               for data in [coalesce(rec.data, {})] : concat(
-                lookup(data, "value", null) != null && length(setintersection(keys(data), ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"])) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", sort(setintersection(keys(data), ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"])))} (set the parameters in value or as fields, not both)"] : [],
+                lookup(data, "value", null) != null && length([for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null]) > 0 ? ["${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data: value together with ${join(", ", [for param in ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"] : param if lookup(data, param, null) != null])} (set the parameters in value or as fields, not both)"] : [],
                 [
                   for field, pattern in {
                     alpn      = "^[^,\\s\"\\\\]+(,[^,\\s\"\\\\]+)*$"
