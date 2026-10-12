@@ -151,6 +151,16 @@ class YamlTest(unittest.TestCase):
         finally:
             pathlib.Path(f.name).unlink()
 
+    def test_copies_that_differ_in_the_proxy_are_all_written(self):
+        zone = [
+            {"id": "a", "name": "web.example.com", "type": "A", "content": "192.0.2.1", "proxied": False, "ttl": 3600},
+            {"id": "b", "name": "web.example.com", "type": "A", "content": "192.0.2.1", "proxied": True, "ttl": 1},
+        ]
+        records, notes = z.convert(zone, "example.com", 3600)
+        self.assertEqual(len(records["web"]["A"]), 2)
+        self.assertTrue(any("differ only in proxied" in n and "a, b" in n for n in notes))
+        self.assertFalse(any("written once" in n for n in notes))
+
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)
         names = [line.strip()[:-1] for line in z.to_yaml(records, "example.com", 0).splitlines() if line.startswith("  \"")]

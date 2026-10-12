@@ -494,6 +494,9 @@ class MainTest(unittest.TestCase):
             self.assertEqual(self.exit_code(p), 2)
             p["resource_changes"][0]["change"]["actions"] = ["remove"]
             self.assertEqual(self.exit_code(p), 2)
+            for actions in ([{}], [[]]):
+                p["resource_changes"][0]["change"]["actions"] = actions
+                self.assertEqual(self.exit_code(p), 2)
 
     def test_failing_plan(self):
         p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))

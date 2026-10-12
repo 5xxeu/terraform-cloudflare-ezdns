@@ -359,7 +359,7 @@ def main(argv=None):
             continue
         change = rc.get("change")
         actions = change.get("actions") if isinstance(change, dict) else None
-        if not isinstance(actions, list) or not actions or not all(a in ACTIONS for a in actions) \
+        if not isinstance(actions, list) or not actions or not all(isinstance(a, str) and a in ACTIONS for a in actions) \
                 or not all(isinstance(change.get(side), (dict, type(None))) for side in ("before", "after", "after_unknown")):
             print(f"plan-guard: {args.plan}: the change of {rc.get('address')!r} does not have the shape of a plan", file=sys.stderr)
             return 2

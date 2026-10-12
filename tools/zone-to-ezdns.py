@@ -177,6 +177,12 @@ def convert(records, zone, default_ttl):
             for rec in recs:
                 copies.setdefault(json.dumps(identity(rtype, rec), sort_keys=True), []).append(rec)
             for same in copies.values():
+                # Copies that differ in the proxy are not written once: deleting the proxied
+                # one would publish the origin, so the choice is left to a person
+                if len(same) > 1 and len({r.get("proxied") for r in same}) > 1:
+                    ids = ", ".join(str(r["_id"]) for r in same)
+                    notes.append(f"{len(same)} {rtype} records of {name} in the zone (IDs {ids}) differ only in proxied: all are written, choose by hand which one to keep (deleting the proxied one publishes its address)")
+                    continue
                 if len(same) > 1:
                     for rec in same[1:]:
                         recs.remove(rec)
