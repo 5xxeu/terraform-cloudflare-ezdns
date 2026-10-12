@@ -140,7 +140,7 @@ def published(before, after, after_unknown, zone):
 
 def check(plan, args):
     """Returns the list of problems of the plan (empty: the plan passes)."""
-    deletes, replacements, proxy_off, unknown_proxy = [], [], [], []
+    deletes, replacements, proxy_off, unknown_proxy, unknown_value = [], [], [], [], []
     # Record sets after the apply: (fqdn, type) -> number of records
     after_sets = {}
     # Zones of the records of the plan, to catch a --require over several zones
@@ -268,6 +268,13 @@ def check(plan, args):
         if new and value in hidden and (own or hidden[value]):
             (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
             continue
+        # A value known only after apply may be one of them: an address when proxied
+        # records hide addresses, a name when they hide names
+        if new and after_unknown.get("content") and not after_unknown.get("type"):
+            kind = "CNAME " if str(after.get("type", "")).upper() == "CNAME" else "IP "
+            if any(v.startswith(kind) and (own or o) for v, o in hidden.items()):
+                unknown_value.append(address)
+                continue
         for before, before_own in deleted_proxied:
             if (own or before_own) and (after_unknown.get("zone_id") or before.get("zone_id") == after.get("zone_id")) \
                     and (after_unknown.get("name") or same_name(before.get("name"), after.get("name"), zone_of(before))) \
@@ -290,6 +297,10 @@ def check(plan, args):
     if unknown_proxy and not args.allow_proxy_disable:
         problems.append("Whether these proxied records stay proxied is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]
+    if unknown_value and not args.allow_proxy_disable:
+        problems.append("These unproxied records get a value known only after apply, which may be the hidden "
+                        "origin of a proxied record (--allow-proxy-disable or --allow allows it):")
+        problems += [f"  {a}" for a in unknown_value]
 
     if args.require and args.zone_id is None and len(zones) > 1:
         problems.append("The plan has records of several zones, so --require cannot tell them apart: give --zone-id")

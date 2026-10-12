@@ -323,6 +323,24 @@ class PlanGuardTest(unittest.TestCase):
         self.assertIn("turns off the proxy", run(p, "--zone", "example.com")[0])
         self.assertEqual(run(p, "--zone", "example.com", "--allow-proxy-disable"), [])
 
+    def test_unknown_value_next_to_proxied_addresses_fails(self):
+        # The address of origin is known only after apply: it may be the one web hides
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("origin A ip"), ["create"], None, {"name": "origin", "type": "A", "proxied": False, "zone_id": "z"}, {"content": True}),
+        )
+        self.assertIn("known only after apply", run(p)[0])
+        self.assertEqual(run(p, "--allow-proxy-disable"), [])
+        self.assertEqual(run(p, "--allow", BASE.format("origin A ip")), [])
+
+    def test_unknown_name_next_to_proxied_addresses_passes(self):
+        # A CNAME cannot have the value of an A record
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("lb CNAME"), ["create"], None, {"name": "lb", "type": "CNAME", "proxied": False, "zone_id": "z"}, {"content": True}),
+        )
+        self.assertEqual(run(p), [])
+
     def test_other_address_on_another_name_passes(self):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
