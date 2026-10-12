@@ -140,6 +140,17 @@ class YamlTest(unittest.TestCase):
         # records: without a value would be null in YAML
         self.assertTrue(z.to_yaml({}, "example.com", 0).rstrip().endswith("records: {}"))
 
+    def test_one_page_without_total_count_is_exit_code_2(self):
+        page = {"result": ZONE[:2], "result_info": {"page": 1, "per_page": 2, "total_pages": 9}}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(page, f)
+        try:
+            with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
+                z.load(f.name)
+            self.assertEqual(e.exception.code, 2)
+        finally:
+            pathlib.Path(f.name).unlink()
+
     def test_apex_first(self):
         records, _ = z.convert(ZONE, "example.com", 3600)
         names = [line.strip()[:-1] for line in z.to_yaml(records, "example.com", 0).splitlines() if line.startswith("  \"")]

@@ -128,8 +128,10 @@ locals {
   }
 
   # Cloudflare returns the name of an internationalized zone in Unicode, so the zone is
-  # looked up here, with its name converted, instead of in the v5 wrapper
-  zone_name = var.zone_name != null ? local.ascii[var.zone_name] : provider::idna::to_ascii(data.cloudflare_zone.this[0].name)
+  # looked up here, with its name converted, instead of in the v5 wrapper. coalesce makes
+  # a name known only after apply (a zone_id from a resource) a value that is not null
+  # at plan, so the v5 wrapper knows at plan that it needs no lookup of its own
+  zone_name = var.zone_name != null ? local.ascii[var.zone_name] : coalesce(provider::idna::to_ascii(data.cloudflare_zone.this[0].name), "")
 }
 
 data "cloudflare_zone" "this" {

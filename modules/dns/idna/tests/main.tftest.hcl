@@ -157,3 +157,16 @@ run "computed_values" {
     error_message = "Converted names and keys must be known at plan when a value is known only after apply"
   }
 }
+
+run "computed_zone_id" {
+  command = plan
+
+  module {
+    source = "./tests/computed_zone"
+  }
+
+  assert {
+    condition     = output.keys == ["xn--bcher-kva A 192.0.2.1"]
+    error_message = "With a zone ID known only after apply and no zone_name, the plan must not fail on the zone lookup"
+  }
+}

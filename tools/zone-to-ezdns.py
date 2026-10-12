@@ -80,9 +80,15 @@ def load(path):
         # One page of a longer list would give the configuration of part of the zone
         info = data.get("result_info")
         total = info.get("total_count") if isinstance(info, dict) else None
+        pages = info.get("total_pages") if isinstance(info, dict) else None
         if isinstance(total, int) and len(data["result"]) < total:
             print(f"zone-to-ezdns: {path} has {len(data['result'])} of {total} records (one page of the "
                   f"response): use per_page=5000000 or join every page", file=sys.stderr)
+            raise SystemExit(2)
+        # Without total_count, a response of several pages holds one of them
+        if not isinstance(total, int) and isinstance(pages, int) and pages > 1:
+            print(f"zone-to-ezdns: {path} is one of {pages} pages of the response: use per_page=5000000 "
+                  f"or join every page", file=sys.stderr)
             raise SystemExit(2)
         data = data["result"]
     if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
