@@ -129,6 +129,15 @@ def hidden_value(record):
         return "IP " + content.lower()
 
 
+def value_kinds(record, unknown):
+    """The kinds of value an A, AAAA or CNAME record can have: both when its type is
+    known only after apply."""
+    if unknown.get("type"):
+        return ["IP ", "CNAME "]
+    rtype = str(record.get("type", "")).upper()
+    return ["CNAME "] if rtype == "CNAME" else ["IP "] if rtype in ("A", "AAAA") else []
+
+
 def published(before, after, after_unknown, zone):
     """Whether the record published the same unproxied value on the same name before the
     plan, so the apply publishes nothing new (another type, content, name or zone does)."""
@@ -159,6 +168,9 @@ def check(plan, args):
     # or after the apply: an unproxied record with one of them publishes the origin
     # under any name, also in another zone
     hidden = {}
+    # The kinds of values ("IP ", "CNAME ") that proxied records hide but that are known
+    # only after apply, with whether one of them is in the module
+    hidden_unknown = {}
 
     # --zone qualifies the names of one zone: of --zone-id, or of a plan with one zone.
     # Names of other zones are compared without it (a name as written also matches the
@@ -202,6 +214,9 @@ def check(plan, args):
         for side in (before, after):
             if side.get("proxied") is True and hidden_value(side):
                 hidden[hidden_value(side)] = hidden.get(hidden_value(side), False) or own
+        if after.get("proxied") is True and after_unknown.get("content"):
+            for kind in value_kinds(after, after_unknown):
+                hidden_unknown[kind] = hidden_unknown.get(kind, False) or own
         if actions in (["no-op"], ["update"]) and before.get("proxied") is True and after.get("proxied") is True \
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
@@ -263,16 +278,17 @@ def check(plan, args):
         if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
             continue
         # A new unproxied record with the value of a proxied one (a rename that drops the
-        # proxy, an origin name next to the proxied one)
-        value = None if after_unknown.get("content") or after_unknown.get("type") else hidden_value(after)
-        if new and value in hidden and (own or hidden[value]):
-            (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
-            continue
-        # A value known only after apply may be one of them: an address when proxied
-        # records hide addresses, a name when they hide names
-        if new and after_unknown.get("content") and not after_unknown.get("type"):
-            kind = "CNAME " if str(after.get("type", "")).upper() == "CNAME" else "IP "
-            if any(v.startswith(kind) and (own or o) for v, o in hidden.items()):
+        # proxy, an origin name next to the proxied one). When the type or a value is known
+        # only after apply, a match cannot be ruled out: the record fails as well
+        if new:
+            kinds = value_kinds(after, after_unknown)
+            values = [] if after_unknown.get("content") else [
+                hidden_value({**after, "type": "CNAME" if kind == "CNAME " else "A"}) for kind in kinds]
+            if any(v in hidden and (own or hidden[v]) for v in values):
+                (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
+                continue
+            if any(kind in hidden_unknown and (own or hidden_unknown[kind]) for kind in kinds) \
+                    or (after_unknown.get("content") and any(v.startswith(tuple(kinds)) and (own or o) for v, o in hidden.items())):
                 unknown_value.append(address)
                 continue
         for before, before_own in deleted_proxied:
@@ -298,8 +314,8 @@ def check(plan, args):
         problems.append("Whether these proxied records stay proxied is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]
     if unknown_value and not args.allow_proxy_disable:
-        problems.append("These unproxied records get a value known only after apply, which may be the hidden "
-                        "origin of a proxied record (--allow-proxy-disable or --allow allows it):")
+        problems.append("These unproxied records may get the hidden origin of a proxied record, as a value or "
+                        "a type is known only after apply (--allow-proxy-disable or --allow allows it):")
         problems += [f"  {a}" for a in unknown_value]
 
     if args.require and args.zone_id is None and len(zones) > 1:

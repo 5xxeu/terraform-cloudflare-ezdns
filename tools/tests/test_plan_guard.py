@@ -333,6 +333,21 @@ class PlanGuardTest(unittest.TestCase):
         self.assertEqual(run(p, "--allow-proxy-disable"), [])
         self.assertEqual(run(p, "--allow", BASE.format("origin A ip")), [])
 
+    def test_same_computed_address_proxied_and_not_fails(self):
+        # Both get the address of a server created in the same apply
+        p = plan(
+            record(BASE.format("web A ip"), ["create"], None, {"name": "web", "type": "A", "proxied": True, "zone_id": "z"}, {"content": True}),
+            record(BASE.format("origin A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "name": "origin", "proxied": False}),
+        )
+        self.assertIn("known only after apply", run(p)[0])
+
+    def test_unknown_type_with_a_hidden_address_fails(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("origin x"), ["create"], None, {"name": "origin", "content": "192.0.2.1", "proxied": False, "zone_id": "z"}, {"type": True}),
+        )
+        self.assertIn("turns off the proxy", run(p)[0])
+
     def test_unknown_name_next_to_proxied_addresses_passes(self):
         # A CNAME cannot have the value of an A record
         p = plan(
