@@ -437,6 +437,31 @@ class PlanGuardTest(unittest.TestCase):
         # Without proxied addresses there is nothing to publish
         self.assertEqual(run(plan(p["resource_changes"][1])), [])
 
+    def test_unknown_content_without_data_fails(self):
+        # Content known only after apply and no data to check instead: the hints are unknown
+        web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})
+        p = plan(web, record(BASE.format("app HTTPS x"), ["create"], None, {"name": "app", "type": "HTTPS", "zone_id": "z"}, {"content": True}))
+        self.assertIn("known only after apply", run(p)[0])
+        # A known data (here without parameters) is what the provider computes content from
+        https = {"name": "app", "type": "HTTPS", "data": {"priority": 1, "target": ".", "value": None}, "zone_id": "z"}
+        self.assertEqual(run(plan(web, record(BASE.format("app HTTPS x"), ["create"], None, https, {"content": True}))), [])
+
+    def test_hint_text_inside_another_parameter_passes(self):
+        # Only a whole ipv4hint parameter counts, in data.value or in content (5.x)
+        https = {"name": "app", "type": "HTTPS", "content": '1 . alpn="ipv4hint=192.0.2.1"',
+                 "data": {"priority": 1, "target": ".", "value": 'alpn="ipv4hint=192.0.2.1" mandatory=alpn'}, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("app HTTPS x"), ["create"], None, https),
+        )
+        self.assertEqual(run(p), [])
+        # In content, after the priority and the target
+        https = {**https, "content": '1 . alpn="h2" ipv4hint="192.0.2.1"'}
+        self.assertIn("ipv4hint or ipv6hint", run(plan(p["resource_changes"][0], record(BASE.format("app HTTPS x"), ["create"], None, https)))[0])
+        # A quote that is not closed: a hint in the rest of the text counts
+        https = {**https, "content": None, "data": {"priority": 1, "target": ".", "value": 'alpn="h2 ipv4hint=192.0.2.1'}}
+        self.assertIn("ipv4hint or ipv6hint", run(plan(p["resource_changes"][0], record(BASE.format("app HTTPS x"), ["create"], None, https)))[0])
+
     def test_proxied_delete_is_not_a_proxy_disable(self):
         p = plan(record(BASE.format("web A 192.0.2.1"), ["delete"], WEB, None))
         self.assertEqual(run(p, "--max-deletes", "1"), [])

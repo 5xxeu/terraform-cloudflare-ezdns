@@ -129,7 +129,10 @@ def hidden_value(record):
         return "IP " + content.lower()
 
 
-HINT = re.compile(r'\b(?:ipv4hint|ipv6hint)=("?)([^"\s]*)\1', re.IGNORECASE)
+# One word of the text of service parameters: a key with an optional value, in quotes or
+# not (the priority and the target in content are words without a value)
+SVC_PARAM = re.compile(r'\s*([^\s="]+)(?:=("(?:[^"\\]|\\.)*"|[^\s"]*))?')
+LOOSE_HINT = re.compile(r'(?:ipv4hint|ipv6hint)="?([^"\s]*)', re.IGNORECASE)
 
 
 def data_items(data):
@@ -137,21 +140,42 @@ def data_items(data):
     return data if isinstance(data, list) else [data]
 
 
+def data_values(record):
+    """The texts of service parameters in data.value of a record."""
+    return [d.get("value") for d in data_items(record.get("data")) if isinstance(d, dict) and isinstance(d.get("value"), str)]
+
+
 def hints(record):
     """The addresses in the ipv4hint and ipv6hint parameters of an HTTPS or SVCB record,
-    in the form of hidden_value (they are in data.value, and in content in provider 5.x)."""
+    in the form of hidden_value (they are in data.value, and in content in provider 5.x).
+    Only whole parameters count, not the text of another one (alpn="ipv4hint=...")."""
     if str(record.get("type", "")).upper() not in ("HTTPS", "SVCB"):
         return set()
-    texts = [d.get("value") for d in data_items(record.get("data")) if isinstance(d, dict)] + [record.get("content")]
-    return {hidden_value({"type": "A", "content": a.strip()})
-            for text in texts if isinstance(text, str)
-            for _, value in HINT.findall(text) for a in value.split(",") if a.strip()}
+    addresses = set()
+    for text in data_values(record) + [record.get("content")]:
+        pos = 0
+        while isinstance(text, str):
+            m = SVC_PARAM.match(text, pos)
+            if not m or m.end() == pos:
+                # Text that does not parse (a quote that is not closed): any hint in the rest
+                # counts, as Cloudflare may read it otherwise
+                for value in LOOSE_HINT.findall(text[pos:]):
+                    addresses.update(hidden_value({"type": "A", "content": a.strip()}) for a in value.split(",") if a.strip())
+                break
+            pos = m.end()
+            if m.group(1).lower() in ("ipv4hint", "ipv6hint") and m.group(2):
+                value = re.sub(r"\\(.)", r"\1", m.group(2).strip('"'))
+                addresses.update(hidden_value({"type": "A", "content": a.strip()}) for a in value.split(",") if a.strip())
+    return addresses
 
 
 def hints_unknown(record, unknown):
-    """Whether the service parameters of an HTTPS or SVCB record are known only after apply."""
-    return str(record.get("type", "")).upper() in ("HTTPS", "SVCB") and any(
-        d is True or (isinstance(d, dict) and d.get("value")) for d in data_items(unknown.get("data")))
+    """Whether the service parameters of an HTTPS or SVCB record are known only after apply:
+    data.value is, or content is and the record has no data (provider 5.x computes content
+    from data, so a known data is enough to check, also one without a value)."""
+    return str(record.get("type", "")).upper() in ("HTTPS", "SVCB") and (
+        any(d is True or (isinstance(d, dict) and d.get("value")) for d in data_items(unknown.get("data")))
+        or (bool(unknown.get("content")) and not any(isinstance(d, dict) for d in data_items(record.get("data")))))
 
 
 def value_kinds(record, unknown):
