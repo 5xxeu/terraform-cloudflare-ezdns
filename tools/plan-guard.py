@@ -145,11 +145,16 @@ def data_values(record):
     return [d.get("value") for d in data_items(record.get("data")) if isinstance(d, dict) and isinstance(d.get("value"), str)]
 
 
-def hints(record):
+def svcb_type(record, unknown):
+    """Whether a record is (or, with its type known only after apply, may be) HTTPS or SVCB."""
+    return bool(unknown.get("type")) or str(record.get("type", "")).upper() in ("HTTPS", "SVCB")
+
+
+def hints(record, unknown=None):
     """The addresses in the ipv4hint and ipv6hint parameters of an HTTPS or SVCB record,
     in the form of hidden_value (they are in data.value, and in content in provider 5.x).
     Only whole parameters count, not the text of another one (alpn="ipv4hint=...")."""
-    if str(record.get("type", "")).upper() not in ("HTTPS", "SVCB"):
+    if not svcb_type(record, unknown or {}):
         return set()
     addresses = set()
     for text in data_values(record) + [record.get("content")]:
@@ -173,7 +178,7 @@ def hints_unknown(record, unknown):
     """Whether the service parameters of an HTTPS or SVCB record are known only after apply:
     data.value is, or content is and the record has no data (provider 5.x computes content
     from data, so a known data is enough to check, also one without a value)."""
-    return str(record.get("type", "")).upper() in ("HTTPS", "SVCB") and (
+    return svcb_type(record, unknown) and (
         any(d is True or (isinstance(d, dict) and d.get("value")) for d in data_items(unknown.get("data")))
         or (bool(unknown.get("content")) and not any(isinstance(d, dict) for d in data_items(record.get("data")))))
 
@@ -277,6 +282,11 @@ def check(plan, args):
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(after)
+        # destroy = false on a replaced record (["forget", "create"]): the old record stays
+        # in Cloudflare as it is, next to the new one
+        kept = before if actions == ["forget", "create"] else None
+        if kept and kept.get("proxied") is True and str(kept.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
+            remaining_proxied.append(kept)
         # An unproxied record that changes (deleted, moved, replaced, a new value, or the
         # proxy turned on) keeps its old value until Terraform gets to it, which may be
         # after the proxied records of the name are gone: that value is a neighbour too
@@ -287,7 +297,7 @@ def check(plan, args):
                 and not allowed(address, args.allow):
             created.append((address, before, {}, False, own))
         if actions not in (["no-op"], ["read"], ["delete"]) and after and not allowed(address, args.allow):
-            new_hints = hints(after) - hints(before)
+            new_hints = hints(after, after_unknown) - hints(before)
             if new_hints or hints_unknown(after, after_unknown):
                 hinted.append((address, new_hints, hints_unknown(after, after_unknown), own))
         if not own:
@@ -297,11 +307,11 @@ def check(plan, args):
 
         # A record counts for its set only if its name and type are known at plan: a name
         # computed at apply could end up anywhere (and a missing name is not the apex)
-        if actions != ["delete"] and after and not after_unknown.get("name") and not after_unknown.get("type") \
-                and after.get("name") and after.get("type") \
-                and (args.zone_id is None or (after.get("zone_id") == args.zone_id and not after_unknown.get("zone_id"))):
-            key = (fqdn(after.get("name"), args.zone), str(after.get("type")).upper())
-            after_sets[key] = after_sets.get(key, 0) + 1
+        for rec, unk in ([(after, after_unknown)] if actions != ["delete"] and after else []) + ([(kept, {})] if kept else []):
+            if not unk.get("name") and not unk.get("type") and rec.get("name") and rec.get("type") \
+                    and (args.zone_id is None or (rec.get("zone_id") == args.zone_id and not unk.get("zone_id"))):
+                key = (fqdn(rec.get("name"), args.zone), str(rec.get("type")).upper())
+                after_sets[key] = after_sets.get(key, 0) + 1
         zones.update(v.get("zone_id") for v in (before, after) if v.get("zone_id"))
         if after_unknown.get("zone_id"):
             zones.add("unknown")
@@ -359,6 +369,8 @@ def check(plan, args):
                 break
 
     for address, new_hints, unknown, own in hinted:
+        if address in proxy_off or address in unknown_proxy or address in unknown_value:
+            continue
         if any(v in hidden and (own or hidden[v]) for v in new_hints):
             hint_leaks.append(address)
         elif ("IP " in hidden_unknown and (own or hidden_unknown["IP "])) \

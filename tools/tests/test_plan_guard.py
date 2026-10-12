@@ -393,6 +393,14 @@ class PlanGuardTest(unittest.TestCase):
         # destroy = false on a record that is replaced: the old record stays in Cloudflare
         p = plan(record(BASE.format("web A 192.0.2.1"), ["forget", "create"], WEB, WEB))
         self.assertEqual(run(p), [])
+        # The old MX counts for its set, and the old proxied record still hides its name
+        direct = {**WEB, "zone_id": "z", "content": "192.0.2.5", "proxied": False}
+        p = plan(
+            record(BASE.format("@ MX mx.example.com"), ["forget", "create"], {**MX, "zone_id": "z"}, {**MX, "zone_id": "z", "name": "new"}),
+            record(BASE.format("web A 192.0.2.1"), ["forget", "create"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z", "content": "192.0.2.9"}),
+            record(BASE.format("web A 192.0.2.5"), ["no-op"], direct, direct),
+        )
+        self.assertEqual(run(p, "--zone", "example.com", "--require", "@:MX", "--require", "new:MX"), [])
 
     def test_hint_with_a_hidden_address_fails(self):
         # The address of a proxied record in ipv4hint or ipv6hint publishes the origin, in
@@ -445,6 +453,15 @@ class PlanGuardTest(unittest.TestCase):
         # A known data (here without parameters) is what the provider computes content from
         https = {"name": "app", "type": "HTTPS", "data": {"priority": 1, "target": ".", "value": None}, "zone_id": "z"}
         self.assertEqual(run(plan(web, record(BASE.format("app HTTPS x"), ["create"], None, https, {"content": True}))), [])
+
+    def test_hint_of_a_record_of_unknown_type_fails(self):
+        # The type is known only after apply: the record may be HTTPS or SVCB
+        web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})
+        rec = {"name": "app", "data": {"priority": 1, "target": ".", "value": "ipv4hint=192.0.2.1"}, "content": None, "zone_id": "z"}
+        problems = run(plan(web, record(BASE.format("app x"), ["create"], None, rec, {"type": True})))
+        self.assertIn("ipv4hint or ipv6hint", "\n".join(problems))
+        rec = {"name": "app", "zone_id": "z"}
+        self.assertIn("known only after apply", run(plan(web, record(BASE.format("app x"), ["create"], None, rec, {"type": True, "data": True})))[0])
 
     def test_hint_text_inside_another_parameter_passes(self):
         # Only a whole ipv4hint parameter counts, in data.value or in content (5.x)
