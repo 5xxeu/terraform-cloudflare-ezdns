@@ -11,6 +11,8 @@ python3 tools/plan-guard.py tfplan.json --zone example.com --require @:MX --requ
 terraform apply tfplan
 ```
 
+> **A best-effort check.** The script reads the plan, not the zone, the order in which Terraform applies the changes, or values known only after apply. It catches the usual ways to delete records or to publish the origin address of a proxied record, and when it cannot rule out an exposure at plan it fails rather than passes, but it does not prove that no plan can expose an origin. Keep reviewing plans, limit who can change proxied records, and protect origins also outside DNS (firewall rules that accept only Cloudflare addresses, Cloudflare Tunnel).
+
 A plan after the YAML file with the MX records was deleted, the address of `app` changed without a `key`, and `proxied` removed from `www`:
 
 ```console
