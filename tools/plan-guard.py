@@ -18,6 +18,7 @@ does not, 2 when the plan cannot be read. Python 3.8 or later, standard library 
 """
 
 import argparse
+import ipaddress
 import json
 import re
 import sys
@@ -114,6 +115,20 @@ def moved(before, after, after_unknown, zone):
                 or fqdn(before.get("name"), zone) != fqdn(after.get("name"), zone))
 
 
+def hidden_value(record):
+    """The value of an A, AAAA or CNAME record in a normal form (addresses canonical,
+    names in lower case without the trailing dot), or None for other records."""
+    rtype, content = str(record.get("type", "")).upper(), record.get("content")
+    if rtype not in ("A", "AAAA", "CNAME") or not isinstance(content, str):
+        return None
+    if rtype == "CNAME":
+        return "CNAME " + content.rstrip(".").lower()
+    try:
+        return "IP " + ipaddress.ip_address(content).compressed
+    except ValueError:
+        return "IP " + content.lower()
+
+
 def published(before, after, after_unknown, zone):
     """Whether the record published the same unproxied value on the same name before the
     plan, so the apply publishes nothing new (another type, content, name or zone does)."""
@@ -140,6 +155,10 @@ def check(plan, args):
     # unproxied records on it. A created or replaced record does not count: Terraform may
     # delete the old record first, and the name is unhidden until the new one exists
     remaining_proxied = []
+    # The values that proxied records hide (the addresses and names of origins), before
+    # or after the apply: an unproxied record with one of them publishes the origin
+    # under any name, also in another zone
+    hidden = {}
 
     # --zone qualifies the names of one zone: of --zone-id, or of a plan with one zone.
     # Names of other zones are compared without it (a name as written also matches the
@@ -180,6 +199,9 @@ def check(plan, args):
         if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (
                 moved(before, after, after_unknown, zone_of(before)) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append((before, own))
+        for side in (before, after):
+            if side.get("proxied") is True and hidden_value(side):
+                hidden[hidden_value(side)] = hidden.get(hidden_value(side), False) or own
         if actions in (["no-op"], ["update"]) and before.get("proxied") is True and after.get("proxied") is True \
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
@@ -239,6 +261,12 @@ def check(plan, args):
         if after.get("proxied") is True or address in proxy_off or address in unknown_proxy:
             continue
         if not after_unknown.get("type") and str(after.get("type", "")).upper() not in ("A", "AAAA", "CNAME"):
+            continue
+        # A new unproxied record with the value of a proxied one (a rename that drops the
+        # proxy, an origin name next to the proxied one)
+        value = None if after_unknown.get("content") or after_unknown.get("type") else hidden_value(after)
+        if new and value in hidden and (own or hidden[value]):
+            (unknown_proxy if after_unknown.get("proxied") else proxy_off).append(address)
             continue
         for before, before_own in deleted_proxied:
             if (own or before_own) and (after_unknown.get("zone_id") or before.get("zone_id") == after.get("zone_id")) \

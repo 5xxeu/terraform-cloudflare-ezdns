@@ -169,4 +169,9 @@ run "computed_zone_id" {
     condition     = output.keys == ["xn--bcher-kva A 192.0.2.1"]
     error_message = "With a zone ID known only after apply and no zone_name, the plan must not fail on the zone lookup"
   }
+
+  assert {
+    condition     = output.keys_named == ["xn--bcher-kva A 192.0.2.1"]
+    error_message = "A zone_name known only after apply must not make the keys unknown"
+  }
 }

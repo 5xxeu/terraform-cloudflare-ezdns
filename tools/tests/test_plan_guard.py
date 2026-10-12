@@ -304,6 +304,32 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertIn("turns off the proxy", run(p, "--max-deletes", "1")[0])
 
+    def test_rename_that_drops_the_proxy_fails(self):
+        # web is deleted, origin gets its address without the proxy: the origin is public
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("origin A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "name": "origin", "proxied": False}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--max-deletes", "1", "--zone", "example.com")[0])
+        self.assertIn("turns off the proxy", run(p, "--allow", BASE.format("web A 192.0.2.1"), "--zone", "example.com")[0])
+
+    def test_address_of_a_proxied_record_on_another_name_fails(self):
+        # The proxied record stays; an IPv6 address in another form is the same address
+        aaaa = {"name": "web", "type": "AAAA", "content": "2001:db8::1", "proxied": True, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web AAAA 2001:db8::1"), ["no-op"], aaaa, aaaa),
+            record(BASE.format("direct AAAA 2001:db8:0:0::1"), ["create"], None, {**aaaa, "name": "direct", "content": "2001:db8:0:0::1", "proxied": False}),
+        )
+        self.assertIn("turns off the proxy", run(p, "--zone", "example.com")[0])
+        self.assertEqual(run(p, "--zone", "example.com", "--allow-proxy-disable"), [])
+
+    def test_other_address_on_another_name_passes(self):
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("mail A 192.0.2.25"), ["create"], None, {**WEB, "zone_id": "z", "name": "mail", "content": "192.0.2.25", "proxied": False}),
+        )
+        self.assertEqual(run(p, "--zone", "example.com"), [])
+
     def test_text_record_on_the_name_of_a_proxied_record_passes(self):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
@@ -315,7 +341,7 @@ class PlanGuardTest(unittest.TestCase):
         p = plan(
             record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
             record(BASE.format("web A 192.0.2.9"), ["create"], None, {**WEB, "zone_id": "z", "content": "192.0.2.9"}),
-            record(BASE.format("other A 192.0.2.8"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "proxied": False}),
+            record(BASE.format("other A 192.0.2.8"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False}),
         )
         self.assertEqual(run(p, "--max-deletes", "1", "--zone", "example.com"), [])
 

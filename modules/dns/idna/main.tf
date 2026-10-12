@@ -38,11 +38,11 @@ locals {
   ])
 
   # Every name of the input that is part of a key and may need converting. Targets,
-  # allowed_cname_conflicts and owned_names are converted where they are (below), not
-  # looked up here: a value known only after apply (the DNS name of a load balancer)
-  # would make this table, and so every name and key, unknown
+  # zone_name, allowed_cname_conflicts and owned_names are converted where they are
+  # (below), not looked up here: a value known only after apply (the DNS name of a load
+  # balancer, a zone created in the same apply) would make this table, and so every
+  # name and key, unknown
   names = try(distinct(compact(flatten([
-    var.zone_name == null ? "" : var.zone_name,
     [
       for records in values(local.inputs) : [
         for name, types in records : [
@@ -129,9 +129,9 @@ locals {
 
   # Cloudflare returns the name of an internationalized zone in Unicode, so the zone is
   # looked up here, with its name converted, instead of in the v5 wrapper. coalesce makes
-  # a name known only after apply (a zone_id from a resource) a value that is not null
+  # a name known only after apply (a zone_id from a resource, a computed zone_name) a value that is not null
   # at plan, so the v5 wrapper knows at plan that it needs no lookup of its own
-  zone_name = var.zone_name != null ? local.ascii[var.zone_name] : coalesce(provider::idna::to_ascii(data.cloudflare_zone.this[0].name), "")
+  zone_name = coalesce(var.zone_name != null ? (can(regex("[^[:ascii:]]", var.zone_name)) ? provider::idna::to_ascii(var.zone_name) : var.zone_name) : provider::idna::to_ascii(data.cloudflare_zone.this[0].name), "")
 }
 
 data "cloudflare_zone" "this" {
