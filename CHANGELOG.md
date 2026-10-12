@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-12
+
 ### Added
 
 - `record_groups` input (root module, both wrappers): further records in named groups, e.g. one YAML file per team, each with `defaults` (`ttl`, `proxied`, `comment`, `tags`). Groups and `records` are merged by name and type instead of the shallow `merge()` that silently drops records; a record defined twice fails as a duplicate, and errors name the group of a record (`record_groups["mail"].records["@"]["MX"][0]`). A record's own value wins over the group default, which wins over the module default. The group name is not a part of the record keys, so moving records between groups keeps them in the state. `records` now defaults to `{}` `records` and `record_groups` can be left out (they default to `{}`), but an explicit `null` (an emptied YAML file) fails at `plan` instead of deleting the records
@@ -423,7 +425,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...HEAD
+[2.13.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...v2.13.0
 [2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.11.1...v2.12.0
