@@ -378,6 +378,65 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertEqual(run(p, "--max-deletes", "1", "--zone", "example.com"), [])
 
+    def test_forgotten_records_stay(self):
+        # A removed block with destroy = false: the records stay in Cloudflare as they are,
+        # and the forgotten proxied record still hides its name
+        direct = {**WEB, "zone_id": "z", "content": "192.0.2.5", "proxied": False}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["forget"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("@ MX mx.example.com"), ["forget"], {**MX, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.5"), ["no-op"], direct, direct),
+        )
+        self.assertEqual(run(p, "--zone", "example.com", "--require", "@:MX"), [])
+
+    def test_forget_and_create_is_not_a_delete(self):
+        # destroy = false on a record that is replaced: the old record stays in Cloudflare
+        p = plan(record(BASE.format("web A 192.0.2.1"), ["forget", "create"], WEB, WEB))
+        self.assertEqual(run(p), [])
+
+    def test_hint_with_a_hidden_address_fails(self):
+        # The address of a proxied record in ipv4hint or ipv6hint publishes the origin, in
+        # the data of provider 5.x (an object) and 4.x (a list of one)
+        aaaa = {"name": "v6", "type": "AAAA", "content": "2001:db8::1", "proxied": True, "zone_id": "z"}
+        for data, rtype in (({"priority": 1, "target": ".", "value": 'alpn="h2" ipv4hint="192.0.2.9,192.0.2.1"'}, "cloudflare_dns_record"),
+                            ([{"priority": 1, "target": ".", "value": "ipv6hint=2001:db8:0:0::1"}], "cloudflare_record")):
+            p = plan(
+                record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+                record(BASE.format("v6 AAAA 2001:db8::1"), ["no-op"], aaaa, aaaa),
+                record(BASE.format("app HTTPS x"), ["create"], None, {"name": "app", "type": "HTTPS", "data": data, "zone_id": "z"}, rtype=rtype),
+            )
+            self.assertIn("ipv4hint or ipv6hint", run(p)[0])
+            self.assertEqual(run(p, "--allow-proxy-disable"), [])
+            self.assertEqual(run(p, "--allow", BASE.format("app HTTPS x")), [])
+
+    def test_hints_without_hidden_addresses_pass(self):
+        svcb = {"name": "app", "type": "SVCB", "data": {"priority": 1, "target": ".", "value": 'ipv4hint="192.0.2.9"'}, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("app SVCB x"), ["create"], None, svcb),
+        )
+        self.assertEqual(run(p), [])
+
+    def test_hint_that_was_published_before_passes(self):
+        # Only the addresses that the apply adds to the hints are checked
+        old = {"name": "app", "type": "HTTPS", "data": {"priority": 1, "target": ".", "value": 'ipv4hint="192.0.2.1"'}, "zone_id": "z"}
+        new = {**old, "data": {**old["data"], "value": 'alpn="h3" ipv4hint="192.0.2.1"'}}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("app HTTPS x"), ["update"], old, new),
+        )
+        self.assertEqual(run(p), [])
+
+    def test_unknown_hints_next_to_proxied_addresses_fail(self):
+        https = {"name": "app", "type": "HTTPS", "data": {"priority": 1, "target": "."}, "zone_id": "z"}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"}),
+            record(BASE.format("app HTTPS x"), ["create"], None, https, {"data": {"value": True}}),
+        )
+        self.assertIn("known only after apply", run(p)[0])
+        # Without proxied addresses there is nothing to publish
+        self.assertEqual(run(plan(p["resource_changes"][1])), [])
+
     def test_proxied_delete_is_not_a_proxy_disable(self):
         p = plan(record(BASE.format("web A 192.0.2.1"), ["delete"], WEB, None))
         self.assertEqual(run(p, "--max-deletes", "1"), [])
