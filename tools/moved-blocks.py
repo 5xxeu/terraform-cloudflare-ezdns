@@ -13,7 +13,8 @@ name, type and value), and writes a moved block for each pair:
     python3 moved-blocks.py tfplan.json --zone example.com > moved.tf
 
 Names are compared fully qualified and in lower case, addresses in their canonical
-form, hostnames without the trailing dot. TTL, proxy status, comments and tags are not
+form, hostnames without the trailing dot, TXT values in the zone file form ("a" "b")
+as their text. TTL, proxy status, comments and tags are not
 a part of what the record is: they change in place after the move. A record that
 matches several others (copies of one record), or whose name, type or value is known
 only after apply, gets no block; it is listed as a comment to decide by hand. Records
@@ -28,6 +29,7 @@ blocks for the others are written anyway), 2 when the plan cannot be read.
 import argparse
 import ipaddress
 import json
+import re
 import sys
 
 RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
@@ -35,8 +37,12 @@ RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
 HOSTNAME_TYPES = ("CNAME", "MX", "NS", "PTR")
 # Types identified by their content; the others by their data, when they have one
 SIMPLE_TYPES = ("A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT")
-# Fields of data that hold hostnames or hex strings, compared in lower case
+# Fields of data that hold hostnames or hex strings, compared in lower case (the target
+# of a URI record is a URI, compared exactly: paths and queries are case-sensitive)
 CASE_INSENSITIVE_FIELDS = ("target", "replacement", "digest", "fingerprint")
+# TXT content in the zone file form: quoted chunks with no escapes other than \" and \\
+TXT_ZONE_FILE_FORM = re.compile(r'"(?:[^"\\]|\\["\\])*"(?:[ \t]+"(?:[^"\\]|\\["\\])*")*')
+TXT_CHUNK = re.compile(r'"((?:[^"\\]|\\["\\])*)"')
 
 
 def parse_args(argv):
@@ -71,22 +77,33 @@ def fqdn(name, zone):
     return name if name.endswith("." + zone) else f"{name}.{zone}"
 
 
-def data_of(record):
+def data_of(record, rtype):
     """The data of a record as one object without empty fields (provider 4.x has a list of one)."""
     data = record.get("data")
     if isinstance(data, list):
         data = data[0] if data else None
     if not isinstance(data, dict):
         return None
-    return {k: (str(v).rstrip(".").lower() if k in CASE_INSENSITIVE_FIELDS else str(v))
+    return {k: (str(v).rstrip(".").lower() if k in CASE_INSENSITIVE_FIELDS and not (k == "target" and rtype == "URI") else str(v))
             for k, v in sorted(data.items()) if v is not None and v != ""} or None
+
+
+def txt_value(content):
+    """TXT content as the module compares it on import: v=spf1 "a" -all and
+    "v=spf1 \\"a\\" -all" are one record. A value in the zone file form is its chunks
+    joined and unescaped; a value without a leading quote is literal text; any other
+    value with a leading quote is opaque and matches only the same text."""
+    if TXT_ZONE_FILE_FORM.fullmatch(content):
+        text = "".join(re.sub(r'\\(["\\])', r"\1", chunk) for chunk in TXT_CHUNK.findall(content))
+        return [False, text]
+    return [content.startswith('"'), content]
 
 
 def identity(record, zone):
     """What the DNS record is: zone, name, type and value, in a normal form."""
     rtype = str(record.get("type", "")).upper()
     content = record.get("content")
-    data = data_of(record)
+    data = data_of(record, rtype)
     if data is not None and rtype not in SIMPLE_TYPES:
         # Structured records: the data (provider 5.x also computes content from it)
         value = json.dumps(data, sort_keys=True)
@@ -97,6 +114,8 @@ def identity(record, zone):
             value = content.lower()
     elif rtype in HOSTNAME_TYPES and isinstance(content, str):
         value = content.rstrip(".").lower()
+    elif rtype == "TXT" and isinstance(content, str):
+        value = txt_value(content)
     else:
         value = content
     priority = record.get("priority") if rtype in ("MX", "URI") else None
@@ -121,7 +140,7 @@ def unknown_identity(after, after_unknown):
     rtype = str(after.get("type", "")).upper()
     if rtype in ("MX", "URI") and unknown(after_unknown.get("priority")):
         return True
-    if rtype not in SIMPLE_TYPES and (data_of(after) is not None or unknown(after_unknown.get("data"))):
+    if rtype not in SIMPLE_TYPES and (data_of(after, rtype) is not None or unknown(after_unknown.get("data"))):
         return unknown(after_unknown.get("data"))
     return unknown(after_unknown.get("content"))
 

@@ -76,6 +76,21 @@ class MovedBlocksTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(out.count("moved {"), 2)
 
+    def test_txt_in_the_zone_file_form_matches_its_text(self):
+        txt = {"zone_id": "z", "name": "@", "type": "TXT"}
+        for old, new, moved in (('"v=spf1 \\"a\\" -all"', 'v=spf1 "a" -all', 1), ('"v=spf1 " "-all"', "v=spf1 -all", 1),
+                                ('"\\065"', "A", 0), ('a" "b', "ab", 0)):
+            p = plan(record("@ TXT a", ["delete"], {**txt, "content": old}, None),
+                     record("@ TXT b", ["create"], None, {**txt, "content": new}))
+            self.assertEqual(run(p)[1].count("moved {"), moved, old)
+
+    def test_uri_target_compared_exactly(self):
+        uri = {"zone_id": "z", "name": "_http._tcp", "type": "URI", "priority": 10,
+               "data": {"weight": 1, "target": "https://example.com/Admin"}}
+        other = {**uri, "data": {"weight": 1, "target": "https://example.com/admin"}}
+        p = plan(record("a", ["delete"], uri, None), record("b", ["create"], None, other))
+        self.assertEqual(run(p), (0, ""))
+
     def test_priority_and_zone_are_part_of_the_record(self):
         mx = {"zone_id": "z", "name": "@", "type": "MX", "content": "mx.example.com", "priority": 10}
         p = plan(
