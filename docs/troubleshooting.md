@@ -44,7 +44,7 @@ A record has an attribute the module does not know, usually a typo (`proxid`, `p
 
 ### TTLs below 60 seconds are only available on the Cloudflare Enterprise plan.
 
-A record or `default_ttl` has a TTL below 60 seconds (other than `1`, automatic). Use at least 60, or `1`; on an Enterprise zone, set `minimum_ttl = 30` (or `null`, to take it from the plan of the zone).
+A record or `default_ttl` has a TTL below 60 seconds (other than `1`, automatic). Use at least 60, or `1`; on an Enterprise zone, set `minimum_ttl = 30` (or `"auto"`, to take it from the plan of the zone).
 
 ### These records are outside owned_names (included: ...; excluded: ...), the part of the zone that this module call manages:
 

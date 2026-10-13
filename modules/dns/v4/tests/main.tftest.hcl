@@ -180,13 +180,13 @@ run "minimum_ttl_from_the_plan_of_the_zone" {
   }
 
   variables {
-    minimum_ttl = null
+    minimum_ttl = "auto"
     records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
   }
 
   assert {
     condition     = cloudflare_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
-    error_message = "minimum_ttl = null reads the zone and allows 30 seconds on Enterprise zones"
+    error_message = "minimum_ttl = \"auto\" reads the zone and allows 30 seconds on Enterprise zones"
   }
 }
 

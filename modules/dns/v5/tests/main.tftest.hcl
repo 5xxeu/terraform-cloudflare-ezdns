@@ -198,13 +198,13 @@ run "minimum_ttl_from_the_plan_of_the_zone" {
   }
 
   variables {
-    minimum_ttl = null
+    minimum_ttl = "auto"
     records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
   }
 
   assert {
     condition     = cloudflare_dns_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
-    error_message = "minimum_ttl = null reads the zone and allows 30 seconds on Enterprise zones"
+    error_message = "minimum_ttl = \"auto\" reads the zone and allows 30 seconds on Enterprise zones"
   }
 }
 
@@ -219,13 +219,28 @@ run "plan_lookup_of_an_internationalized_zone_with_zone_name" {
 
   variables {
     zone_name   = "xn--mnchen-3ya.de"
-    minimum_ttl = null
+    minimum_ttl = "auto"
     records     = { "www" = { A = [{ content = "192.0.2.1" }] } }
   }
 
   assert {
     condition     = output.records["www A 192.0.2.1"].fqdn == "www.xn--mnchen-3ya.de"
     error_message = "With zone_name set, the zone name of the lookup is not checked"
+  }
+}
+
+run "explicit_null_minimum_ttl_is_the_default" {
+  command = plan
+
+  # As before 2.14: null is the default 60, and the zone is not read
+  variables {
+    minimum_ttl = null
+    records     = { "app" = { A = [{ content = "192.0.2.9", ttl = 60 }] } }
+  }
+
+  assert {
+    condition     = local.minimum_ttl == 60 && length(data.cloudflare_zone.this) == 0
+    error_message = "An explicit null minimum_ttl is 60 without a lookup of the zone"
   }
 }
 

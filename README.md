@@ -205,7 +205,7 @@ The API token of the provider needs these permissions for the zone (Cloudflare d
 | Permission | Needed for |
 |------------|------------|
 | Zone, DNS, Edit | creating, changing and deleting the records (it includes reading them, which `import_existing` and `report_unmanaged` do) |
-| Zone, Zone, Read | looking up the zone name when `zone_name` is not set, and the plan of the zone when `minimum_ttl = null` |
+| Zone, Zone, Read | looking up the zone name when `zone_name` is not set, and the plan of the zone when `minimum_ttl = "auto"` |
 
 Limit the token to the zones it manages (Zone Resources, Include, Specific zone). A token for `terraform plan` in pull requests can have DNS Read instead of Edit.
 
@@ -661,7 +661,7 @@ The `records` input (and the records of `record_groups`) is validated before any
 - Structured records must have `data` with only the fields of their type and all required ones; other records must not set `data`
 - Numeric fields of `data` must be numbers in the range of their DNS wire format: priorities, weights, ports, key tags, `order` and `preference` from 0 to 65535, TLSA, SMIMEA and SSHFP fields and algorithms from 0 to 255, LOC degrees, minutes and seconds within their limits (latitude up to 90, longitude up to 180), LOC `altitude`, `size` and precisions as in RFC 1876, and `lat_direction` `N` or `S`, `long_direction` `E` or `W`; CAA `flags` from 0 to 255
 - Service parameters of `HTTPS` and `SVCB` records, see [Record Types](#record-types)
-- `ttl` and `default_ttl` must be whole numbers: `1` (automatic) or between `minimum_ttl` and `86400`. `minimum_ttl` is `60` by default: Cloudflare accepts TTLs below 60 seconds only on Enterprise zones, where it can be set to `30`; `minimum_ttl = null` takes it from the plan of the zone (`30` on Enterprise, `60` on the others; one more API call, which needs Zone, Zone, Read). A lower TTL, and a `default_ttl` below `minimum_ttl` even if no record uses it, fail at `plan` with what to change; proxied records always get `1`
+- `ttl` and `default_ttl` must be whole numbers: `1` (automatic) or between `minimum_ttl` and `86400`. `minimum_ttl` is `60` by default: Cloudflare accepts TTLs below 60 seconds only on Enterprise zones, where it can be set to `30`; `minimum_ttl = "auto"` takes it from the plan of the zone (`30` on Enterprise, `60` on the others; one more API call, which needs Zone, Zone, Read). A lower TTL, and a `default_ttl` below `minimum_ttl` even if no record uses it, fail at `plan` with what to change; proxied records always get `1`
 - Only `A`, `AAAA`, `CNAME` and `ALIASES` records can be `proxied`
 - `MX` and `URI` records require `priority`, a whole number from 0 to 65535
 - `A` records need an IPv4 address and `AAAA` records an IPv6 address (sent in the canonical form, `2001:db8::1` for `2001:0DB8:0:0:0:0:0:1`, as Cloudflare stores it; the [key](#record-keys) keeps the address as written); `CNAME`, `MX`, `NS` and `PTR` records need a DNS name: labels of letters, digits, `_` and `-` (up to 63 characters) separated by dots, at most 253 characters, an optional trailing dot, and not an IP address (`@` stands for the zone apex, and `.` is a null `MX`, RFC 7505, which must have `priority` 0)
