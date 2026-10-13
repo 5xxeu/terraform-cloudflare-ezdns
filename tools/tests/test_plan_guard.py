@@ -411,6 +411,19 @@ class PlanGuardTest(unittest.TestCase):
         p = plan(record(BASE.format("web A 192.0.2.1"), ["forget", "create"], old, {**old, "name": "public", "proxied": False}))
         self.assertIn("turns off the proxy", run(p, "--zone", "example.com")[0])
 
+    def test_forget_and_create_keeps_an_unproxied_neighbour(self):
+        # The old unproxied record stays as it is: deleting the last proxied record of its
+        # name publishes its address, as with a record without changes
+        direct = {**WEB, "zone_id": "z", "content": "192.0.2.5", "proxied": False}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.5"), ["forget", "create"], direct, {**direct, "name": "other", "proxied": True}),
+        )
+        problems = run(p, "--zone", "example.com", "--max-deletes", "1")
+        self.assertTrue(problems)
+        self.assertIn("  " + BASE.format("web A 192.0.2.5"), problems)
+        self.assertEqual(run(p, "--zone", "example.com", "--max-deletes", "1", "--allow", BASE.format("web A 192.0.2.5")), [])
+
     def test_strict_proxy(self):
         # Any new unproxied value next to proxied records needs a review, whatever it is
         web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})

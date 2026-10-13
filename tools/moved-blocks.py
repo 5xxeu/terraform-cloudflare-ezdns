@@ -33,6 +33,8 @@ import sys
 RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
 # Types whose content is a hostname, compared in lower case without the trailing dot
 HOSTNAME_TYPES = ("CNAME", "MX", "NS", "PTR")
+# Types identified by their content; the others by their data, when they have one
+SIMPLE_TYPES = ("A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT")
 # Fields of data that hold hostnames or hex strings, compared in lower case
 CASE_INSENSITIVE_FIELDS = ("target", "replacement", "digest", "fingerprint")
 
@@ -85,7 +87,7 @@ def identity(record, zone):
     rtype = str(record.get("type", "")).upper()
     content = record.get("content")
     data = data_of(record)
-    if data is not None and rtype not in ("A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT"):
+    if data is not None and rtype not in SIMPLE_TYPES:
         # Structured records: the data (provider 5.x also computes content from it)
         value = json.dumps(data, sort_keys=True)
     elif rtype in ("A", "AAAA") and isinstance(content, str):
@@ -102,8 +104,26 @@ def identity(record, zone):
                        None if priority is None else float(priority)])
 
 
-def unknown_identity(after_unknown):
-    return any(after_unknown.get(k) for k in ("zone_id", "name", "type", "content", "data", "priority"))
+def unknown(value):
+    """Whether after_unknown marks a value or any part of it as unknown."""
+    if isinstance(value, dict):
+        return any(unknown(v) for v in value.values())
+    if isinstance(value, list):
+        return any(unknown(v) for v in value)
+    return value is True
+
+
+def unknown_identity(after, after_unknown):
+    """Whether a part of the identity is known only after apply (content computed from a
+    known data, or a priority of a type without one, does not count)."""
+    if any(unknown(after_unknown.get(k)) for k in ("zone_id", "name", "type")):
+        return True
+    rtype = str(after.get("type", "")).upper()
+    if rtype in ("MX", "URI") and unknown(after_unknown.get("priority")):
+        return True
+    if rtype not in SIMPLE_TYPES and (data_of(after) is not None or unknown(after_unknown.get("data"))):
+        return unknown(after_unknown.get("data"))
+    return unknown(after_unknown.get("content"))
 
 
 def propose(plan, zone):
@@ -118,7 +138,7 @@ def propose(plan, zone):
             key = (rc["type"], identity(change.get("before") or {}, zone))
             deleted.setdefault(key, []).append(rc["address"])
         elif actions == ["create"]:
-            if unknown_identity(change.get("after_unknown") or {}):
+            if unknown_identity(change.get("after") or {}, change.get("after_unknown") or {}):
                 manual.append(f"{rc['address']}: created with a value known only after apply")
                 continue
             key = (rc["type"], identity(change.get("after") or {}, zone))

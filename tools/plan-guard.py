@@ -293,6 +293,10 @@ def check(plan, args):
             remaining_proxied.append(after)
         if kept and kept.get("proxied") is True and str(kept.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(kept)
+        # An unproxied kept record stays as it is: a neighbour like a record without changes
+        if kept and kept.get("proxied") is not True and str(kept.get("type", "")).upper() in ("A", "AAAA", "CNAME") \
+                and not allowed(address, args.allow):
+            created.append((address, kept, {}, False, own))
         # An unproxied record that changes (deleted, moved, replaced, a new value, or the
         # proxy turned on) keeps its old value until Terraform gets to it, which may be
         # after the proxied records of the name are gone: that value is a neighbour too

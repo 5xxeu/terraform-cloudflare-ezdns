@@ -117,6 +117,22 @@ class MovedBlocksTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("known only after apply", out)
 
+    def test_content_computed_from_a_known_data_is_paired(self):
+        # Provider 5.x computes the content of an SRV from its data: unknown at plan
+        srv = {"zone_id": "z", "name": "_sip._tcp", "type": "SRV", "data": {"priority": 10, "weight": 5, "port": 5060, "target": "sip.example.com"}}
+        p = plan(
+            record("_sip._tcp SRV a", ["delete"], {**srv, "content": "5 5060 sip.example.com"}, None),
+            record("_sip._tcp SRV b", ["create"], None, srv, {"content": True, "data": {}}),
+        )
+        self.assertEqual(run(p)[0], 0)
+        self.assertEqual(run(p)[1].count("moved {"), 1)
+        # A part of the data unknown, also in the list of provider 4.x: decided by hand
+        p = plan(record("a", ["delete"], srv, None), record("b", ["create"], None, srv, {"data": {"target": True}}))
+        self.assertEqual(run(p)[0], 1)
+        p = plan(record("a", ["delete"], srv, None, rtype="cloudflare_record"),
+                 record("b", ["create"], None, srv, {"data": [{"target": True}]}, rtype="cloudflare_record"))
+        self.assertEqual(run(p)[0], 1)
+
     def test_provider_types_are_not_paired(self):
         p = plan(record("a", ["delete"], A, None, rtype="cloudflare_record"), record("b", ["create"], None, A))
         self.assertEqual(run(p), (0, ""))
