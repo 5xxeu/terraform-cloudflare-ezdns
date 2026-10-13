@@ -54,6 +54,15 @@ class ConvertTest(unittest.TestCase):
         self.assertEqual(records["@"]["MX"], [{"content": "mx.example.com", "priority": 10}])
         self.assertTrue(any("2 copies of one MX record of @" in n for n in notes))
 
+    def test_settings_and_private_routing_only_when_set(self):
+        a = [{"id": "1", "name": "app.example.com", "type": "A", "content": "192.0.2.1", "proxied": True, "ttl": 1,
+              "settings": {"ipv4_only": True, "flatten_cname": False}, "private_routing": True},
+             {"id": "2", "name": "web.example.com", "type": "A", "content": "192.0.2.2", "proxied": True, "ttl": 1,
+              "settings": {}, "private_routing": False}]
+        records, _ = z.convert(a, "example.com", 3600)
+        self.assertEqual(records["app"]["A"], [{"content": "192.0.2.1", "proxied": True, "settings": {"ipv4_only": True}, "private_routing": True}])
+        self.assertEqual(records["web"]["A"], [{"content": "192.0.2.2", "proxied": True}])
+
     def test_caa_from_data(self):
         self.assertEqual(self.records["@"]["CAA"][1], {"content": "letsencrypt.org", "tag": "issue", "flags": 128, "key": "flags-128"})
 

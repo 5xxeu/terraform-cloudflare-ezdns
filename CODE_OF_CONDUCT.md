@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at the maintainer, [@NikitaPuglachenko](https://github.com/NikitaPuglachenko), through the contacts on the GitHub profile, or to GitHub with [Report abuse](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam). All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately to the community leaders responsible for enforcement through [a private report](https://github.com/5xxeu/terraform-cloudflare-ezdns/security/advisories/new) (the private reporting of the repository: only the maintainers see it; start the title with "Code of Conduct"), or to GitHub with [Report abuse](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam). All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

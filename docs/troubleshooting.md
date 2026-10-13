@@ -38,13 +38,13 @@ Two records get the same key, or are the same DNS record written in two forms. T
 
 DNS does not allow a CNAME next to other records of the same name, and Cloudflare rejects it. Remember that `ALIASES` entries are CNAME records too. Put the other records on the target of the CNAME, or replace the CNAME with the records it points to. A zone that already has such names (Cloudflare accepted them for records that are not proxied) can list them in `allowed_cname_conflicts` while they are cleaned up.
 
-### Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings):
+### Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing):
 
 A record has an attribute the module does not know, usually a typo (`proxid`, `prority`), or is not an object. Terraform would drop an unknown attribute without a word, so the module stops instead. Fix the attribute named after `unknown attribute`.
 
 ### TTLs below 60 seconds are only available on the Cloudflare Enterprise plan.
 
-A record or `default_ttl` has a TTL below 60 seconds (other than `1`, automatic). Use at least 60, or `1`; on an Enterprise zone, set `minimum_ttl = 30`.
+A record or `default_ttl` has a TTL below 60 seconds (other than `1`, automatic). Use at least 60, or `1`; on an Enterprise zone, set `minimum_ttl = 30` (or `"auto"`, to take it from the plan of the zone).
 
 ### These records are outside owned_names (included: ...; excluded: ...), the part of the zone that this module call manages:
 

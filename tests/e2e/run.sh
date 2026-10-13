@@ -20,6 +20,12 @@ fail() {
 }
 pass() { echo "ok - $*"; }
 tf() { terraform -chdir="${E2E_DIR}/$1" "${@:2}"; }
+# How many of the record_names of a configuration are fully qualified, as "N of M"
+# (the names themselves are not printed)
+qualified_names() {
+    tf "$1" output -json record_names | jq -r --arg zone "${E2E_ZONE_NAME%.}" \
+        '"\([.[] | ascii_downcase | rtrimstr(".") | select(. == $zone or endswith("." + $zone))] | length) of \(length)"'
+}
 
 cleanup() {
     local rc=$?
@@ -76,6 +82,9 @@ count=$(tf v5 state list | grep -c 'cloudflare_dns_record.record\[')
 pass "created ${count} records of all types"
 assert_no_changes v5
 pass "no drift after apply"
+names=$(qualified_names v5)
+[ "${names% of *}" = "${names#* of }" ] || fail "v5: record_names are not all fully qualified (${names})"
+pass "v5: record_names fully qualified (${names})"
 
 # Changing a value without a key replaces the record, with a key updates it in place
 summary=$(plan_summary v5 -var a_value=192.0.2.20 -var txt_value=rotation=2)
@@ -120,6 +129,9 @@ pass "all ${count} records imported, no drift afterwards (${summary})"
 tf v4 apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "v4 apply: $(tail -40 "${E2E_DIR}/apply.log")"
 assert_no_changes v4
 pass "provider v4: created records without drift"
+names=$(qualified_names v4)
+[ "${names% of *}" = "${names#* of }" ] || fail "v4: record_names are not all fully qualified (${names})"
+pass "v4: record_names fully qualified (${names})"
 record_ids v4 >"${E2E_DIR}/ids-v4.txt"
 cp "${E2E_DIR}/v4/terraform.tfstate" "${E2E_DIR}/v4to5/terraform.tfstate"
 rm -f "${E2E_DIR}/v4/terraform.tfstate"

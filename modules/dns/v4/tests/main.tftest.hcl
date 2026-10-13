@@ -102,6 +102,11 @@ run "comments_and_tags" {
     condition     = toset(cloudflare_record.record["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
     error_message = "Tags are passed to the resource"
   }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "records has the comment and the tags as configured"
+  }
 }
 
 run "unknown_attribute" {
@@ -112,6 +117,19 @@ run "unknown_attribute" {
   }
 
   expect_failures = [var.records]
+}
+
+run "private_routing_is_ignored" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = true }] } }
+  }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].private_routing == null
+    error_message = "Provider v4 has no private_routing: the attribute is accepted and ignored"
+  }
 }
 
 run "unknown_settings_attribute" {
@@ -150,6 +168,25 @@ run "names_in_lower_case_and_allowed_cname_conflicts" {
   assert {
     condition     = cloudflare_record.record["Community CNAME"].name == "community" && cloudflare_record.record["Community MX mx.example.net"].name == "community"
     error_message = "The resource gets the name in lower case, and the listed CNAME conflict is accepted"
+  }
+}
+
+run "minimum_ttl_from_the_plan_of_the_zone" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "example.com", plan = "Enterprise Website" }
+  }
+
+  variables {
+    minimum_ttl = "auto"
+    records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
+    error_message = "minimum_ttl = \"auto\" reads the zone and allows 30 seconds on Enterprise zones"
   }
 }
 

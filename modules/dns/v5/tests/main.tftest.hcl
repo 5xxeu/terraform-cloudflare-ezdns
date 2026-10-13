@@ -102,6 +102,11 @@ run "comments_and_tags" {
     condition     = toset(cloudflare_dns_record.record["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
     error_message = "Tags are passed to the resource"
   }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "records has the comment and the tags as configured"
+  }
 }
 
 run "settings" {
@@ -115,6 +120,11 @@ run "settings" {
     condition     = cloudflare_dns_record.record["app AAAA 2001:db8::1"].settings.ipv6_only == true
     error_message = "Settings are passed to the resource"
   }
+
+  assert {
+    condition     = output.records["app AAAA 2001:db8::1"].settings.ipv6_only == true
+    error_message = "records has the settings as configured"
+  }
 }
 
 run "unknown_attribute" {
@@ -125,6 +135,19 @@ run "unknown_attribute" {
   }
 
   expect_failures = [var.records]
+}
+
+run "private_routing" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxied = true, private_routing = true }] } }
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.record["app A 192.0.2.1"].private_routing == true && output.records["app A 192.0.2.1"].private_routing == true
+    error_message = "private_routing is passed to the resource and is in the records output"
+  }
 }
 
 run "unknown_settings_attribute" {
@@ -163,6 +186,61 @@ run "names_in_lower_case_and_allowed_cname_conflicts" {
   assert {
     condition     = cloudflare_dns_record.record["Community CNAME"].name == "community" && cloudflare_dns_record.record["Community MX mx.example.net"].name == "community"
     error_message = "The resource gets the name in lower case, and the listed CNAME conflict is accepted"
+  }
+}
+
+run "minimum_ttl_from_the_plan_of_the_zone" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "example.com", plan = { legacy_id = "enterprise", name = "Enterprise Website" } }
+  }
+
+  variables {
+    minimum_ttl = "auto"
+    records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
+    error_message = "minimum_ttl = \"auto\" reads the zone and allows 30 seconds on Enterprise zones"
+  }
+}
+
+run "plan_lookup_of_an_internationalized_zone_with_zone_name" {
+  command = plan
+
+  # The zone is read for its plan only: its name in Unicode does not matter
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "münchen.de", plan = { legacy_id = "free", name = "Free Website" } }
+  }
+
+  variables {
+    zone_name   = "xn--mnchen-3ya.de"
+    minimum_ttl = "auto"
+    records     = { "www" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = output.records["www A 192.0.2.1"].fqdn == "www.xn--mnchen-3ya.de"
+    error_message = "With zone_name set, the zone name of the lookup is not checked"
+  }
+}
+
+run "explicit_null_minimum_ttl_is_the_default" {
+  command = plan
+
+  # As before 2.14: null is the default 60, and the zone is not read
+  variables {
+    minimum_ttl = null
+    records     = { "app" = { A = [{ content = "192.0.2.9", ttl = 60 }] } }
+  }
+
+  assert {
+    condition     = local.minimum_ttl == 60 && length(data.cloudflare_zone.this) == 0
+    error_message = "An explicit null minimum_ttl is 60 without a lookup of the zone"
   }
 }
 

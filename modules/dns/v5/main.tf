@@ -1,5 +1,9 @@
 locals {
   root_domain = coalesce(var.zone_name, try(data.cloudflare_zone.this[0].name, null))
+  # minimum_ttl = "auto": 30 on Enterprise zones, 60 on the others
+  minimum_ttl = var.minimum_ttl != "auto" ? tonumber(var.minimum_ttl) : (
+    can(regex("(?i)enterprise", "${coalesce(try(data.cloudflare_zone.this[0].plan.legacy_id, null), "-")} ${coalesce(try(data.cloudflare_zone.this[0].plan.name, null), "-")}")) ? 30 : 60
+  )
 
   # Fields of data that hold text (the other fields are numbers or N/S, E/W)
   text_data_fields = ["alpn", "certificate", "digest", "ech", "fingerprint", "ipv4hint", "ipv6hint", "mandatory", "public_key", "regex", "replacement", "service", "target", "value"]
@@ -70,20 +74,21 @@ module "records" {
   default_comment         = var.default_comment
   default_tags            = var.default_tags
   allowed_cname_conflicts = var.allowed_cname_conflicts
-  minimum_ttl             = var.minimum_ttl
+  minimum_ttl             = local.minimum_ttl
   owned_names             = var.owned_names
   unmanaged_ignore        = var.unmanaged_ignore
 }
 
 data "cloudflare_zone" "this" {
-  count   = var.zone_name == null ? 1 : 0
+  count   = var.zone_name == null || var.minimum_ttl == "auto" ? 1 : 0
   zone_id = var.zone_id
 
   lifecycle {
     # Cloudflare returns the name of an internationalized zone in Unicode, while
-    # record names come back in Punycode
+    # record names come back in Punycode (only the name of the lookup is used: with
+    # zone_name set, the zone is read for its plan with minimum_ttl = "auto")
     postcondition {
-      condition     = !can(regex("[^[:ascii:]]", self.name))
+      condition     = var.zone_name != null || !can(regex("[^[:ascii:]]", self.name))
       error_message = "The zone ${jsonencode(self.name)} has an internationalized name, which Cloudflare returns in Unicode: set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de; provider::idna::to_ascii of the 5xxeu/idna provider converts it)."
     }
   }
@@ -100,11 +105,12 @@ resource "cloudflare_dns_record" "record" {
   ttl = each.value.proxied ? 1 : each.value.ttl
 
   # Records with structured data (CAA, SRV, ...) cannot be proxied
-  proxied  = each.value.data == null ? each.value.proxied : null
-  priority = each.value.priority
-  comment  = each.value.comment
-  tags     = length(each.value.tags) > 0 ? each.value.tags : null
-  settings = each.value.settings
+  proxied         = each.value.data == null ? each.value.proxied : null
+  priority        = each.value.priority
+  comment         = each.value.comment
+  tags            = length(each.value.tags) > 0 ? each.value.tags : null
+  settings        = each.value.settings
+  private_routing = each.value.private_routing
 
   # Numeric flags (CAA, DNSKEY) are sent as numbers, NAPTR flags as a string
   data = each.value.data == null ? null : {

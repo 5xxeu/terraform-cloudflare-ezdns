@@ -1,10 +1,10 @@
 output "record_names" {
-  description = "Names of all managed records"
+  description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
   value       = module.v5.record_names
 }
 
 output "records" {
-  description = "Managed records keyed by their stable identifier: id, zone_id, name (as returned by Cloudflare), fqdn (fully qualified, lower case, from the configuration, so known at plan), type, content, ttl, proxied, priority and data (structured records, as configured), e.g. for monitoring or certificates of these names"
+  description = "Managed records keyed by their stable identifier: id, zone_id, name (as returned by Cloudflare), fqdn (fully qualified, lower case, from the configuration, so known at plan), type, content, ttl, proxied, priority, data (structured records), comment, tags, settings and private_routing (the last two with provider v5, null with v4), the last five as configured, e.g. for monitoring or certificates of these names"
   value       = module.v5.records
 }
 

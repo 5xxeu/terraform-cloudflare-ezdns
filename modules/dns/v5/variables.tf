@@ -26,8 +26,8 @@ variable "records" {
     DNS records: `records[NAME][TYPE] = [RECORD, ...]`, where NAME is a name within the
     zone (`@` for the apex) and TYPE a record type, optionally with a prefix
     (`"_acme-challenge.TXT"`). Record attributes: `content`, `ttl`, `proxied`, `priority`,
-    `tag`, `flags`, `data`, `key`, `comment`, `tags` and `settings` (`flatten_cname`,
-    `ipv4_only`, `ipv6_only`). See the README for the details. Unknown attributes fail at plan.
+    `tag`, `flags`, `data`, `key`, `comment`, `tags`, `settings` (`flatten_cname`,
+    `ipv4_only`, `ipv6_only`) and `private_routing`. See the README for the details. Unknown attributes fail at plan.
   EOT
   # Not a typed object: Terraform silently drops unknown attributes when converting to an
   # object type, so misspelled attributes are checked here and the typed structure is
@@ -48,19 +48,19 @@ variable "records" {
         for type, list in types : [
           for record in list : (
             can(keys(record))
-            && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings"])) == 0
+            && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing"])) == 0
             && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
           )
         ]
       ]
     ])), false)
     error_message = try(
-      "Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings):\n${join("\n", flatten([
+      "Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing):\n${join("\n", flatten([
         for name, types in var.records : [
           for type, list in types : [
             for index, record in list : concat(
               can(keys(record)) ? [] : ["records[\"${name}\"][\"${type}\"][${index}] must be an object"],
-              [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings"]) : "records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
+              [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing"]) : "records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
               [for attribute in setsubtract(try(keys(record.settings), []), ["flatten_cname", "ipv4_only", "ipv6_only"]) : "records[\"${name}\"][\"${type}\"][${index}].settings: unknown attribute \"${attribute}\""]
             )
           ]
@@ -153,7 +153,7 @@ variable "record_groups" {
             for type, list in types : [
               for record in list : (
                 can(keys(record))
-                && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings"])) == 0
+                && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing"])) == 0
                 && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
               )
             ]
@@ -162,7 +162,7 @@ variable "record_groups" {
       )
     ])), false)
     error_message = try(
-      "Invalid record_groups (a group has records and optionally defaults with ttl, proxied, comment and tags; allowed record attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings):\n${join("\n", flatten([
+      "Invalid record_groups (a group has records and optionally defaults with ttl, proxied, comment and tags; allowed record attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing):\n${join("\n", flatten([
         for group, g in var.record_groups : concat(
           can(keys(g)) ? [] : ["record_groups[\"${group}\"] must be an object with records and optionally defaults"],
           [for attribute in setsubtract(try(keys(g), []), ["defaults", "records"]) : "record_groups[\"${group}\"]: unknown attribute \"${attribute}\""],
@@ -177,7 +177,7 @@ variable "record_groups" {
               for type, list in types : [
                 for index, record in list : concat(
                   can(keys(record)) ? [] : ["record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}] must be an object"],
-                  [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
+                  [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
                   [for attribute in setsubtract(try(keys(record.settings), []), ["flatten_cname", "ipv4_only", "ipv6_only"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].settings: unknown attribute \"${attribute}\""]
                 )
               ]
@@ -326,13 +326,13 @@ variable "owned_names" {
 }
 
 variable "minimum_ttl" {
-  description = "Lowest TTL other than 1 (automatic). Cloudflare accepts TTLs below 60 seconds only on Enterprise zones: set 30 there, keep 60 otherwise"
-  type        = number
-  default     = 60
+  description = "Lowest TTL other than 1 (automatic). Cloudflare accepts TTLs below 60 seconds only on Enterprise zones: set 30 there, keep 60 otherwise, or \"auto\" to take it from the plan of the zone (one more API call, which needs Zone Read; the compile module, which reads nothing, takes 30)"
+  type        = string
+  default     = "60"
   nullable    = false
 
   validation {
-    condition     = contains([30, 60], var.minimum_ttl)
-    error_message = "minimum_ttl must be 60, or 30 for zones on the Cloudflare Enterprise plan."
+    condition     = contains(["30", "60", "auto"], var.minimum_ttl)
+    error_message = "minimum_ttl must be 60, 30 for zones on the Cloudflare Enterprise plan, or \"auto\" to take it from the plan of the zone."
   }
 }

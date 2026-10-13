@@ -164,6 +164,8 @@ def convert(records, zone, default_ttl):
         settings = {k: True for k in ("flatten_cname", "ipv4_only", "ipv6_only") if (r.get("settings") or {}).get(k) is True}
         if settings:
             rec["settings"] = settings
+        if r.get("private_routing") is True:
+            rec["private_routing"] = True
         rec["_id"] = r.get("id", "no ID")
         out.setdefault(name, {}).setdefault(rtype, []).append(rec)
 
@@ -251,7 +253,7 @@ def quote(value):
 
 
 def to_yaml(records, zone, count):
-    order = ["content", "key", "priority", "tag", "flags", "data", "ttl", "proxied", "comment", "tags", "settings"]
+    order = ["content", "key", "priority", "tag", "flags", "data", "ttl", "proxied", "comment", "tags", "settings", "private_routing"]
     lines = [
         "# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json",
         f"# Records of {zone} written by zone-to-ezdns.py ({count} records). Review them, then adopt them with",

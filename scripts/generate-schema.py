@@ -130,7 +130,10 @@ def schema():
             },
         },
     }
-    proxied = {"proxied": {"description": "Proxied by Cloudflare (default: default_proxied)", "type": "boolean"}}
+    proxied = {
+        "proxied": {"description": "Proxied by Cloudflare (default: default_proxied)", "type": "boolean"},
+        "private_routing": {"description": "Private network routing to the origin (provider v5 only)", "type": "boolean"},
+    }
 
     def record(properties, required_fields, description):
         return {

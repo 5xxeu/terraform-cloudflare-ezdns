@@ -25,7 +25,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.13.1"
+  version = "2.14.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -100,7 +100,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "2.13.1"
+     version = "2.14.0"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -185,7 +185,7 @@ examples/
 ├── import/    # Adopting a zone that already has records
 └── v4/        # Provider v4, for existing configurations
 schema/        # JSON Schema for records in YAML
-tools/         # plan-guard.py (checks a saved plan), zone-to-ezdns.py (writes the YAML of a zone)
+tools/         # plan-guard.py (checks a saved plan), moved-blocks.py (moved blocks from a plan), zone-to-ezdns.py (YAML of a zone)
 ```
 
 Both wrappers share the same inputs, outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
@@ -205,7 +205,7 @@ The API token of the provider needs these permissions for the zone (Cloudflare d
 | Permission | Needed for |
 |------------|------------|
 | Zone, DNS, Edit | creating, changing and deleting the records (it includes reading them, which `import_existing` and `report_unmanaged` do) |
-| Zone, Zone, Read | looking up the zone name when `zone_name` is not set |
+| Zone, Zone, Read | looking up the zone name when `zone_name` is not set, and the plan of the zone when `minimum_ttl = "auto"` |
 
 Limit the token to the zones it manages (Zone Resources, Include, Specific zone). A token for `terraform plan` in pull requests can have DNS Read instead of Edit.
 
@@ -226,7 +226,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.13.1"
+  version = "2.14.0"
   # ...
 }
 ```
@@ -239,7 +239,7 @@ A copy in your repository needs neither GitHub nor the Terraform Registry to get
 
 ```sh
 REPO=https://github.com/5xxeu/terraform-cloudflare-ezdns
-VERSION=v2.13.1
+VERSION=v2.14.0
 ARCHIVE="terraform-cloudflare-ezdns-${VERSION}.tar.gz"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/SHA256SUMS"
@@ -275,10 +275,10 @@ What a copy may change without affecting the module:
 To fetch the module on `terraform init` instead, use a Git source with a tag (or the URL of your own mirror):
 
 ```hcl
-source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.13.1"
+source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.14.0"
 ```
 
-For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.13.1&depth=1`) to fetch only that commit instead of the whole history.
+For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.14.0&depth=1`) to fetch only that commit instead of the whole history.
 
 ### HCL or YAML
 
@@ -323,7 +323,7 @@ records:
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.13.1"
+  version = "2.14.0"
 
   zone_id      = var.zone_id
   zone_name    = "example.com"
@@ -379,7 +379,7 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.13.1"
+  version = "2.14.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -607,6 +607,15 @@ moved {
 
 With the `//modules/dns/v5` submodule, the address has no `module.v5`; with the v4 wrapper, the resource is `cloudflare_record.record`.
 
+`tools/moved-blocks.py` writes these blocks from a saved plan: it pairs each record that the plan deletes with the created record that is the same DNS record (zone, fully qualified name, type and value; TTL, proxy status, comment and tags change in place after the move). Copies of one record and values known only after apply are listed as comments to pair by hand (exit status 1):
+
+```console
+$ terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json
+$ python3 tools/moved-blocks.py tfplan.json --zone example.com > moved.tf
+```
+
+Check the blocks, apply, and remove them once every state that uses the module is applied.
+
 ### Changing Values Without a Gap
 
 A changed value without a `key` gives the record a new key, so Terraform deletes the old record and creates the new one. Between the two, resolvers can get an empty answer and cache it for the negative TTL of the zone (the minimum of its SOA record). `create_before_destroy` does not change this: the old and the new record are different instances, and the option only orders the replacement of one instance. Two ways avoid the gap:
@@ -652,7 +661,7 @@ The `records` input (and the records of `record_groups`) is validated before any
 - Structured records must have `data` with only the fields of their type and all required ones; other records must not set `data`
 - Numeric fields of `data` must be numbers in the range of their DNS wire format: priorities, weights, ports, key tags, `order` and `preference` from 0 to 65535, TLSA, SMIMEA and SSHFP fields and algorithms from 0 to 255, LOC degrees, minutes and seconds within their limits (latitude up to 90, longitude up to 180), LOC `altitude`, `size` and precisions as in RFC 1876, and `lat_direction` `N` or `S`, `long_direction` `E` or `W`; CAA `flags` from 0 to 255
 - Service parameters of `HTTPS` and `SVCB` records, see [Record Types](#record-types)
-- `ttl` and `default_ttl` must be whole numbers: `1` (automatic) or between `minimum_ttl` and `86400`. `minimum_ttl` is `60` by default: Cloudflare accepts TTLs below 60 seconds only on Enterprise zones, where it can be set to `30`. A lower TTL, and a `default_ttl` below `minimum_ttl` even if no record uses it, fail at `plan` with what to change; proxied records always get `1`
+- `ttl` and `default_ttl` must be whole numbers: `1` (automatic) or between `minimum_ttl` and `86400`. `minimum_ttl` is `60` by default: Cloudflare accepts TTLs below 60 seconds only on Enterprise zones, where it can be set to `30`; `minimum_ttl = "auto"` takes it from the plan of the zone (`30` on Enterprise, `60` on the others; one more API call, which needs Zone, Zone, Read). A lower TTL, and a `default_ttl` below `minimum_ttl` even if no record uses it, fail at `plan` with what to change; proxied records always get `1`
 - Only `A`, `AAAA`, `CNAME` and `ALIASES` records can be `proxied`
 - `MX` and `URI` records require `priority`, a whole number from 0 to 65535
 - `A` records need an IPv4 address and `AAAA` records an IPv6 address (sent in the canonical form, `2001:db8::1` for `2001:0DB8:0:0:0:0:0:1`, as Cloudflare stores it; the [key](#record-keys) keeps the address as written); `CNAME`, `MX`, `NS` and `PTR` records need a DNS name: labels of letters, digits, `_` and `-` (up to 63 characters) separated by dots, at most 253 characters, an optional trailing dot, and not an IP address (`@` stands for the zone apex, and `.` is a null `MX`, RFC 7505, which must have `priority` 0)
@@ -719,6 +728,7 @@ The type of `records` is shown as `any`: Terraform silently drops unknown attrib
 | `comment` | Note shown in the Cloudflare dashboard | `default_comment` |
 | `tags` | Tags such as `owner:web`, added to `default_tags` | `[]` |
 | `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper) | `null` |
+| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper) | `null` |
 
 ### Defaults, Comments and Tags
 
@@ -736,7 +746,7 @@ Values that most records share can be set once for the module call, and overridd
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.13.1"
+  version = "2.14.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -759,7 +769,7 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 
 ## Outputs
 
-- `record_names`: names of all managed records
+- `record_names`: fully qualified names of all managed records (from the configuration, known at plan)
 - `records`: managed records keyed by their [record key](#record-keys), with `id`, `zone_id`, `name` (as Cloudflare returns it), `fqdn` (fully qualified and in lower case, from the configuration, so it is known at `plan`), `type`, `content`, `ttl`, `proxied`, `priority` and `data` (structured records, as configured). For other modules, e.g. monitoring of the names or certificates for them:
 
   ```hcl
@@ -885,7 +895,7 @@ With `report_unmanaged = true`, the plan reports records of the zone that are no
 
 The module follows [Semantic Versioning](https://semver.org/): within 2.x, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys have not changed since 2.0. Each release passes the tests on Terraform 1.8 and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge.
 
-Pin `version` exactly (or to a minor version, `~> 2.13.1`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](#local-copy) are upgraded by hand.
+Pin `version` exactly (or to a minor version, `~> 2.14.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](#local-copy) are upgraded by hand.
 
 ## Upgrading and Migration
 

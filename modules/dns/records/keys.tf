@@ -81,10 +81,11 @@ locals {
         contains(["A", "AAAA", "CNAME"], r.type) ? var.default_proxied :
         false
       )
-      comment  = r.rec.comment != null ? r.rec.comment : var.default_comment
-      tags     = distinct(concat(var.default_tags, coalesce(r.rec.tags, [])))
-      settings = r.rec.settings
-      priority = contains(["MX", "URI"], r.type) ? r.rec.priority : r.type == "SRV" ? tonumber(r.rec.data.priority) : null
+      comment         = r.rec.comment != null ? r.rec.comment : var.default_comment
+      tags            = distinct(concat(var.default_tags, coalesce(r.rec.tags, [])))
+      settings        = r.rec.settings
+      private_routing = r.rec.private_routing
+      priority        = contains(["MX", "URI"], r.type) ? r.rec.priority : r.type == "SRV" ? tonumber(r.rec.data.priority) : null
       data = (
         r.type == "CAA" ? tomap({ flags = tostring(r.rec.flags), tag = r.rec.tag, value = r.content }) :
         # Cloudflare returns SVCB and HTTPS targets as fully qualified names, so they
@@ -111,17 +112,18 @@ locals {
   flat_records = {
     for key, group in local.grouped : key => {
       # Cloudflare stores names in lower case; the key keeps the name as written
-      name     = lower(group[0].name)
-      fqdn     = group[0].fqdn
-      type     = group[0].type
-      content  = group[0].content
-      ttl      = group[0].ttl
-      proxied  = group[0].proxied
-      comment  = group[0].comment
-      tags     = group[0].tags
-      settings = group[0].settings
-      priority = group[0].priority
-      data     = group[0].data
+      name            = lower(group[0].name)
+      fqdn            = group[0].fqdn
+      type            = group[0].type
+      content         = group[0].content
+      ttl             = group[0].ttl
+      proxied         = group[0].proxied
+      comment         = group[0].comment
+      tags            = group[0].tags
+      settings        = group[0].settings
+      private_routing = group[0].private_routing
+      priority        = group[0].priority
+      data            = group[0].data
     }
   }
 

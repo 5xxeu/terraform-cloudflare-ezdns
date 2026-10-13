@@ -402,6 +402,60 @@ class PlanGuardTest(unittest.TestCase):
         )
         self.assertEqual(run(p, "--zone", "example.com", "--require", "@:MX", "--require", "new:MX"), [])
 
+    def test_forget_and_create_of_an_unproxied_record(self):
+        # The old proxied record stays: a new unproxied record with another address
+        # publishes nothing hidden, one with the old address publishes the origin
+        old = {**WEB, "zone_id": "z"}
+        p = plan(record(BASE.format("web A 192.0.2.1"), ["forget", "create"], old, {**old, "name": "public", "content": "192.0.2.9", "proxied": False}))
+        self.assertEqual(run(p, "--zone", "example.com"), [])
+        p = plan(record(BASE.format("web A 192.0.2.1"), ["forget", "create"], old, {**old, "name": "public", "proxied": False}))
+        self.assertIn("turns off the proxy", run(p, "--zone", "example.com")[0])
+
+    def test_forget_and_create_keeps_an_unproxied_neighbour(self):
+        # The old unproxied record stays as it is: deleting the last proxied record of its
+        # name publishes its address, as with a record without changes
+        direct = {**WEB, "zone_id": "z", "content": "192.0.2.5", "proxied": False}
+        p = plan(
+            record(BASE.format("web A 192.0.2.1"), ["delete"], {**WEB, "zone_id": "z"}, None),
+            record(BASE.format("web A 192.0.2.5"), ["forget", "create"], direct, {**direct, "name": "other", "proxied": True}),
+        )
+        problems = run(p, "--zone", "example.com", "--max-deletes", "1")
+        self.assertTrue(problems)
+        self.assertIn("  " + BASE.format("web A 192.0.2.5"), problems)
+        self.assertEqual(run(p, "--zone", "example.com", "--max-deletes", "1", "--allow", BASE.format("web A 192.0.2.5")), [])
+
+    def test_strict_proxy(self):
+        # Any new unproxied value next to proxied records needs a review, whatever it is
+        web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})
+        other = record(BASE.format("other A 192.0.2.8"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False})
+        svcb = record(BASE.format("app SVCB x"), ["create"], None, {"name": "app", "type": "SVCB", "zone_id": "z",
+                                                                    "data": {"priority": 1, "target": ".", "value": 'ipv4hint="192.0.2.9"'}})
+        txt = record(BASE.format("@ TXT x"), ["create"], None, {"name": "@", "type": "TXT", "content": "x", "zone_id": "z"})
+        p = plan(web, other, svcb, txt)
+        self.assertEqual(run(p), [])
+        problems = run(p, "--strict-proxy")
+        self.assertIn("--strict-proxy", problems[0])
+        self.assertEqual(problems[1:], ["  " + BASE.format("other A 192.0.2.8"), "  " + BASE.format("app SVCB x")])
+        self.assertEqual(run(p, "--strict-proxy", "--allow-proxy-disable"), [])
+        self.assertEqual(run(p, "--strict-proxy", "--allow", BASE.format("other *"), "--allow", BASE.format("app *")), [])
+        # Without proxied records there is nothing to hide, and unchanged records pass
+        self.assertEqual(run(plan(other, svcb), "--strict-proxy"), [])
+        unchanged = {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False}
+        self.assertEqual(run(plan(web, record(BASE.format("other A 192.0.2.8"), ["no-op"], unchanged, unchanged)), "--strict-proxy"), [])
+
+    def test_proxied_record_of_an_unknown_type_hides_its_value(self):
+        # A proxied record whose type is known only after apply: its value is an address
+        # or a name, and a new unproxied record with it publishes the origin
+        hidden = record(BASE.format("web x"), ["create"], None, {**WEB, "zone_id": "z", "type": None}, {"type": True})
+        other = record(BASE.format("other A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "proxied": False})
+        self.assertTrue(run(plan(hidden, other)))
+        self.assertIn("--strict-proxy", run(plan(hidden, record(BASE.format("other A 192.0.2.8"), ["create"], None, {
+            **WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False})), "--strict-proxy")[0])
+        # Another TTL publishes nothing new, also with --strict-proxy
+        web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})
+        direct = {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False, "ttl": 300}
+        self.assertEqual(run(plan(web, record(BASE.format("other A 192.0.2.8"), ["update"], direct, {**direct, "ttl": 600})), "--strict-proxy"), [])
+
     def test_hint_with_a_hidden_address_fails(self):
         # The address of a proxied record in ipv4hint or ipv6hint publishes the origin, in
         # the data of provider 5.x (an object) and 4.x (a list of one)

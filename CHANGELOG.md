@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-13
+
+### Added
+
+- `tools/moved-blocks.py`: writes `moved` blocks from a saved plan for records that it deletes and creates again under another key (a `key` added, a name written in another form), pairing records by zone, fully qualified name, type and value; copies and values known only after apply are left to pair by hand
+- `minimum_ttl = "auto"` (root module, both wrappers): the lowest TTL is taken from the plan of the zone, `30` on Enterprise zones and `60` on the others. The zone is read for it (Zone, Zone, Read). The type of `minimum_ttl` is now `string`: numbers still work as before (`minimum_ttl = 30`), and the default stays `60`, also for an explicit `null`. The `compile` module, which reads nothing, takes `30` for `"auto"`
+- `private_routing` record attribute (provider v5; ignored by the v4 wrapper like `settings`): private network routing to the origin, passed to `cloudflare_dns_record`, in the JSON Schema, in the `records` output and written by `tools/zone-to-ezdns.py` for records that have it
+- The `records` output has `comment`, `tags`, `settings` and `private_routing` of every record, as configured (known at plan; the last two are `null` with provider v4, which does not support them)
+- `tools/plan-guard.py --strict-proxy`: when the plan has proxied records, every unproxied `A`, `AAAA` or `CNAME` record that is new or gets another name, type or content (and `HTTPS` or `SVCB` record with new address hints) fails until it is allowed with `--allow` or `--allow-proxy-disable`, whatever its value
+
+### Fixed
+
+- `record_names` output: the fully qualified names of the configuration with both wrappers. With provider v5 it had the names as written right after an apply and the fully qualified names after the next refresh, so the first plan after an apply showed a change of the output; with v4 it had the hostnames from Cloudflare. The e2e test checks it
+- `tools/plan-guard.py`: a replacement with `destroy = false` (`["forget", "create"]`) whose new record is unproxied no longer fails as a proxy that is turned off, as the old proxied record stays; the new record is checked as a created one
+- `tools/plan-guard.py`: a proxied record whose type is known only after apply now hides its value too, so a new unproxied record with that address or name fails
+
+### Changed
+
+- CODE_OF_CONDUCT.md: reports go to the private reporting of the repository
+
 ## [2.13.1] - 2026-10-13
 
 ### Fixed
@@ -432,7 +452,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...HEAD
+[2.14.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...v2.14.0
 [2.13.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...v2.13.1
 [2.13.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...v2.13.0
 [2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
