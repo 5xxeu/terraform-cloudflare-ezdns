@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-13
+
 ### Added
 
 - `tools/moved-blocks.py`: writes `moved` blocks from a saved plan for records that it deletes and creates again under another key (a `key` added, a name written in another form), pairing records by zone, fully qualified name, type and value; copies and values known only after apply are left to pair by hand
@@ -449,7 +451,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...HEAD
+[2.14.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...v2.14.0
 [2.13.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...v2.13.1
 [2.13.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.2...v2.13.0
 [2.12.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.12.1...v2.12.2
