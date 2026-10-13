@@ -443,6 +443,19 @@ class PlanGuardTest(unittest.TestCase):
         unchanged = {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False}
         self.assertEqual(run(plan(web, record(BASE.format("other A 192.0.2.8"), ["no-op"], unchanged, unchanged)), "--strict-proxy"), [])
 
+    def test_proxied_record_of_an_unknown_type_hides_its_value(self):
+        # A proxied record whose type is known only after apply: its value is an address
+        # or a name, and a new unproxied record with it publishes the origin
+        hidden = record(BASE.format("web x"), ["create"], None, {**WEB, "zone_id": "z", "type": None}, {"type": True})
+        other = record(BASE.format("other A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "proxied": False})
+        self.assertTrue(run(plan(hidden, other)))
+        self.assertIn("--strict-proxy", run(plan(hidden, record(BASE.format("other A 192.0.2.8"), ["create"], None, {
+            **WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False})), "--strict-proxy")[0])
+        # Another TTL publishes nothing new, also with --strict-proxy
+        web = record(BASE.format("web A 192.0.2.1"), ["no-op"], {**WEB, "zone_id": "z"}, {**WEB, "zone_id": "z"})
+        direct = {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False, "ttl": 300}
+        self.assertEqual(run(plan(web, record(BASE.format("other A 192.0.2.8"), ["update"], direct, {**direct, "ttl": 600})), "--strict-proxy"), [])
+
     def test_hint_with_a_hidden_address_fails(self):
         # The address of a proxied record in ipv4hint or ipv6hint publishes the origin, in
         # the data of provider 5.x (an object) and 4.x (a list of one)

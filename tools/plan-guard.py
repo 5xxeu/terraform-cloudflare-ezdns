@@ -40,7 +40,7 @@ def parse_args(argv):
     parser.add_argument("--allow-proxy-disable", action="store_true",
                         help="allow records that are proxied now to become unproxied, which publishes their origin address")
     parser.add_argument("--strict-proxy", action="store_true",
-                        help="fail on every new or changed unproxied A, AAAA or CNAME record (and HTTPS or SVCB record "
+                        help="fail on every unproxied A, AAAA or CNAME record that is new or gets a new name, type or value (and HTTPS or SVCB record "
                              "with address hints) of a plan that has proxied records, whatever its value; "
                              "--allow or --allow-proxy-disable allows them")
     parser.add_argument("--allow", action="append", default=[], metavar="ADDRESS",
@@ -287,6 +287,10 @@ def check(plan, args):
         if after.get("proxied") is True and after_unknown.get("content"):
             for kind in value_kinds(after, after_unknown):
                 hidden_unknown[kind] = hidden_unknown.get(kind, False) or own
+        elif after.get("proxied") is True and after_unknown.get("type"):
+            # The type is known only after apply: the value hides an address or a name
+            for value in {hidden_value({**after, "type": t}) for t in ("A", "CNAME")} - {None}:
+                hidden[value] = hidden.get(value, False) or own
         if actions in (["no-op"], ["update"]) and before.get("proxied") is True and after.get("proxied") is True \
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):

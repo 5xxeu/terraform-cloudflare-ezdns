@@ -12,12 +12,13 @@ All notable changes to this project are documented in this file. The format is b
 - `minimum_ttl = null` (root module, both wrappers): the lowest TTL is taken from the plan of the zone, `30` on Enterprise zones and `60` on the others. The zone is read for it (Zone, Zone, Read). The default stays `60`; an explicit `null`, which meant the default before, now looks the plan up. The `compile` module, which reads nothing, takes `30`
 - `private_routing` record attribute (provider v5; ignored by the v4 wrapper like `settings`): private network routing to the origin, passed to `cloudflare_dns_record`, in the JSON Schema, in the `records` output and written by `tools/zone-to-ezdns.py` for records that have it
 - The `records` output has `comment`, `tags`, `settings` and `private_routing` of every record, as configured (known at plan; the last two are `null` with provider v4, which does not support them)
-- `tools/plan-guard.py --strict-proxy`: when the plan has proxied records, every new or changed unproxied `A`, `AAAA` or `CNAME` record (and `HTTPS` or `SVCB` record with new address hints) fails until it is allowed with `--allow` or `--allow-proxy-disable`, whatever its value
+- `tools/plan-guard.py --strict-proxy`: when the plan has proxied records, every unproxied `A`, `AAAA` or `CNAME` record that is new or gets another name, type or content (and `HTTPS` or `SVCB` record with new address hints) fails until it is allowed with `--allow` or `--allow-proxy-disable`, whatever its value
 
 ### Fixed
 
 - `record_names` output: the fully qualified names of the configuration with both wrappers. With provider v5 it had the names as written right after an apply and the fully qualified names after the next refresh, so the first plan after an apply showed a change of the output; with v4 it had the hostnames from Cloudflare. The e2e test checks it
 - `tools/plan-guard.py`: a replacement with `destroy = false` (`["forget", "create"]`) whose new record is unproxied no longer fails as a proxy that is turned off, as the old proxied record stays; the new record is checked as a created one
+- `tools/plan-guard.py`: a proxied record whose type is known only after apply now hides its value too, so a new unproxied record with that address or name fails
 
 ### Changed
 
