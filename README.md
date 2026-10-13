@@ -760,7 +760,7 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 
 ## Outputs
 
-- `record_names`: names of all managed records
+- `record_names`: fully qualified names of all managed records (from the configuration, known at plan)
 - `records`: managed records keyed by their [record key](#record-keys), with `id`, `zone_id`, `name` (as Cloudflare returns it), `fqdn` (fully qualified and in lower case, from the configuration, so it is known at `plan`), `type`, `content`, `ttl`, `proxied`, `priority` and `data` (structured records, as configured). For other modules, e.g. monitoring of the names or certificates for them:
 
   ```hcl

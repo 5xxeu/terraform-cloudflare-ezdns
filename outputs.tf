@@ -1,5 +1,5 @@
 output "record_names" {
-  description = "Names of all managed records"
+  description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
   value       = module.v5.record_names
 }
 

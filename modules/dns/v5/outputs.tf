@@ -1,6 +1,6 @@
 output "record_names" {
-  description = "Names of all managed records"
-  value       = [for r in cloudflare_dns_record.record : r.name]
+  description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
+  value       = [for key, r in cloudflare_dns_record.record : module.records.flat_records[key].fqdn]
 }
 
 output "records" {

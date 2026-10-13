@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- `record_names` output: the fully qualified names of the configuration with both wrappers. With provider v5 it had the names as written right after an apply and the fully qualified names after the next refresh, so the first plan after an apply showed a change of the output; with v4 it had the hostnames from Cloudflare. The e2e test checks it
 - `tools/plan-guard.py`: a replacement with `destroy = false` (`["forget", "create"]`) whose new record is unproxied no longer fails as a proxy that is turned off, as the old proxied record stays; the new record is checked as a created one
 
 ### Changed
