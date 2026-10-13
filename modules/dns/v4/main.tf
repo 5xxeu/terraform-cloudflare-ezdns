@@ -1,5 +1,9 @@
 locals {
   root_domain = coalesce(var.zone_name, try(data.cloudflare_zone.this[0].name, null))
+  # minimum_ttl = null: 30 on Enterprise zones, 60 on the others
+  minimum_ttl = var.minimum_ttl != null ? var.minimum_ttl : (
+    can(regex("(?i)enterprise", coalesce(try(data.cloudflare_zone.this[0].plan, null), "-"))) ? 30 : 60
+  )
 
   # Fields of data that hold text (the other fields are numbers or N/S, E/W)
   text_data_fields = ["alpn", "certificate", "digest", "ech", "fingerprint", "ipv4hint", "ipv6hint", "mandatory", "public_key", "regex", "replacement", "service", "target", "value"]
@@ -68,12 +72,12 @@ module "records" {
   default_comment         = var.default_comment
   default_tags            = var.default_tags
   allowed_cname_conflicts = var.allowed_cname_conflicts
-  minimum_ttl             = var.minimum_ttl
+  minimum_ttl             = local.minimum_ttl
   owned_names             = var.owned_names
 }
 
 data "cloudflare_zone" "this" {
-  count   = var.zone_name == null ? 1 : 0
+  count   = var.zone_name == null || var.minimum_ttl == null ? 1 : 0
   zone_id = var.zone_id
 
   lifecycle {

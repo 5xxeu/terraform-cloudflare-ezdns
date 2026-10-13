@@ -171,6 +171,25 @@ run "names_in_lower_case_and_allowed_cname_conflicts" {
   }
 }
 
+run "minimum_ttl_from_the_plan_of_the_zone" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "example.com", plan = "Enterprise Website" }
+  }
+
+  variables {
+    minimum_ttl = null
+    records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
+    error_message = "minimum_ttl = null reads the zone and allows 30 seconds on Enterprise zones"
+  }
+}
+
 run "minimum_ttl_passed_to_the_core" {
   command = plan
 

@@ -67,7 +67,7 @@ module "records" {
   default_comment         = var.default_comment
   default_tags            = var.default_tags
   allowed_cname_conflicts = var.allowed_cname_conflicts
-  minimum_ttl             = var.minimum_ttl
+  minimum_ttl             = coalesce(var.minimum_ttl, 30)
   owned_names             = var.owned_names
 }
 

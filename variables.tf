@@ -326,13 +326,12 @@ variable "owned_names" {
 }
 
 variable "minimum_ttl" {
-  description = "Lowest TTL other than 1 (automatic). Cloudflare accepts TTLs below 60 seconds only on Enterprise zones: set 30 there, keep 60 otherwise"
+  description = "Lowest TTL other than 1 (automatic). Cloudflare accepts TTLs below 60 seconds only on Enterprise zones: set 30 there, keep 60 otherwise, or null to take it from the plan of the zone (one more API call, needs Zone Read; the compile module, which reads nothing, takes 30)"
   type        = number
   default     = 60
-  nullable    = false
 
   validation {
-    condition     = contains([30, 60], var.minimum_ttl)
-    error_message = "minimum_ttl must be 60, or 30 for zones on the Cloudflare Enterprise plan."
+    condition     = var.minimum_ttl == null || contains([30, 60], var.minimum_ttl)
+    error_message = "minimum_ttl must be 60, 30 for zones on the Cloudflare Enterprise plan, or null to take it from the plan of the zone."
   }
 }
