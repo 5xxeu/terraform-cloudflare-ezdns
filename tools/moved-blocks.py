@@ -84,8 +84,20 @@ def data_of(record, rtype):
         data = data[0] if data else None
     if not isinstance(data, dict):
         return None
-    return {k: (str(v).rstrip(".").lower() if k in CASE_INSENSITIVE_FIELDS and not (k == "target" and rtype == "URI") else str(v))
-            for k, v in sorted(data.items()) if v is not None and v != ""} or None
+    return {k: data_field(rtype, k, str(v), data) for k, v in sorted(data.items()) if v is not None and v != ""} or None
+
+
+def data_field(rtype, field, value, data):
+    """A field of data in a normal form, by the rules of the import in the module."""
+    if (field in CASE_INSENSITIVE_FIELDS and not (field == "target" and rtype == "URI")) \
+            or (field == "certificate" and rtype in ("TLSA", "SMIMEA")):
+        return value.rstrip(".").lower()
+    # CAA issue and issuewild: "<issuer domain>[; parameters]", the domain compared like a
+    # hostname, the parameters (account URIs, ...) exactly
+    if rtype == "CAA" and field == "value" and str(data.get("tag")) in ("issue", "issuewild"):
+        issuer, sep, rest = value.partition(";")
+        return issuer.strip().rstrip(".").lower() + sep + rest
+    return value
 
 
 def txt_value(content):

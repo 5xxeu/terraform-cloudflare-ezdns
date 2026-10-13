@@ -84,6 +84,15 @@ class MovedBlocksTest(unittest.TestCase):
                      record("@ TXT b", ["create"], None, {**txt, "content": new}))
             self.assertEqual(run(p)[1].count("moved {"), moved, old)
 
+    def test_hex_certificates_and_caa_issuers_in_any_case(self):
+        tlsa = {"zone_id": "z", "name": "_443._tcp", "type": "TLSA", "data": {"usage": 3, "selector": 1, "matching_type": 1, "certificate": "ABCD"}}
+        caa = {"zone_id": "z", "name": "@", "type": "CAA", "data": {"flags": 0, "tag": "issue", "value": "LetsEncrypt.org; accounturi=https://x/A"}}
+        for old, new, moved in ((tlsa, {**tlsa, "data": {**tlsa["data"], "certificate": "abcd"}}, 1),
+                                (caa, {**caa, "data": {**caa["data"], "value": "letsencrypt.org; accounturi=https://x/A"}}, 1),
+                                (caa, {**caa, "data": {**caa["data"], "value": "LetsEncrypt.org; accounturi=https://x/a"}}, 0)):
+            p = plan(record("a", ["delete"], old, None), record("b", ["create"], None, new))
+            self.assertEqual(run(p)[1].count("moved {"), moved, new)
+
     def test_uri_target_compared_exactly(self):
         uri = {"zone_id": "z", "name": "_http._tcp", "type": "URI", "priority": 10,
                "data": {"weight": 1, "target": "https://example.com/Admin"}}
