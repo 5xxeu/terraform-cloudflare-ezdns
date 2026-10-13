@@ -39,6 +39,10 @@ def parse_args(argv):
                         help="records the plan may replace, deleting and creating them again (default 0)")
     parser.add_argument("--allow-proxy-disable", action="store_true",
                         help="allow records that are proxied now to become unproxied, which publishes their origin address")
+    parser.add_argument("--strict-proxy", action="store_true",
+                        help="fail on every new or changed unproxied A, AAAA or CNAME record (and HTTPS or SVCB record "
+                             "with address hints) of a plan that has proxied records, whatever its value; "
+                             "--allow or --allow-proxy-disable allows them")
     parser.add_argument("--allow", action="append", default=[], metavar="ADDRESS",
                         help="resource address whose changes are not checked, * matches any characters "
                              "(e.g. 'module.dns.*[\"www A *\"]'); repeat for more")
@@ -261,6 +265,11 @@ def check(plan, args):
         # is and only leaves the state, so for the checks it does not change
         if actions == ["forget"]:
             actions, after, after_unknown = ["no-op"], before, {}
+        # destroy = false on a replaced record (["forget", "create"]): the old record stays
+        # in Cloudflare as it is (kept), and the new one is a record created next to it
+        kept = None
+        if actions == ["forget", "create"]:
+            kept, before, actions = before, {}, ["create"]
 
         # Records outside --module are checked only as neighbours on the names of the
         # records of the module (and the other way round): the proxy hides a whole name,
@@ -272,7 +281,7 @@ def check(plan, args):
         if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (
                 moved(before, after, after_unknown, zone_of(before)) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append((before, own))
-        for side in (before, after):
+        for side in (before, after, kept or {}):
             if side.get("proxied") is True and hidden_value(side):
                 hidden[hidden_value(side)] = hidden.get(hidden_value(side), False) or own
         if after.get("proxied") is True and after_unknown.get("content"):
@@ -282,9 +291,6 @@ def check(plan, args):
                 and not after_unknown.get("proxied") and not moved(before, after, after_unknown, zone_of(before)) \
                 and str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(after)
-        # destroy = false on a replaced record (["forget", "create"]): the old record stays
-        # in Cloudflare as it is, next to the new one
-        kept = before if actions == ["forget", "create"] else None
         if kept and kept.get("proxied") is True and str(kept.get("type", "")).upper() in ("A", "AAAA", "CNAME"):
             remaining_proxied.append(kept)
         # An unproxied record that changes (deleted, moved, replaced, a new value, or the
@@ -297,7 +303,7 @@ def check(plan, args):
                 and not allowed(address, args.allow):
             created.append((address, before, {}, False, own))
         if actions not in (["no-op"], ["read"], ["delete"]) and after and not allowed(address, args.allow):
-            new_hints = hints(after, after_unknown) - hints(before)
+            new_hints = hints(after, after_unknown) - hints(kept or before)
             if new_hints or hints_unknown(after, after_unknown):
                 hinted.append((address, new_hints, hints_unknown(after, after_unknown), own))
         if not own:
@@ -312,7 +318,7 @@ def check(plan, args):
                     and (args.zone_id is None or (rec.get("zone_id") == args.zone_id and not unk.get("zone_id"))):
                 key = (fqdn(rec.get("name"), args.zone), str(rec.get("type")).upper())
                 after_sets[key] = after_sets.get(key, 0) + 1
-        zones.update(v.get("zone_id") for v in (before, after) if v.get("zone_id"))
+        zones.update(v.get("zone_id") for v in (before, after, kept or {}) if v.get("zone_id"))
         if after_unknown.get("zone_id"):
             zones.add("unknown")
 
@@ -377,6 +383,19 @@ def check(plan, args):
                 or (unknown and any(v.startswith("IP ") and (own or o) for v, o in hidden.items())):
             unknown_value.append(address)
 
+    # --strict-proxy does not compare values: any new unproxied value next to proxied
+    # records needs a review, which also covers values that the checks above cannot see
+    # (records of other states, values known only after apply that turn out the same)
+    strict = []
+    if args.strict_proxy and (hidden or hidden_unknown):
+        listed = set(proxy_off + unknown_proxy + unknown_value + hint_leaks)
+        for address, after, after_unknown, new, own in created:
+            if own and new and address not in listed and after.get("proxied") is not True \
+                    and (after_unknown.get("type") or str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME")):
+                strict.append(address)
+                listed.add(address)
+        strict += [address for address, _, _, own in hinted if own and address not in listed]
+
     problems = []
     if len(deletes) > args.max_deletes:
         problems.append(f"The plan deletes {len(deletes)} records (allowed: {args.max_deletes}):")
@@ -396,6 +415,10 @@ def check(plan, args):
     if unknown_proxy and not args.allow_proxy_disable:
         problems.append("Whether these proxied records stay proxied is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]
+    if strict and not args.allow_proxy_disable:
+        problems.append("--strict-proxy: the plan has proxied records, and these unproxied records are new or "
+                        "change their value; review them (--allow or --allow-proxy-disable allows them):")
+        problems += [f"  {a}" for a in strict]
     if unknown_value and not args.allow_proxy_disable:
         problems.append("These unproxied records may get the hidden origin of a proxied record, as a value or "
                         "a type is known only after apply (--allow-proxy-disable or --allow allows it):")

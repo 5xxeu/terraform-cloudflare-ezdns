@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `tools/plan-guard.py --strict-proxy`: when the plan has proxied records, every new or changed unproxied `A`, `AAAA` or `CNAME` record (and `HTTPS` or `SVCB` record with new address hints) fails until it is allowed with `--allow` or `--allow-proxy-disable`, whatever its value
+
+### Fixed
+
+- `tools/plan-guard.py`: a replacement with `destroy = false` (`["forget", "create"]`) whose new record is unproxied no longer fails as a proxy that is turned off, as the old proxied record stays; the new record is checked as a created one
+
+### Changed
+
+- CODE_OF_CONDUCT.md: reports go to the private reporting of the repository
+
 ## [2.13.1] - 2026-10-13
 
 ### Fixed
