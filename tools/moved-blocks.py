@@ -165,6 +165,11 @@ def propose(plan, zone):
             continue
         change = rc.get("change") or {}
         actions = change.get("actions")
+        if rc.get("deposed") and "delete" in (actions or []):
+            # A deposed object (left by a failed create_before_destroy) is not the current
+            # instance of its address: a moved block cannot select it
+            manual.append(f"{rc['address']}: deletes the deposed object {rc['deposed']}, not the current one")
+            continue
         if actions == ["delete"]:
             key = (rc["type"], identity(change.get("before") or {}, zone))
             deleted.setdefault(key, []).append(rc["address"])

@@ -157,6 +157,13 @@ class MovedBlocksTest(unittest.TestCase):
                  record("b", ["create"], None, srv, {"data": [{"target": True}]}, rtype="cloudflare_record"))
         self.assertEqual(run(p)[0], 1)
 
+    def test_deposed_object_needs_a_choice(self):
+        deposed = {**record("www A 192.0.2.1", ["delete"], A, None), "deposed": "00000001"}
+        code, out = run(plan(deposed, record("www A web", ["create"], None, A)))
+        self.assertEqual(code, 1)
+        self.assertNotIn("moved {", out)
+        self.assertIn("deposed object 00000001", out)
+
     def test_provider_types_are_not_paired(self):
         p = plan(record("a", ["delete"], A, None, rtype="cloudflare_record"), record("b", ["create"], None, A))
         self.assertEqual(run(p), (0, ""))
