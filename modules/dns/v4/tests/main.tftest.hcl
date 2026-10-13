@@ -102,6 +102,11 @@ run "comments_and_tags" {
     condition     = toset(cloudflare_record.record["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
     error_message = "Tags are passed to the resource"
   }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "records has the comment and the tags as configured"
+  }
 }
 
 run "unknown_attribute" {

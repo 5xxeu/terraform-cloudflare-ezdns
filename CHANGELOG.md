@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- The `records` output has `comment`, `tags` and `settings` of every record, as configured (known at plan; `settings` is `null` with provider v4, which does not support them)
 - `tools/plan-guard.py --strict-proxy`: when the plan has proxied records, every new or changed unproxied `A`, `AAAA` or `CNAME` record (and `HTTPS` or `SVCB` record with new address hints) fails until it is allowed with `--allow` or `--allow-proxy-disable`, whatever its value
 
 ### Fixed

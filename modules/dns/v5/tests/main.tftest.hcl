@@ -102,6 +102,11 @@ run "comments_and_tags" {
     condition     = toset(cloudflare_dns_record.record["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
     error_message = "Tags are passed to the resource"
   }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "records has the comment and the tags as configured"
+  }
 }
 
 run "settings" {
@@ -114,6 +119,11 @@ run "settings" {
   assert {
     condition     = cloudflare_dns_record.record["app AAAA 2001:db8::1"].settings.ipv6_only == true
     error_message = "Settings are passed to the resource"
+  }
+
+  assert {
+    condition     = output.records["app AAAA 2001:db8::1"].settings.ipv6_only == true
+    error_message = "records has the settings as configured"
   }
 }
 
