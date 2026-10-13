@@ -85,9 +85,10 @@ data "cloudflare_zone" "this" {
 
   lifecycle {
     # Cloudflare returns the name of an internationalized zone in Unicode, while
-    # record names come back in Punycode
+    # record names come back in Punycode (only the name of the lookup is used: with
+    # zone_name set, the zone is read for its plan)
     postcondition {
-      condition     = !can(regex("[^[:ascii:]]", self.name))
+      condition     = var.zone_name != null || !can(regex("[^[:ascii:]]", self.name))
       error_message = "The zone ${jsonencode(self.name)} has an internationalized name, which Cloudflare returns in Unicode: set zone_name in Punycode (xn--mnchen-3ya.de for münchen.de; provider::idna::to_ascii of the 5xxeu/idna provider converts it)."
     }
   }

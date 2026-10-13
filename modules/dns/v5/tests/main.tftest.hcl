@@ -208,6 +208,27 @@ run "minimum_ttl_from_the_plan_of_the_zone" {
   }
 }
 
+run "plan_lookup_of_an_internationalized_zone_with_zone_name" {
+  command = plan
+
+  # The zone is read for its plan only: its name in Unicode does not matter
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "münchen.de", plan = { legacy_id = "free", name = "Free Website" } }
+  }
+
+  variables {
+    zone_name   = "xn--mnchen-3ya.de"
+    minimum_ttl = null
+    records     = { "www" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = output.records["www A 192.0.2.1"].fqdn == "www.xn--mnchen-3ya.de"
+    error_message = "With zone_name set, the zone name of the lookup is not checked"
+  }
+}
+
 run "minimum_ttl_passed_to_the_core" {
   command = plan
 
