@@ -137,6 +137,19 @@ run "unknown_attribute" {
   expect_failures = [var.records]
 }
 
+run "private_routing" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxied = true, private_routing = true }] } }
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.record["app A 192.0.2.1"].private_routing == true && output.records["app A 192.0.2.1"].private_routing == true
+    error_message = "private_routing is passed to the resource and is in the records output"
+  }
+}
+
 run "unknown_settings_attribute" {
   command = plan
 

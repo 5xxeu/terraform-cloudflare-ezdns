@@ -119,6 +119,19 @@ run "unknown_attribute" {
   expect_failures = [var.records]
 }
 
+run "private_routing_is_ignored" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = true }] } }
+  }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].private_routing == null
+    error_message = "Provider v4 has no private_routing: the attribute is accepted and ignored"
+  }
+}
+
 run "unknown_settings_attribute" {
   command = plan
 

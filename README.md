@@ -719,6 +719,7 @@ The type of `records` is shown as `any`: Terraform silently drops unknown attrib
 | `comment` | Note shown in the Cloudflare dashboard | `default_comment` |
 | `tags` | Tags such as `owner:web`, added to `default_tags` | `[]` |
 | `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper) | `null` |
+| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper) | `null` |
 
 ### Defaults, Comments and Tags
 

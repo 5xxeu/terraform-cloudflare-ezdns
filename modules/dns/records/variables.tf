@@ -106,6 +106,9 @@ variable "records" {
             ipv4_only     = optional(bool)
             ipv6_only     = optional(bool)
           }))
+
+          # Private network routing to the origin (Cloudflare provider v5)
+          private_routing = optional(bool)
         })
       )
     )

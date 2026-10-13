@@ -100,11 +100,12 @@ resource "cloudflare_dns_record" "record" {
   ttl = each.value.proxied ? 1 : each.value.ttl
 
   # Records with structured data (CAA, SRV, ...) cannot be proxied
-  proxied  = each.value.data == null ? each.value.proxied : null
-  priority = each.value.priority
-  comment  = each.value.comment
-  tags     = length(each.value.tags) > 0 ? each.value.tags : null
-  settings = each.value.settings
+  proxied         = each.value.data == null ? each.value.proxied : null
+  priority        = each.value.priority
+  comment         = each.value.comment
+  tags            = length(each.value.tags) > 0 ? each.value.tags : null
+  settings        = each.value.settings
+  private_routing = each.value.private_routing
 
   # Numeric flags (CAA, DNSKEY) are sent as numbers, NAPTR flags as a string
   data = each.value.data == null ? null : {
