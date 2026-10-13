@@ -23,6 +23,8 @@ The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/t
 
 CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile` and `idna` submodules, both wrappers and the examples (on Terraform 1.8 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request.
 
+Plan time grows a little faster than the number of records. Measured on 2026-10-13 with Terraform 1.16.4, the root module and a mocked provider (`terraform test`, `command = plan`) on an Apple M2 Pro: 1,000 records (A, AAAA, CNAME, TXT and MX in equal parts) take about 8 seconds, 5,000 records about 55 seconds. A real plan adds the refresh of every record by the provider.
+
 ## Testing Your Records
 
 The `compile` submodule runs the checks of the wrappers on a configuration and returns its records as the wrappers would create them, keyed by their record keys, without a provider and without credentials. A test of your own configuration can then check what matters for your zone:
