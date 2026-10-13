@@ -185,7 +185,7 @@ examples/
 ├── import/    # Adopting a zone that already has records
 └── v4/        # Provider v4, for existing configurations
 schema/        # JSON Schema for records in YAML
-tools/         # plan-guard.py (checks a saved plan), zone-to-ezdns.py (writes the YAML of a zone)
+tools/         # plan-guard.py (checks a saved plan), moved-blocks.py (moved blocks from a plan), zone-to-ezdns.py (YAML of a zone)
 ```
 
 Both wrappers share the same inputs, outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
@@ -606,6 +606,15 @@ moved {
 ```
 
 With the `//modules/dns/v5` submodule, the address has no `module.v5`; with the v4 wrapper, the resource is `cloudflare_record.record`.
+
+`tools/moved-blocks.py` writes these blocks from a saved plan: it pairs each record that the plan deletes with the created record that is the same DNS record (zone, fully qualified name, type and value; TTL, proxy status, comment and tags change in place after the move). Copies of one record and values known only after apply are listed as comments to pair by hand (exit status 1):
+
+```console
+$ terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json
+$ python3 tools/moved-blocks.py tfplan.json --zone example.com > moved.tf
+```
+
+Check the blocks, apply, and remove them once every state that uses the module is applied.
 
 ### Changing Values Without a Gap
 

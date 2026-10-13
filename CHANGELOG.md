@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `tools/moved-blocks.py`: writes `moved` blocks from a saved plan for records that it deletes and creates again under another key (a `key` added, a name written in another form), pairing records by zone, fully qualified name, type and value; copies and values known only after apply are left to pair by hand
 - `minimum_ttl = null` (root module, both wrappers): the lowest TTL is taken from the plan of the zone, `30` on Enterprise zones and `60` on the others. The zone is read for it (Zone, Zone, Read). The default stays `60`; an explicit `null`, which meant the default before, now looks the plan up. The `compile` module, which reads nothing, takes `30`
 - `private_routing` record attribute (provider v5; ignored by the v4 wrapper like `settings`): private network routing to the origin, passed to `cloudflare_dns_record`, in the JSON Schema, in the `records` output and written by `tools/zone-to-ezdns.py` for records that have it
 - The `records` output has `comment`, `tags`, `settings` and `private_routing` of every record, as configured (known at plan; the last two are `null` with provider v4, which does not support them)
