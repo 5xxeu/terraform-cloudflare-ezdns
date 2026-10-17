@@ -84,7 +84,7 @@ run "only_the_records_with_ignore_changes_are_read" {
   # By name, one lookup each; an empty ignore_changes reads nothing, and the lookups by
   # type stay off without import_existing and report_unmanaged
   assert {
-    condition     = toset(keys(data.cloudflare_dns_records.live)) == toset(["TXT _acme-challenge.example.com", "SRV _sip._tcp.example.com"]) && length(data.cloudflare_dns_records.existing) == 0
+    condition     = toset(keys(data.cloudflare_dns_records.live)) == toset(["_acme-challenge TXT acme", "_sip._tcp SRV sip"]) && length(data.cloudflare_dns_records.existing) == 0
     error_message = "Only the records with ignore_changes are read, by name"
   }
 }

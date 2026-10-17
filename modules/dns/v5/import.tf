@@ -23,7 +23,9 @@ locals {
   # on its own, by name, so that the state does not get the other records of the
   # type (the values of proxied records are origin addresses)
   live_lookups = {
-    for key, rec in module.records.flat_records : "${rec.type} ${rec.fqdn}" => { type = rec.type, name = rec.fqdn }
+    # Keyed by the record key, known at plan; the name may be known only after apply (a
+    # zone created in the same apply, without zone_name)
+    for key, rec in module.records.flat_records : key => { type = rec.type, name = rec.fqdn }
     if length(rec.ignore_changes) > 0 && !contains(local.lookup_types, rec.type)
   }
 }
