@@ -4,8 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `tools/zone-to-ezdns.py --schema URL_OR_PATH`: the schema link written at the top of the YAML, such as the path of a local copy (`modules/ezdns/schema/records.schema.json`)
+
 ### Fixed
 
+- `tools/zone-to-ezdns.py` links the JSON Schema of its own module release instead of `main`, so an editor does not offer fields of a newer version
 - e2e test: a failed `terraform destroy` or sweep at the end fails the run, also when every check passed, and the state files are kept so the records can still be destroyed
 
 ## [2.14.0] - 2026-10-13
