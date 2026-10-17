@@ -155,7 +155,7 @@ resource "cloudflare_record" "record" {
     # made outside Terraform), the plan stops
     precondition {
       condition     = length(each.value.ignore_changes) == 0
-      error_message = "${each.key}: ignore_changes needs provider v5 (the root module); the v4 wrapper does not support it."
+      error_message = "${each.value.type} ${each.value.fqdn}: ignore_changes needs provider v5 (the root module); the v4 wrapper does not support it."
     }
   }
 }

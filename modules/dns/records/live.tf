@@ -33,7 +33,8 @@ locals {
     for key, ids in local.live_candidates : "${local.flat_records[key].type} ${local.flat_records[key].fqdn}: ${join(", ", ids)}"
     if length(ids) > 1
   ]
+  # By the place in the configuration, not the key: a key may contain an origin address
   unknown_ignored = distinct(flatten([
-    for key in local.ignored_keys : [for a in local.flat_records[key].ignore_changes : "${key}: ${a}" if !contains(local.ignore_change_attributes, a)]
+    for r in local.records : [for a in r.ignore_changes : "${r.source}: ${jsonencode(a)}" if !contains(local.ignore_change_attributes, a)]
   ]))
 }
