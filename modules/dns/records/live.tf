@@ -14,8 +14,7 @@ locals {
 
   live_candidates = {
     for key in local.ignored_keys : key => [
-      for e in local.existing : e.id
-      if e.type == local.flat_records[key].type && e.name == local.flat_records[key].fqdn
+      for e in try(local.existing_by_name["${local.flat_records[key].type} ${local.flat_records[key].fqdn}"], []) : e.id
     ]
   }
 
