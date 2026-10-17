@@ -1,6 +1,6 @@
 # Records with ignore_changes: the attributes listed there come from the record in the
 # zone, not from the configuration, so a value changed outside Terraform plans no
-# change. The record in the zone is found by name and type (Cloudflare does not know
+# change. The record in the zone is found by name and type (and priority for MX and URI) (Cloudflare does not know
 # the key, and the ID in the state cannot be read by the configuration): among the
 # existing records of that name and type, the ones that other configured records match
 # by value are left out, and exactly one must remain. With none (a record not created
@@ -19,11 +19,14 @@ locals {
     for key in local.ignored_keys : key => [
       for e in local.existing : e.id
       if e.type == local.flat_records[key].type && e.name == local.flat_records[key].fqdn && !contains(local.claimed_by_value, e.id)
+      # The priority of MX and URI records is part of what the record is
+      && !(contains(["MX", "URI"], e.type) && local.flat_records[key].priority != null && e.priority != null && e.priority != local.flat_records[key].priority)
     ]
   }
 
   existing_by_id = { for r in var.existing_records : r.id => r }
   live_records   = { for key, ids in local.live_candidates : key => length(ids) == 1 ? local.existing_by_id[ids[0]] : null }
+  live_ids       = toset([for key, r in local.live_records : r.id if r != null])
 
   # Each name and type can have one record with ignore_changes, and it must find at
   # most one record in the zone

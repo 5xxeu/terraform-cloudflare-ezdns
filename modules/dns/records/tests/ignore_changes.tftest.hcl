@@ -134,3 +134,56 @@ run "import_of_the_live_record" {
     error_message = "import_existing imports the live record of a record with ignore_changes"
   }
 }
+
+run "one_id_one_address" {
+  command = plan
+
+  # The only MX of the zone (priority 10) is the live record of "dynamic"; "fixed"
+  # (priority 20, the same content) must not import it too
+  variables {
+    import_existing = true
+    records = {
+      "@" = {
+        MX = [
+          { key = "dynamic", content = "old.example.com", priority = 10, ignore_changes = ["content"] },
+          { key = "fixed", content = "mx.example.com", priority = 20 },
+        ]
+      }
+    }
+    existing_records = [{ id = "same-id", name = "example.com", type = "MX", content = "mx.example.com", priority = 10 }]
+  }
+
+  assert {
+    condition     = output.import_record_ids == { "@ MX dynamic" = "same-id" } && length(output.import_duplicates) == 0
+    error_message = "An existing record is imported into one address only"
+  }
+}
+
+run "ignored_record_not_matched_by_its_configured_value" {
+  command = plan
+
+  # "dynamic" was changed in the zone; two other MX with its configured content are
+  # described by the configuration, so nothing is ambiguous
+  variables {
+    import_existing = true
+    records = {
+      "@" = {
+        MX = [
+          { key = "dynamic", content = "mx.example.com", priority = 10, ignore_changes = ["content"] },
+          { key = "b", content = "mx.example.com", priority = 20 },
+          { key = "c", content = "mx.example.com", priority = 30 },
+        ]
+      }
+    }
+    existing_records = [
+      { id = "id-10", name = "example.com", type = "MX", content = "new.example.com", priority = 10 },
+      { id = "id-20", name = "example.com", type = "MX", content = "mx.example.com", priority = 20 },
+      { id = "id-30", name = "example.com", type = "MX", content = "mx.example.com", priority = 30 },
+    ]
+  }
+
+  assert {
+    condition     = output.import_record_ids == { "@ MX dynamic" = "id-10", "@ MX b" = "id-20", "@ MX c" = "id-30" } && length(output.import_duplicates) == 0
+    error_message = "A record with ignore_changes takes the live record of its priority, the others theirs"
+  }
+}

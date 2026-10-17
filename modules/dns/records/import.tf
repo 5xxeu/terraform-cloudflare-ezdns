@@ -64,6 +64,7 @@ locals {
   # only with the records of its own name and type (not every record of the zone)
   existing_by_name = { for e in local.existing : "${e.type} ${e.name}" => e... }
 
+  # Records with ignore_changes are matched by name and type instead (live.tf)
   import_matches = {
     for key, rec in local.flat_records : key => [
       for e in try(local.existing_by_name["${rec.type} ${rec.fqdn}"], []) : e.id
@@ -81,7 +82,7 @@ locals {
           : lookup(e.data, field, "") == value
         )
       ])
-    ]
+    ] if length(rec.ignore_changes) == 0
   }
 
   # Configured records with a priority (MX, URI) that match several existing records
@@ -134,7 +135,8 @@ locals {
   # Without import_existing, the existing records are only reported (unmanaged
   # records), so nothing is imported and an ambiguous match does not stop the plan
   import_record_ids = merge(
-    { for key, id in local.matched_record_ids : key => id if var.import_existing && length(local.flat_records[key].ignore_changes) == 0 },
+    # An ID that a record with ignore_changes takes is not imported a second time
+    { for key, id in local.matched_record_ids : key => id if var.import_existing && !contains(local.live_ids, id) },
     { for key, r in local.live_records : key => r.id if var.import_existing && r != null },
   )
   import_duplicates = { for key, ids in local.matched_duplicates : key => ids if var.import_existing }
@@ -155,7 +157,7 @@ locals {
   # Maps of IDs rather than sets, read by index: contains() and lookup() walk the whole
   # collection on every call, so a test per existing record would grow quadratically
   # The live records of records with ignore_changes are managed too
-  matched_ids = { for id in concat(flatten(values(local.report_matches)), [for key, r in local.live_records : r.id if r != null]) : id => true... }
+  matched_ids = { for id in concat(flatten(values(local.report_matches)), tolist(local.live_ids)) : id => true... }
 
   # A configured record that matches no existing record is new or gets a new value (or
   # priority) in this apply, and the existing record with its old value then matches
