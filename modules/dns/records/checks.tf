@@ -118,3 +118,34 @@ check "allowed_cname_conflicts_in_use" {
     error_message = "allowed_cname_conflicts lists names without a CNAME conflict, which can be removed: ${join(", ", local.unused_allowed_cname_conflicts)}"
   }
 }
+
+# Two SPF records on one name are a permanent error for every receiver (RFC 7208,
+# section 3.2), and several DMARC records mean no policy at all (RFC 7489, section
+# 6.6.3); Cloudflare accepts both. Only a warning: zones that have it still plan. The
+# text of TXT values is compared as the import does (quoted chunks joined)
+locals {
+  policy_texts = {
+    for key, rec in local.flat_records : key => jsondecode(local.configured_txt[key]).value
+    if rec.type == "TXT"
+  }
+  spf_names = {
+    for key, text in local.policy_texts : local.flat_records[key].fqdn => text...
+    if can(regex("(?i)^v=spf1( |$)", text))
+  }
+  dmarc_names = {
+    for key, text in local.policy_texts : local.flat_records[key].fqdn => text...
+    if startswith(local.flat_records[key].fqdn, "_dmarc.") && can(regex("(?i)^v=DMARC1[ ]*(;|$)", text))
+  }
+  repeated_policies = concat(
+    # Different texts only: the same record twice fails as a duplicate
+    [for name, texts in local.spf_names : "${name}: ${length(distinct(texts))} SPF records (v=spf1)" if length(distinct(texts)) > 1],
+    [for name, texts in local.dmarc_names : "${name}: ${length(distinct(texts))} DMARC records (v=DMARC1)" if length(distinct(texts)) > 1],
+  )
+}
+
+check "records_one_spf_and_dmarc_per_name" {
+  assert {
+    condition     = length(local.repeated_policies) == 0
+    error_message = "A name can have one SPF record and one DMARC record: with two SPF records every receiver fails the SPF check (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge them into one record:\n${join("\n", local.repeated_policies)}"
+  }
+}

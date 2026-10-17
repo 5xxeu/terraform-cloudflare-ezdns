@@ -62,6 +62,14 @@ With `import_existing = true`, a configured record matches several records of th
 
 The zone has more records of one type than the lookup returns at once (100,000), so `import_existing` and `report_unmanaged` cannot see all of them. Split the zone, or import the records with `import` blocks and leave both options off.
 
+### A record with ignore_changes is found in the zone by its name and type ...
+
+A record with [`ignore_changes`](../README.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, so it must be the only configured record of its type on its name, and the zone may have only one record of that name and type. Move the other configured records of the type to another name or drop `ignore_changes`, or delete the extra records in the zone.
+
+### ignore_changes needs provider v5
+
+The v4 wrapper has no lookup of the records of a zone, which `ignore_changes` reads. Move to provider v5 (see [Upgrading](upgrading.md#from-provider-v4-to-v5)), or remove `ignore_changes`.
+
 ## Errors at Apply
 
 ### Record already exists / An identical record already exists
@@ -85,6 +93,10 @@ A text value was given as a number, usually in YAML without quotes (`content: 01
 ### The zone has ... records that the configuration does not describe
 
 `report_unmanaged = true` found records in the zone that are not in the configuration. Add them to `records`, leave expected ones out with `unmanaged_ignore` (the TXT ownership records of external-dns, ACME challenges), or limit the call to its part of the zone with `owned_names`. The module never deletes them. See [Records Not in the Configuration](unmanaged-records.md#records-not-in-the-configuration).
+
+### A name can have one SPF record and one DMARC record
+
+The configuration has two different SPF records (`v=spf1 ...`) on one name, or two DMARC records (`v=DMARC1 ...`) on a `_dmarc` name. Cloudflare accepts both, but receivers do not: with two SPF records every SPF check fails (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge the mechanisms into one record, for example `v=spf1 include:_spf.google.com include:spf.protection.outlook.com -all`.
 
 ## Unexpected Plans
 
