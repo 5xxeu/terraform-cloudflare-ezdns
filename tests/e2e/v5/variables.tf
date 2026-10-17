@@ -25,6 +25,12 @@ variable "txt_value" {
   default     = "rotation=1"
 }
 
+variable "unmanaged_policy" {
+  description = "unmanaged_policy of the module call; \"error\" also limits the call to the label of the run (owned_names)"
+  type        = string
+  default     = "warn"
+}
+
 variable "report_unmanaged" {
   description = "Report the records of the zone that the configuration does not describe"
   type        = bool

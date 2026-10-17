@@ -17,5 +17,8 @@ module "dns" {
   default_ttl      = 300
   default_comment  = "ezdns-e2e"
   report_unmanaged = var.report_unmanaged
-  records          = module.fixture.records
+  unmanaged_policy = var.unmanaged_policy
+  # The zone has records of other runs and tools: "error" is checked on this run only
+  owned_names = var.unmanaged_policy == "error" ? { include = [var.prefix] } : null
+  records     = module.fixture.records
 }
