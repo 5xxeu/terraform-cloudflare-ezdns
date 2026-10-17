@@ -129,7 +129,7 @@ When the zone already has records, adopt them instead of creating them again: se
 
 - [Quick Start](#quick-start), [Features](#features), [When Not to Use It](#when-not-to-use-it), [Structure](#structure), [Requirements](#requirements)
 - [Usage](#usage): [Terraform Registry](#terraform-registry), [local copy](#local-copy), [Git source](#git-source), [HCL or YAML](#hcl-or-yaml), [records in several files](#records-in-several-files) and the [full example](#full-example)
-- [Record Model](#record-model): [record types](#record-types), [aliases](#the-aliases-logic), [record keys](#record-keys), [changing values without a gap](#changing-values-without-a-gap)
+- [Record Model](#record-model): [record types](#record-types), [aliases](#the-aliases-logic), [record keys](#record-keys), [changing values without a gap](#changing-values-without-a-gap), [values changed outside Terraform](#values-changed-outside-terraform)
 - [Validation](#validation), [Inputs](#inputs), [Outputs](#outputs)
 - [Records in YAML](#records-in-yaml) with editor support, [Recipes](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#recipes): [unsupported types and fields](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#a-record-type-or-field-the-module-does-not-support), [external-dns](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#next-to-external-dns), [internationalized names](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#internationalized-names)
 - [Importing Existing Records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records) and [writing the configuration of an existing zone](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#writing-the-configuration-of-an-existing-zone), [Records Not in the Configuration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration), [the part of the zone a module call owns](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#the-part-of-the-zone-a-module-call-owns)
@@ -150,6 +150,7 @@ When the zone already has records, adopt them instead of creating them again: se
 - 🧩 **Structured Records**: `SRV`, `URI`, `HTTPS`, `SVCB`, `TLSA`, `SSHFP`, `DS`, `LOC` and other structured records through a single `data` map; see [Record Types](#record-types) for the supported list.
 - 🔀 **Provider v4 and v5**: The same input schema for both major versions of the Cloudflare provider.
 - ✅ **Input Validation**: Mistakes in record types, names, IP addresses, TTL, MX or CAA fields and ranges of `data` fields (ports, priorities, LOC coordinates) fail at `plan`, before reaching the Cloudflare API.
+- 🔓 **Values Changed Outside Terraform**: `ignore_changes` on a record keeps a value that a DDNS client or a change in the dashboard writes (provider v5).
 - 🏷 **Defaults, Comments and Tags**: Set the TTL, proxying, comment and tags once for all records, and override them per record.
 - 🗂 **Records in Several Files**: `record_groups` merge files of records (one per team or service) with defaults of their own, and a record defined twice fails instead of being overwritten.
 - 🚧 **Boundaries in Shared Zones**: `owned_names` keeps a module call to its part of the zone, and the report of unmanaged records can ignore the records of other tools or stop the plan.
@@ -165,7 +166,7 @@ The module fits zones whose records are written down and change through review. 
 
 - **Records come from other systems at run time** (service discovery, Kubernetes ingresses, an inventory): a controller such as external-dns (it can work [next to the module](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#next-to-external-dns)), or `cloudflare_dns_record` with `for_each` over that data. The module needs the records at `plan`, and every value computed by another resource needs a `key` (see [Record Keys](#record-keys)).
 - **The zone must match the configuration exactly**, with records that are not in it deleted: the module manages only its own records and leaves the rest of the zone alone; [import](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records) only adopts records that are in the configuration, and [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration) lists the other records without deleting them. With `unmanaged_policy = "error"`, such records stop the plan, so CI can enforce a zone without them, but deleting them stays a manual step.
-- **Records need lifecycle rules** (`prevent_destroy`, `ignore_changes`): Terraform does not let a configuration set them on the resources inside a module. A [check of the saved plan](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) stops deletions and replacements in CI instead, also when a whole module call is removed.
+- **Records need lifecycle rules** (`prevent_destroy`, `create_before_destroy`): Terraform does not let a configuration set them on the resources inside a module. Values changed outside Terraform are covered by [`ignore_changes`](#values-changed-outside-terraform) on the record. A [check of the saved plan](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) stops deletions and replacements in CI instead, also when a whole module call is removed.
 - **Records need a type or field the module does not support**: see [the recipe](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#a-record-type-or-field-the-module-does-not-support) for managing them next to the module call; when that is most of the zone, plain resources are simpler.
 
 ## Structure
@@ -204,7 +205,7 @@ The API token of the provider needs these permissions for the zone (Cloudflare d
 
 | Permission | Needed for |
 |------------|------------|
-| Zone, DNS, Edit | creating, changing and deleting the records (it includes reading them, which `import_existing` and `report_unmanaged` do) |
+| Zone, DNS, Edit | creating, changing and deleting the records (it includes reading them, which `import_existing`, `report_unmanaged` and `ignore_changes` do) |
 | Zone, Zone, Read | looking up the zone name when `zone_name` is not set, and the plan of the zone when `minimum_ttl = "auto"` |
 
 Limit the token to the zones it manages (Zone Resources, Include, Specific zone). A token for `terraform plan` in pull requests can have DNS Read instead of Edit.
@@ -650,6 +651,33 @@ A changed value without a `key` gives the record a new key, so Terraform deletes
 
 The same holds for proxied records: Cloudflare answers for them with its own addresses, but only while the record exists, so a changed origin address needs a `key` too. A type change on one name (an `A` record to a `CNAME`) cannot overlap: a CNAME cannot share its name with other records, so it is a delete and a create, in two applies or in one. A [check of the saved plan](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) shows every replacement and deletion before it is applied.
 
+### Values Changed Outside Terraform
+
+A record whose value something else changes (a DDNS client that updates an address, a client that writes a token into an existing record, a proxy switched off in the dashboard during an incident) would be changed back by every apply. `ignore_changes` on the record lists the attributes that come from the record in the zone instead of the configuration, so a change made outside Terraform plans no change (provider v5):
+
+```hcl
+records = {
+  "home" = {
+    A = [{ key = "ddns", content = "192.0.2.1", ttl = 60, ignore_changes = ["content"] }]
+  }
+  "_acme-challenge" = {
+    TXT = [{ key = "token", content = "pending", ignore_changes = ["content"] }]
+  }
+}
+```
+
+A client that creates and deletes records of its own (cert-manager and most ACME clients create a challenge record and delete it afterwards) needs no `ignore_changes`: leave its records out of `records`, and out of the report with [`unmanaged_ignore`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/examples.md#next-to-external-dns-and-cert-manager). `ignore_changes` is for a record that the module creates and something else updates.
+
+The attributes are `content` (with `data` for structured records), `ttl`, `proxied`, `comment` and `tags`. The module still creates and deletes the record, and the attributes not listed stay managed. Terraform allows only literal values in `lifecycle`, so this is not `lifecycle { ignore_changes }`: the module reads the records of the zone at every `plan` (one lookup per record type, like `import_existing`; DNS Read is enough) and sends the values it finds, so the plan has nothing to change. How it works out:
+
+- **The record in the zone is found by name and type.** Cloudflare does not know the record key, and the configuration cannot read the ID in the state. Records of that name and type that other configured records describe by value are left out, so a fixed TXT record can stay next to the challenge. A name can have one record of a type with `ignore_changes`, and the zone may have at most one record left for it: with more, the plan stops and lists them.
+- **A record not in the zone yet is created with the configured values**, and so is a record deleted outside Terraform: the configured value is the starting value.
+- **A record that already exists** (created by the DDNS client before the module call) is adopted with `import_existing`, whatever its value, and [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration) does not list it.
+- **Changing a listed attribute in the configuration has no effect** while the record exists. Remove it from `ignore_changes` to set it: the next plan writes the configured value.
+- **Use a `key`**, as in the example: without one, the record key has the configured value, which is no longer the value of the record.
+- **A zone created in the same apply** has no records to read at `plan`, so the values are known only after apply, as with `import_existing`.
+- **Provider v4** has no lookup of the records of a zone: the v4 wrapper stops the plan for a record with `ignore_changes`. The [`compile` submodule](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records), which reads nothing, returns the configured values.
+
 ## Validation
 
 The `records` input (and the records of `record_groups`) is validated before any API call. The module checks the structure, the ranges of numeric fields and invariants that hold for every zone; what values mean (which DNSKEY algorithms exist, whether a TLSA certificate matches) is left to the Cloudflare API:
@@ -729,6 +757,7 @@ The type of `records` is shown as `any`: Terraform silently drops unknown attrib
 | `tags` | Tags such as `owner:web`, added to `default_tags` | `[]` |
 | `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper) | `null` |
 | `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper) | `null` |
+| `ignore_changes` | Attributes taken from the record in the zone, for values changed outside Terraform: `content`, `ttl`, `proxied`, `comment`, `tags`; see [Values Changed Outside Terraform](#values-changed-outside-terraform) (provider v5 only) | `null` |
 
 ### Defaults, Comments and Tags
 

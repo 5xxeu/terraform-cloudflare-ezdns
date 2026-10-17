@@ -148,6 +148,16 @@ resource "cloudflare_record" "record" {
       weight         = lookup(data.value, "weight", null)
     }
   }
+
+  lifecycle {
+    # Provider v4 has no lookup of the records of a zone, which ignore_changes reads
+    # the values from: rather than sending the configured values (and undoing a change
+    # made outside Terraform), the plan stops
+    precondition {
+      condition     = length(each.value.ignore_changes) == 0
+      error_message = "${each.key}: ignore_changes needs provider v5 (the root module); the v4 wrapper does not support it."
+    }
+  }
 }
 
 # Numbers in text values are written in their canonical form ("0123" -> "123",

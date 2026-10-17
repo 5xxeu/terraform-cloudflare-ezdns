@@ -475,4 +475,4 @@ The module creates these records:
 
 <!-- END_RECORDS -->
 
-Records of the zone that neither the module nor the two tools manage appear as a warning in the plan and in the sensitive `unmanaged_records` output; with `unmanaged_policy = "error"` they stop the plan. See [Next to external-dns](recipes.md#next-to-external-dns) for why the names must not overlap.
+cert-manager creates each challenge record and deletes it afterwards, so its records stay out of `records`; [`ignore_changes`](../README.md#values-changed-outside-terraform) is for a record that the module creates and another tool only updates. Records of the zone that neither the module nor the two tools manage appear as a warning in the plan and in the sensitive `unmanaged_records` output; with `unmanaged_policy = "error"` they stop the plan. See [Next to external-dns](recipes.md#next-to-external-dns) for why the names must not overlap.

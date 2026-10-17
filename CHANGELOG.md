@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `ignore_changes` record attribute (provider v5): the listed attributes (`content` with `data`, `ttl`, `proxied`, `comment`, `tags`) come from the record in the zone instead of the configuration, so a value that a DDNS client or a change in the dashboard writes plans no change. Terraform allows only literals in `lifecycle`, so the module reads the records of the zone at every plan and finds the record by name and type; a name can have one record of a type with `ignore_changes`, and an ambiguous match stops the plan. `import_existing` adopts the record whatever its value, and `report_unmanaged` does not list it. The v4 wrapper stops the plan for such records (provider v4 has no lookup of the records of a zone); `compile` returns the configured values. In the JSON Schema and the `records` output (the listed attributes as in the zone)
+
 ## [2.14.1] - 2026-10-17
 
 ### Added

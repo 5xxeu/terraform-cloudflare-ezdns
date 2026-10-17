@@ -62,6 +62,14 @@ With `import_existing = true`, a configured record matches several records of th
 
 The zone has more records of one type than the lookup returns at once (100,000), so `import_existing` and `report_unmanaged` cannot see all of them. Split the zone, or import the records with `import` blocks and leave both options off.
 
+### A record with ignore_changes is found in the zone by its name and type ...
+
+A record with [`ignore_changes`](../README.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, and the module cannot tell which one it is: the zone has several records of that name and type that no other configured record describes by value, or the configuration has two records with `ignore_changes` on one name and type. Delete the extra records in the zone, describe them in `records`, or keep one record with `ignore_changes` per name and type.
+
+### ignore_changes needs provider v5
+
+The v4 wrapper has no lookup of the records of a zone, which `ignore_changes` reads. Move to provider v5 (see [Upgrading](upgrading.md#from-provider-v4-to-v5)), or remove `ignore_changes`.
+
 ## Errors at Apply
 
 ### Record already exists / An identical record already exists

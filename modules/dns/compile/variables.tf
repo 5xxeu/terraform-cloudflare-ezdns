@@ -14,7 +14,7 @@ variable "records" {
     zone (`@` for the apex) and TYPE a record type, optionally with a prefix
     (`"_acme-challenge.TXT"`). Record attributes: `content`, `ttl`, `proxied`, `priority`,
     `tag`, `flags`, `data`, `key`, `comment`, `tags`, `settings` (`flatten_cname`,
-    `ipv4_only`, `ipv6_only`) and `private_routing`. See the README for the details. Unknown attributes fail at plan.
+    `ipv4_only`, `ipv6_only`), `private_routing` and `ignore_changes`. See the README for the details. Unknown attributes fail at plan.
   EOT
   # Not a typed object: Terraform silently drops unknown attributes when converting to an
   # object type, so misspelled attributes are checked here and the typed structure is

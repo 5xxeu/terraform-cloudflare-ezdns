@@ -54,6 +54,11 @@ run "listed_attributes_come_from_the_zone" {
   }
 
   assert {
+    condition     = length(output.records["_acme-challenge TXT acme"].tags) == 0 && output.records["_acme-challenge TXT acme"].comment == "managed"
+    error_message = "The records output has the listed attributes as in the zone, the others as configured"
+  }
+
+  assert {
     condition     = cloudflare_dns_record.record["www A 192.0.2.1"].content == "192.0.2.1"
     error_message = "Records without ignore_changes are as configured"
   }
