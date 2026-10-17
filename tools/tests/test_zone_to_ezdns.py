@@ -131,6 +131,9 @@ class YamlTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
             z.parse_args(["zone.json", "--zone", "example.com", "--schema", "a.json\nrecords: {}"])
         self.assertEqual(e.exception.code, 2)
+        for brk in ["\u0085", "\u2028"]:
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                z.parse_args(["zone.json", "--zone", "example.com", "--schema", f"a.json{brk}records: {{}}"])
 
     def test_line_breaks_of_yaml_escaped(self):
         # YAML reads NEL and U+2028 as line breaks; other non-ASCII text stays as written

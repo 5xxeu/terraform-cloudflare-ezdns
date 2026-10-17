@@ -71,8 +71,9 @@ def parse_args(argv):
                              "modules/ezdns/schema/records.schema.json (default: the schema of the module release this script "
                              "comes with, on GitHub)")
     args = parser.parse_args(argv)
-    # The link goes into a YAML comment: a line break would end it
-    if args.schema is not None and (args.schema == "" or re.search("[\x00-\x1f\x7f]", args.schema)):
+    # The link goes into a YAML comment: a line break would end it (YAML also breaks
+    # lines at NEL and the Unicode line and paragraph separators, see quote())
+    if args.schema is not None and (args.schema == "" or re.search("[\x00-\x1f\x7f-\x9f\u2028\u2029\ufeff]", args.schema)):
         parser.error("--schema must be a URL or a path on one line")
     return args
 
