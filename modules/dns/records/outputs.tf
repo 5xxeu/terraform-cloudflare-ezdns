@@ -84,11 +84,11 @@ output "live_records" {
 
   precondition {
     condition     = length(local.ignored_shared) == 0
-    error_message = "A record with ignore_changes is found in the zone by its name and type, so a name can have only one record of a type with ignore_changes:\n${join("\n", local.ignored_shared)}"
+    error_message = "A record with ignore_changes is found in the zone by its name and type, so it must be the only configured record of its type on its name (other records of the type can go on another name, or without ignore_changes):\n${join("\n", local.ignored_shared)}"
   }
 
   precondition {
     condition     = length(local.live_ambiguous) == 0
-    error_message = "A record with ignore_changes is found in the zone by its name and type, and several records in the zone are left after the ones that other configured records describe (delete the extra records, or describe them in records):\n${join("\n", local.live_ambiguous)}"
+    error_message = "A record with ignore_changes is found in the zone by its name and type, and the zone has several records of that name and type (delete the extra records in the zone):\n${join("\n", local.live_ambiguous)}"
   }
 }

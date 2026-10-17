@@ -64,7 +64,7 @@ The zone has more records of one type than the lookup returns at once (100,000),
 
 ### A record with ignore_changes is found in the zone by its name and type ...
 
-A record with [`ignore_changes`](../README.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, and the module cannot tell which one it is: the zone has several records of that name and type that no other configured record describes by value, or the configuration has two records with `ignore_changes` on one name and type. Delete the extra records in the zone, describe them in `records`, or keep one record with `ignore_changes` per name and type.
+A record with [`ignore_changes`](../README.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, so it must be the only configured record of its type on its name, and the zone may have only one record of that name and type. Move the other configured records of the type to another name or drop `ignore_changes`, or delete the extra records in the zone.
 
 ### ignore_changes needs provider v5
 

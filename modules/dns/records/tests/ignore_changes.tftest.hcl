@@ -59,26 +59,21 @@ run "record_not_created_yet" {
   }
 }
 
-run "records_described_by_value_are_left_out" {
+run "neighbour_of_the_same_type_fails" {
   command = plan
 
-  # A second TXT on the name that another configured record describes by value
+  # Another configured TXT on the name: if its value changed to the live value of the
+  # record with ignore_changes, the match would jump to the other record
   variables {
     records = {
       "_acme-challenge" = {
         TXT = [{ content = "init", key = "acme", ignore_changes = ["content"] }, { content = "static" }]
       }
     }
-    existing_records = [
-      { id = "id-acme", name = "_acme-challenge.example.com", type = "TXT", content = "token" },
-      { id = "id-static", name = "_acme-challenge.example.com", type = "TXT", content = "static" },
-    ]
+    existing_records = []
   }
 
-  assert {
-    condition     = output.live_records["_acme-challenge TXT acme"].id == "id-acme"
-    error_message = "A record that another configured record describes is not the live record"
-  }
+  expect_failures = [output.live_records]
 }
 
 run "several_live_candidates_fail" {
@@ -135,13 +130,10 @@ run "import_of_the_live_record" {
   }
 }
 
-run "one_id_one_address" {
+run "neighbour_mx_of_another_priority_fails" {
   command = plan
 
-  # The only MX of the zone (priority 10) is the live record of "dynamic"; "fixed"
-  # (priority 20, the same content) must not import it too
   variables {
-    import_existing = true
     records = {
       "@" = {
         MX = [
@@ -150,40 +142,27 @@ run "one_id_one_address" {
         ]
       }
     }
-    existing_records = [{ id = "same-id", name = "example.com", type = "MX", content = "mx.example.com", priority = 10 }]
+    existing_records = []
   }
 
-  assert {
-    condition     = output.import_record_ids == { "@ MX dynamic" = "same-id" } && length(output.import_duplicates) == 0
-    error_message = "An existing record is imported into one address only"
-  }
+  expect_failures = [output.live_records]
 }
 
-run "ignored_record_not_matched_by_its_configured_value" {
+run "priority_change_keeps_the_record" {
   command = plan
 
-  # "dynamic" was changed in the zone; two other MX with its configured content are
-  # described by the configuration, so nothing is ambiguous
+  # The priority is managed: changing it keeps the record found, and its content
+  # stays the one in the zone
   variables {
     import_existing = true
     records = {
-      "@" = {
-        MX = [
-          { key = "dynamic", content = "mx.example.com", priority = 10, ignore_changes = ["content"] },
-          { key = "b", content = "mx.example.com", priority = 20 },
-          { key = "c", content = "mx.example.com", priority = 30 },
-        ]
-      }
+      "@" = { MX = [{ key = "dynamic", content = "mx.example.com", priority = 20, ignore_changes = ["content"] }] }
     }
-    existing_records = [
-      { id = "id-10", name = "example.com", type = "MX", content = "new.example.com", priority = 10 },
-      { id = "id-20", name = "example.com", type = "MX", content = "mx.example.com", priority = 20 },
-      { id = "id-30", name = "example.com", type = "MX", content = "mx.example.com", priority = 30 },
-    ]
+    existing_records = [{ id = "id-10", name = "example.com", type = "MX", content = "new.example.com", priority = 10 }]
   }
 
   assert {
-    condition     = output.import_record_ids == { "@ MX dynamic" = "id-10", "@ MX b" = "id-20", "@ MX c" = "id-30" } && length(output.import_duplicates) == 0
-    error_message = "A record with ignore_changes takes the live record of its priority, the others theirs"
+    condition     = output.live_records["@ MX dynamic"].id == "id-10" && output.import_record_ids == { "@ MX dynamic" = "id-10" }
+    error_message = "The record is found by name and type only"
   }
 }
