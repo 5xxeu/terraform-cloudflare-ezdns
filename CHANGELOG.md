@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- e2e test: a failed `terraform destroy` or sweep at the end fails the run, also when every check passed, and the state files are kept so the records can still be destroyed
+
 ## [2.14.0] - 2026-10-13
 
 ### Added

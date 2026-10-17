@@ -27,14 +27,29 @@ qualified_names() {
         '"\([.[] | ascii_downcase | rtrimstr(".") | select(. == $zone or endswith("." + $zone))] | length) of \(length)"'
 }
 
+# Deletes the records of this run. A failed destroy or sweep fails the run, also when
+# all checks passed, and keeps the state files, so the records can still be destroyed
+# (otherwise sweep.sh --stale at the start of a later run deletes them)
 cleanup() {
-    local rc=$?
+    local rc=$? cleaned=1 dir
     set +e
     for dir in v4to5 v4 v5; do
-        [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] && tf "$dir" destroy -auto-approve -no-color >/dev/null
+        [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
+        if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
+            echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
+            cleaned=0
+        fi
     done
-    "${E2E_DIR}/sweep.sh" "$LABEL"
-    rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
+    if ! "${E2E_DIR}/sweep.sh" "$LABEL"; then
+        echo "FAIL: sweep of the records of ${LABEL}" >&2
+        cleaned=0
+    fi
+    if [ "$cleaned" = 1 ]; then
+        rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
+    else
+        echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
+        [ "$rc" != 0 ] || rc=1
+    fi
     exit "$rc"
 }
 trap cleanup EXIT
