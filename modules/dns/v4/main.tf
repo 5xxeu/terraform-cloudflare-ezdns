@@ -41,23 +41,25 @@ locals {
   ])
 
   # The entries of the groups by name, built once, so that merging them takes one
-  # lookup per name instead of a pass over all entries (quadratic with many groups).
-  # Names are known, so the keys stay known also with computed values; without groups
-  # the lookups are empty
-  group_names  = { for e in local.group_entries : e.name => e... }
-  record_names = toset(keys(var.records))
+  # index per name instead of a pass over all entries (quadratic with many groups).
+  # Every name of records is in record_group_entries, most with no entries: an index
+  # costs the same for any number of names, while a function such as lookup() or
+  # contains() reads its whole collection argument on every call. Names are known, so
+  # the keys stay known also with computed values
+  group_names          = { for e in local.group_entries : e.name => e... }
+  record_group_entries = merge({ for name in keys(var.records) : name => [] }, local.group_names)
 
   all_records = merge(
     {
       for name, types in var.records : name => merge(
-        { for type, list in types : type => concat([for record in list : record], [for e in lookup(local.group_names, name, []) : e.record if e.type == type]) },
-        { for type in distinct([for e in lookup(local.group_names, name, []) : e.type if !contains(keys(types), e.type)]) : type => [for e in lookup(local.group_names, name, []) : e.record if e.type == type] },
+        { for type, list in types : type => concat([for record in list : record], [for e in local.record_group_entries[name] : e.record if e.type == type]) },
+        { for type in distinct([for e in local.record_group_entries[name] : e.type if !contains(keys(types), e.type)]) : type => [for e in local.record_group_entries[name] : e.record if e.type == type] },
       )
     },
     {
-      for name, entries in local.group_names : name => {
-        for type in distinct([for e in entries : e.type]) : type => [for e in entries : e.record if e.type == type]
-      } if !contains(local.record_names, name)
+      for name in setsubtract(keys(local.group_names), keys(var.records)) : name => {
+        for type in distinct([for e in local.group_names[name] : e.type]) : type => [for e in local.group_names[name] : e.record if e.type == type]
+      }
     },
   )
 }
@@ -167,19 +169,19 @@ resource "cloudflare_record" "record" {
 # too (record_groups), with their source
 check "records_text_values_are_strings" {
   assert {
-    condition = alltrue(flatten([
-      for name, types in local.all_records : [
-        for type, list in types : [
-          for record in list : concat(
+    condition = alltrue([
+      for name, types in local.all_records : alltrue([
+        for type, list in types : alltrue([
+          for record in list : alltrue(concat(
             # fine: a JSON string, or a value that is not a number
             [for attribute in ["content", "key", "comment", "tag"] : try(record[attribute], null) == null || startswith(jsonencode(try(record[attribute], "")), "\"") || !can(tonumber(try(record[attribute], "")))],
             [for field in setintersection(try(keys(record.data), []), local.text_data_fields) : try(record.data[field], null) == null || startswith(jsonencode(try(record.data[field], "")), "\"") || !can(tonumber(try(record.data[field], "")))],
             # tags may be a list or a set (a set has no index), so the values are iterated
             try([for tag in record.tags : startswith(jsonencode(tag), "\"") || !can(tonumber(tag))], []),
-          )
-        ]
-      ]
-    ]))
+          ))
+        ])
+      ])
+    ])
     error_message = "Text values given as numbers are written in their canonical form (0123 -> 123, 1.10 -> 1.1); in YAML quote them to keep them as written:\n${join("\n", flatten([
       for name, types in local.all_records : [
         for type, list in types : [

@@ -33,10 +33,14 @@ locals {
     if name != lower(local.zone) && anytrue([for r in group : r.type == "CNAME"]) && anytrue([for r in group : r.type != "CNAME"])
   ]
   allowed_cname_conflicts = distinct([for n in var.allowed_cname_conflicts : local.fqdn[n]])
+  # Looked up by name: contains() reads its whole list on every call, which is
+  # quadratic over the names of a large zone
+  cname_shared_names  = { for n in local.cname_shared : n => true }
+  allowed_cname_names = { for n in local.allowed_cname_conflicts : n => true }
   cname_conflicts = [
     for name, group in local.by_name : "\"${name}\": ${join(", ", [for r in group : "${r.type} from ${r.source}"])}"
     if length([for r in group : r if r.type == "CNAME"]) > 1
-    || (contains(local.cname_shared, name) && !contains(local.allowed_cname_conflicts, name))
+    || (lookup(local.cname_shared_names, name, false) && !lookup(local.allowed_cname_names, name, false))
   ]
   # TTLs below minimum_ttl (records that are not proxied; 1 means automatic), and a
   # default_ttl below it even when no record uses it. The plan is not known here, so a
@@ -93,7 +97,7 @@ locals {
   ]
 
   # Listed names that no longer have a conflict, so the list does not keep growing
-  unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !contains(local.cname_shared, n)]
+  unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !lookup(local.cname_shared_names, n, false)]
 }
 
 # owned_names: the part of the zone this module call manages, by whole labels. A name is

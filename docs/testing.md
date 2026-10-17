@@ -32,7 +32,23 @@ terraform -chdir=tests/bench/import init
 time terraform -chdir=tests/bench/import plan -var hosts=1000
 ```
 
-Measured on 2026-10-17 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (3,000 configured and 4,000 existing records) take about 8 seconds, 500 hosts about 3 seconds, and the time grows linearly. Up to 2.14.0 the comparison was quadratic: 500 hosts took 65 seconds, 1,000 hosts more than 4 minutes.
+Measured on 2026-10-18 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (3,000 configured and 4,000 existing records) take about 7 seconds, 500 hosts about 3 seconds, and the time grows linearly. Up to 2.14.0 the comparison was quadratic: 500 hosts took 65 seconds, 1,000 hosts more than 4 minutes.
+
+`tests/bench/groups` measures the merge of `record_groups` and the checks of the records on the `compile` module: `hosts` names (default 1,000, at most 1,024) with an A record each, `groups` groups (default 10) with a TXT record on `hosts` names each, half of them also in `records`, and a CNAME conflict, listed in `allowed_cname_conflicts`, on every tenth name:
+
+```sh
+terraform -chdir=tests/bench/groups init
+time terraform -chdir=tests/bench/groups plan -var hosts=1000
+```
+
+Measured on 2026-10-18 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (11,100 records) take about 37 seconds, 500 hosts about 16 seconds, 250 hosts about 8 seconds. Up to 2.15.0 the time was quadratic: 17, 55 and 203 seconds.
+
+To find the slow part of a plan, write a trace log and list the slowest locals, validations, outputs and checks:
+
+```sh
+TF_LOG=trace TF_LOG_PATH=trace.log terraform -chdir=tests/bench/groups plan -var hosts=500
+python3 tests/bench/profile.py trace.log
+```
 
 ## Testing Your Records
 

@@ -21,6 +21,8 @@ locals {
   existing_by_id = { for r in var.existing_records : r.id => r }
   live_records   = { for key, ids in local.live_candidates : key => length(ids) == 1 ? local.existing_by_id[ids[0]] : null }
   live_ids       = toset([for key, r in local.live_records : r.id if r != null])
+  # By ID for the imports (contains() reads the whole set on every call)
+  live_id_names = { for id in local.live_ids : id => true }
 
   # Configured records per name and type, for the names and types of records with
   # ignore_changes

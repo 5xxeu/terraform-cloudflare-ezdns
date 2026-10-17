@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Plans no longer slow down quadratically with many records or `record_groups`: the merge of the groups, the checks of names and CNAME conflicts and the validations of `records` and `record_groups` in the wrappers no longer compare every record or name with all the others. 11,100 records in 10 groups plan in about 37 seconds instead of 203 (`tests/bench/groups`, see [Testing](docs/testing.md))
+
 ## [2.15.0] - 2026-10-17
 
 ### Added

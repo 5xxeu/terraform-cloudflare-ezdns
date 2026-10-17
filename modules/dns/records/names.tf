@@ -43,9 +43,10 @@ locals {
   # already ends with the zone name is kept, any other name gets the zone name
   # appended. qualified keeps the case as written (alias targets), fqdn is lower
   # case (comparisons). For base names, record names, allowed_cname_conflicts and
-  # owned_names.
+  # owned_names. toset, not distinct: distinct compares every name with all names
+  # before it, which is quadratic over the names of a large zone
   qualified = {
-    for n in distinct(concat(keys(var.records), local.entry_names, var.allowed_cname_conflicts, local.owned_input)) : n => (
+    for n in toset(concat(keys(var.records), local.entry_names, var.allowed_cname_conflicts, local.owned_input)) : n => (
       trimsuffix(n, ".") == "@" ? local.zone :
       lower(trimsuffix(n, ".")) == lower(local.zone) || endswith(lower(trimsuffix(n, ".")), ".${lower(local.zone)}") ? trimsuffix(n, ".") :
       "${trimsuffix(n, ".")}.${local.zone}"

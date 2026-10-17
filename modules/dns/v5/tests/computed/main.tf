@@ -12,6 +12,10 @@ module "dns" {
     "@" = { A = [{ content = "192.0.2.1", ttl = tonumber(terraform_data.ttl.output) }] }
   }
   record_groups = {
-    web = { records = { "www" = { A = [{ content = "192.0.2.2", ttl = tonumber(terraform_data.ttl.output) }] } } }
+    web = { records = {
+      "www" = { A = [{ content = "192.0.2.2", ttl = tonumber(terraform_data.ttl.output) }] }
+      # a name and type that records have too: the lists are joined
+      "@" = { A = [{ content = "192.0.2.3", ttl = tonumber(terraform_data.ttl.output) }] }
+    } }
   }
 }
