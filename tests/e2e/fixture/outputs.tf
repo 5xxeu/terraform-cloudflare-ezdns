@@ -15,6 +15,9 @@ output "records" {
       "www.ALIASES" = [{ content = "inline-${local.p}" }]
     }
     "proxied-${local.p}" = { CNAME = [{ content = "example.com", proxied = true }] }
+    # Its content is changed outside Terraform by run.sh: the plan stays empty, and the
+    # import scenario adopts it by name and type
+    "acme.${local.p}" = { TXT = [{ key = "acme", content = "init", ignore_changes = ["content"] }] }
     "_sip._tcp.${local.p}" = {
       SRV = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.${local.z}" } }]
     }

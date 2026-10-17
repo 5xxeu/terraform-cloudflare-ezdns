@@ -133,6 +133,14 @@ reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_value
 grep -q "records that the configuration does not describe" "${E2E_DIR}/plan.log" || fail "report_unmanaged: no plan warning"
 pass "report_unmanaged lists the stray record and none of the module"
 
+# A record with ignore_changes = ["content"] keeps a value changed outside Terraform
+acme_id=$(record_ids v5 | grep ' TXT acme ' | awk '{print $NF}')
+[ -n "$acme_id" ] || fail "ignore_changes: the record is not in the state"
+curl -fsS -X PATCH -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "${api}/${acme_id}" \
+    -d '{"content": "\"changed outside\""}' >/dev/null || fail "ignore_changes: could not change the record"
+assert_no_changes v5 -var a_value=192.0.2.20 -var txt_value=rotation=2
+pass "ignore_changes: a content changed outside Terraform plans no change"
+
 # Scenario 2: the same records are adopted into an empty state. Provider v5 plans a
 # one-time update without visible changes for imported structured records (SRV, ...)
 summary=$(plan_summary import -var a_value=192.0.2.20 -var txt_value=rotation=2)

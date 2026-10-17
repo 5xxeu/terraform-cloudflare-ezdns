@@ -133,7 +133,10 @@ locals {
 
   # Without import_existing, the existing records are only reported (unmanaged
   # records), so nothing is imported and an ambiguous match does not stop the plan
-  import_record_ids = { for key, id in local.matched_record_ids : key => id if var.import_existing }
+  import_record_ids = merge(
+    { for key, id in local.matched_record_ids : key => id if var.import_existing && length(local.flat_records[key].ignore_changes) == 0 },
+    { for key, r in local.live_records : key => r.id if var.import_existing && r != null },
+  )
   import_duplicates = { for key, ids in local.matched_duplicates : key => ids if var.import_existing }
 
   # Existing records that no configured record matches: records in the zone that the
@@ -151,7 +154,8 @@ locals {
   }
   # Maps of IDs rather than sets, read by index: contains() and lookup() walk the whole
   # collection on every call, so a test per existing record would grow quadratically
-  matched_ids = { for id in flatten(values(local.report_matches)) : id => true... }
+  # The live records of records with ignore_changes are managed too
+  matched_ids = { for id in concat(flatten(values(local.report_matches)), [for key, r in local.live_records : r.id if r != null]) : id => true... }
 
   # A configured record that matches no existing record is new or gets a new value (or
   # priority) in this apply, and the existing record with its old value then matches

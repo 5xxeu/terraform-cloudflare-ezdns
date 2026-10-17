@@ -14,9 +14,19 @@ locals {
   # Record types that cloudflare_dns_record manages
   all_types = ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"]
 
+  # Record types with ignore_changes: their values are read from the zone
+  ignore_types = toset(flatten([
+    for base_name, type_map in local.all_records : [
+      for raw_key, recs in type_map :
+      replace(element(split(".", raw_key), length(split(".", raw_key)) - 1), "ALIASES", "CNAME")
+      if anytrue([for r in recs : try(r.ignore_changes, null) != null])
+    ]
+  ]))
+
   lookup_types = setunion(
     var.import_existing ? local.import_types : toset([]),
     var.report_unmanaged ? toset(local.all_types) : toset([]),
+    local.ignore_types,
   )
 }
 
@@ -57,6 +67,10 @@ locals {
         # MX and URI only: the API may return a priority for other types as well
         priority = contains(["MX", "URI"], r.type) ? r.priority : null
         data     = r.data == null ? null : { for field, value in r.data : field => tostring(value) if value != null }
+        ttl      = r.ttl
+        proxied  = r.proxied
+        comment  = r.comment
+        tags     = r.tags
       }
     ]
   ])
