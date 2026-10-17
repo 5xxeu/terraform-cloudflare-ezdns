@@ -18,7 +18,9 @@ The input is a JSON list of DNS records, in one of these forms:
 
 Every value is written as a quoted string, so YAML 1.1 does not turn it into a boolean
 or a number. Records that differ only in what is not a part of their key (MX priority,
-CAA flags) get a key; copies of one record are written once and reported, since the
+CAA flags) get a key; with --stable-keys every record but a CNAME gets a key from its
+Cloudflare ID (cf-<first 8 characters>), so a later change of its value updates the
+record in place instead of deleting and creating it; copies of one record are written once and reported, since the
 module cannot import them unambiguously while the zone has several. Then adopt the records with
 import_existing = true and import blocks (see docs/importing.md) and check that the
 plan creates and deletes nothing.
@@ -66,6 +68,9 @@ def parse_args(argv):
     parser.add_argument("--zone", required=True, metavar="NAME", help="zone name, e.g. example.com")
     parser.add_argument("--default-ttl", type=int, default=3600, metavar="SECONDS",
                         help="default_ttl of the module call: records with this TTL are written without one (default 3600)")
+    parser.add_argument("--stable-keys", action="store_true",
+                        help="give every record but a CNAME a key from its Cloudflare ID (cf-<first 8 characters>), so "
+                             "changing its value later updates it in place")
     parser.add_argument("--schema", metavar="URL_OR_PATH",
                         help="JSON Schema linked at the top of the YAML: a URL, or a path relative to the YAML file such as "
                              "modules/ezdns/schema/records.schema.json (default: the schema of the module release this script "
@@ -140,7 +145,7 @@ def text(value):
     return str(value)
 
 
-def convert(records, zone, default_ttl):
+def convert(records, zone, default_ttl, stable_keys=False):
     """Returns ({name: {type: [record, ...]}}, notes); notes lists what needs attention."""
     out, notes = {}, []
     for r in records:
@@ -214,12 +219,22 @@ def convert(records, zone, default_ttl):
                     ids = ", ".join(str(r["_id"]) for r in same)
                     notes.append(f"{len(same)} copies of one {rtype} record of {name} in the zone (IDs {ids}), written once: delete the other copies in the zone before the import")
 
+            # Keys from the Cloudflare ID: a CNAME has no value in its key and one per
+            # name, so it keeps the key of the module
+            if stable_keys and rtype != "CNAME":
+                for rec in recs:
+                    if re.fullmatch(r"[0-9A-Za-z]+", str(rec["_id"])):
+                        rec["key"] = f"cf-{str(rec['_id'])[:8].lower()}"
+                    else:
+                        notes.append(f"{rtype} record of {name} has no Cloudflare ID: written without a stable key")
+
             # Records that the module would give the same key: MX and URI records that
             # differ only in priority and CAA records that differ only in flags get a key
-            # each
+            # each (records with a stable key have one already)
             groups = {}
             for rec in recs:
-                groups.setdefault(module_key(rtype, rec), []).append(rec)
+                if "key" not in rec:
+                    groups.setdefault(module_key(rtype, rec), []).append(rec)
             keyed = []
             for key, same in groups.items():
                 if len(same) > 1 and rtype in ("MX", "URI", "CAA"):
@@ -312,7 +327,7 @@ def main(argv=None):
     # A record of an unexpected shape (a name that is not text, data that is not an
     # object) is a broken input: nothing is written and the exit status is 2
     try:
-        records, notes = convert(raw, args.zone, args.default_ttl)
+        records, notes = convert(raw, args.zone, args.default_ttl, args.stable_keys)
         count = sum(len(recs) for types in records.values() for recs in types.values())
         out = to_yaml(records, args.zone.rstrip("."), count, args.schema)
     except (AttributeError, KeyError, TypeError, ValueError) as e:

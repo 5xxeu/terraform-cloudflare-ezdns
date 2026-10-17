@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `tools/zone-to-ezdns.py --stable-keys`: every record but a CNAME gets a `key` from its Cloudflare ID (`cf-` and the first 8 characters), so a later change of its value updates the record in place instead of deleting and creating it
 - A warning for a null MX (content `.`, RFC 7505) on a name that has other MX records too: Cloudflare accepts it, but RFC 7505 forbids other MX records next to a null MX
 
 ### Fixed

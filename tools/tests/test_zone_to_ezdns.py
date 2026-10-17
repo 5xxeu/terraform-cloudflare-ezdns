@@ -46,6 +46,40 @@ class ConvertTest(unittest.TestCase):
         ])
         self.assertEqual(notes, [])
 
+    def test_stable_keys_from_the_cloudflare_id(self):
+        records, notes = z.convert(ZONE, "example.com", 3600, stable_keys=True)
+        self.assertEqual(records["@"]["A"][0]["key"], "cf-1")
+        # instead of the keys from the priority
+        self.assertEqual([r["key"] for r in records["@"]["MX"]], ["cf-3", "cf-4"])
+        self.assertEqual([r["key"] for r in records["@"]["CAA"]], ["cf-7", "cf-8"])
+        # a CNAME keeps the key of the module, which has no value
+        self.assertNotIn("key", records["www"]["CNAME"][0])
+        # copies are written once, with the ID of the one written
+        self.assertEqual([r["key"] for r in records["dup"]["A"]], ["cf-11"])
+        self.assertEqual(sorted(notes), sorted(self.notes))
+
+    def test_stable_keys_first_8_characters_lower_case(self):
+        a = [{"id": "372E67954025E0BA6AAA6D586B9E0B59", "name": "web.example.com", "type": "A", "content": "192.0.2.7", "proxied": False, "ttl": 3600}]
+        records, _ = z.convert(a, "example.com", 3600, stable_keys=True)
+        self.assertEqual(records["web"]["A"][0]["key"], "cf-372e6795")
+
+    def test_stable_keys_without_an_id(self):
+        a = [{"name": "web.example.com", "type": "A", "content": "192.0.2.7", "proxied": False, "ttl": 3600}]
+        records, notes = z.convert(a, "example.com", 3600, stable_keys=True)
+        self.assertNotIn("key", records["web"]["A"][0])
+        self.assertEqual(notes, ["A record of web has no Cloudflare ID: written without a stable key"])
+
+    def test_stable_keys_that_repeat_are_reported(self):
+        a = [{"id": f"abcdef12{i}", "name": "web.example.com", "type": "A", "content": f"192.0.2.{i}", "proxied": False, "ttl": 3600} for i in (1, 2)]
+        records, notes = z.convert(a, "example.com", 3600, stable_keys=True)
+        self.assertEqual(len(notes), 2)
+        self.assertIn("gets the same key as another record", notes[0])
+
+    def test_stable_keys_option(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()):
+            z.main([str(HERE / "fixtures" / "zone.json"), "--zone", "example.com", "--stable-keys"])
+        self.assertIn('key: "cf-1"', out.getvalue())
+
     def test_copies_with_another_ttl_written_once(self):
         # TTL and comment are not part of what the record is: still copies of one record
         mx = [{"id": str(i), "name": "example.com", "type": "MX", "content": "mx.example.com", "priority": 10, "proxied": False, "ttl": ttl}
