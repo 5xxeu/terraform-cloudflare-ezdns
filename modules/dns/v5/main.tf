@@ -101,10 +101,12 @@ locals {
       lookup(module.records.live_records, key, null) == null ? rec : merge(rec, {
         content = contains(rec.ignore_changes, "content") ? module.records.live_records[key].content : rec.content
         data    = contains(rec.ignore_changes, "content") && rec.data != null ? module.records.live_records[key].data : rec.data
-        ttl     = contains(rec.ignore_changes, "ttl") ? module.records.live_records[key].ttl : rec.ttl
-        proxied = contains(rec.ignore_changes, "proxied") ? module.records.live_records[key].proxied : rec.proxied
-        comment = contains(rec.ignore_changes, "comment") ? module.records.live_records[key].comment : rec.comment
-        tags    = contains(rec.ignore_changes, "tags") ? coalesce(module.records.live_records[key].tags, []) : rec.tags
+        # SRV keeps its priority in data too: the top-level one follows the data in the zone
+        priority = contains(rec.ignore_changes, "content") && rec.type == "SRV" ? try(tonumber(module.records.live_records[key].data["priority"]), rec.priority) : rec.priority
+        ttl      = contains(rec.ignore_changes, "ttl") ? module.records.live_records[key].ttl : rec.ttl
+        proxied  = contains(rec.ignore_changes, "proxied") ? module.records.live_records[key].proxied : rec.proxied
+        comment  = contains(rec.ignore_changes, "comment") ? module.records.live_records[key].comment : rec.comment
+        tags     = contains(rec.ignore_changes, "tags") ? coalesce(module.records.live_records[key].tags, []) : rec.tags
       })
     )
   }

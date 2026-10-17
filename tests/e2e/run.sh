@@ -140,8 +140,13 @@ acme_id=$(record_ids v5 | grep ' TXT acme ' | awk '{print $NF}')
 [ -n "$acme_id" ] || fail "ignore_changes: the record is not in the state"
 curl -fsS -X PATCH -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "${api}/${acme_id}" \
     -d '{"content": "\"changed outside\""}' >/dev/null || fail "ignore_changes: could not change the record"
+srv_id=$(record_ids v5 | grep ' SRV xmpp ' | awk '{print $NF}')
+[ -n "$srv_id" ] || fail "ignore_changes: the SRV record is not in the state"
+curl -fsS -X PATCH -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "${api}/${srv_id}" \
+    -d "$(jq -n --arg target "xmpp2.${E2E_ZONE_NAME}" '{data: {priority: 20, weight: 5, port: 5270, target: $target}}')" >/dev/null ||
+    fail "ignore_changes: could not change the SRV record"
 assert_no_changes v5 -var a_value=192.0.2.20 -var txt_value=rotation=2
-pass "ignore_changes: a content changed outside Terraform plans no change"
+pass "ignore_changes: a TXT content and SRV data changed outside Terraform plan no change"
 
 # Scenario 2: the same records are adopted into an empty state. Provider v5 plans a
 # one-time update without visible changes for imported structured records (SRV, ...)
