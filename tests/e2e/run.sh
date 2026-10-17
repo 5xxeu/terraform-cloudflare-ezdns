@@ -66,10 +66,12 @@ plan_summary() {
         "move=\([$rc[] | select(.previous_address and .previous_address != .address)] | length)"'
 }
 
-# Prints "<record key> <Cloudflare record ID>" for the records in the state, sorted by key
+# Prints "<record key> <Cloudflare record ID>" for the records in the state, sorted by key.
+# Only the resources under .values: the checks of a resource with a precondition list
+# its address too, without an index or values
 record_ids() {
     tf "$1" show -json | jq -r '
-        [.. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
+        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
         | map("\(.index) \(.values.id)") | sort[]'
 }
 
