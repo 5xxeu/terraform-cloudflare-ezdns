@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-17
+
 ### Added
 
 - `ignore_changes` record attribute (provider v5): the listed attributes (`content` with `data`, `ttl`, `proxied`, `comment`, `tags`) come from the record in the zone instead of the configuration, so a value that a DDNS client or a change in the dashboard writes plans no change. Terraform allows only literals in `lifecycle`, so the module reads the records of the zone at every plan and finds the record by name and type: such a record is the only configured record of its type on its name, and a zone with several records of that name and type stops the plan. `import_existing` adopts the record whatever its value, and `report_unmanaged` does not list it. The v4 wrapper stops the plan for such records (provider v4 has no lookup of the records of a zone); `compile` returns the configured values. In the JSON Schema and the `records` output (the listed attributes as in the zone)
@@ -471,7 +473,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...HEAD
+[2.15.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...v2.15.0
 [2.14.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...v2.14.0
 [2.13.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.0...v2.13.1
