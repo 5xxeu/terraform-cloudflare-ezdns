@@ -94,6 +94,10 @@ A text value was given as a number, usually in YAML without quotes (`content: 01
 
 `report_unmanaged = true` found records in the zone that are not in the configuration. Add them to `records`, leave expected ones out with `unmanaged_ignore` (the TXT ownership records of external-dns, ACME challenges), or limit the call to its part of the zone with `owned_names`. The module never deletes them. See [Records Not in the Configuration](unmanaged-records.md#records-not-in-the-configuration).
 
+### A name can have one SPF record and one DMARC record
+
+The configuration has two different SPF records (`v=spf1 ...`) on one name, or two DMARC records (`v=DMARC1 ...`) on a `_dmarc` name. Cloudflare accepts both, but receivers do not: with two SPF records every SPF check fails (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge the mechanisms into one record, for example `v=spf1 include:_spf.google.com include:spf.protection.outlook.com -all`.
+
 ## Unexpected Plans
 
 ### The plan deletes and creates a record whose value I changed
