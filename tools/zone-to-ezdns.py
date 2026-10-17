@@ -30,6 +30,7 @@ skipped or are copies of each other (the YAML is written anyway), 2 for bad inpu
 import argparse
 import hashlib
 import json
+import pathlib
 import re
 import sys
 
@@ -53,6 +54,8 @@ DATA_FIELDS = {
         "altitude", "size", "precision_horz", "precision_vert",
     ],
 }
+# The JSON Schema of a release, linked at the top of the YAML for completion in editors
+SCHEMA_URL = "https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/{ref}/schema/records.schema.json"
 CONTENT_TYPES = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY"]
 PROXIABLE = ["A", "AAAA", "CNAME"]
 
@@ -63,7 +66,27 @@ def parse_args(argv):
     parser.add_argument("--zone", required=True, metavar="NAME", help="zone name, e.g. example.com")
     parser.add_argument("--default-ttl", type=int, default=3600, metavar="SECONDS",
                         help="default_ttl of the module call: records with this TTL are written without one (default 3600)")
-    return parser.parse_args(argv)
+    parser.add_argument("--schema", metavar="URL_OR_PATH",
+                        help="JSON Schema linked at the top of the YAML: a URL, or a path relative to the YAML file such as "
+                             "modules/ezdns/schema/records.schema.json (default: the schema of the module release this script "
+                             "comes with, on GitHub)")
+    args = parser.parse_args(argv)
+    # The link goes into a YAML comment: a line break would end it (YAML also breaks
+    # lines at NEL and the Unicode line and paragraph separators, see quote())
+    if args.schema is not None and (args.schema == "" or re.search("[\x00-\x1f\x7f-\x9f\u2028\u2029\ufeff]", args.schema)):
+        parser.error("--schema must be a URL or a path on one line")
+    return args
+
+
+def default_schema():
+    """The schema URL of the module release this script is in: its version is the first
+    version heading of CHANGELOG.md next to tools/. main when the copy has no CHANGELOG."""
+    try:
+        changelog = (pathlib.Path(__file__).resolve().parent.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+    except OSError:
+        changelog = ""
+    version = re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.M)
+    return SCHEMA_URL.format(ref=f"v{version.group(1)}" if version else "main")
 
 
 def load(path):
@@ -252,10 +275,10 @@ def quote(value):
                   json.dumps(value, ensure_ascii=False))
 
 
-def to_yaml(records, zone, count):
+def to_yaml(records, zone, count, schema=None):
     order = ["content", "key", "priority", "tag", "flags", "data", "ttl", "proxied", "comment", "tags", "settings", "private_routing"]
     lines = [
-        "# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json",
+        f"# yaml-language-server: $schema={schema or default_schema()}",
         f"# Records of {zone} written by zone-to-ezdns.py ({count} records). Review them, then adopt them with",
         "# import_existing = true and import blocks, and check that the plan creates and deletes nothing.",
         # An empty zone: records: without a value decodes to null, which the module rejects
@@ -291,7 +314,7 @@ def main(argv=None):
     try:
         records, notes = convert(raw, args.zone, args.default_ttl)
         count = sum(len(recs) for types in records.values() for recs in types.values())
-        out = to_yaml(records, args.zone.rstrip("."), count)
+        out = to_yaml(records, args.zone.rstrip("."), count, args.schema)
     except (AttributeError, KeyError, TypeError, ValueError) as e:
         print(f"zone-to-ezdns: {args.input} has a record of an unexpected shape: {e!r}", file=sys.stderr)
         return 2

@@ -27,14 +27,29 @@ qualified_names() {
         '"\([.[] | ascii_downcase | rtrimstr(".") | select(. == $zone or endswith("." + $zone))] | length) of \(length)"'
 }
 
+# Deletes the records of this run. A failed destroy or sweep fails the run, also when
+# all checks passed, and keeps the state files, so the records can still be destroyed
+# (otherwise sweep.sh --stale at the start of a later run deletes them)
 cleanup() {
-    local rc=$?
+    local rc=$? cleaned=1 dir
     set +e
     for dir in v4to5 v4 v5; do
-        [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] && tf "$dir" destroy -auto-approve -no-color >/dev/null
+        [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
+        if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
+            echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
+            cleaned=0
+        fi
     done
-    "${E2E_DIR}/sweep.sh" "$LABEL"
-    rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
+    if ! "${E2E_DIR}/sweep.sh" "$LABEL"; then
+        echo "FAIL: sweep of the records of ${LABEL}" >&2
+        cleaned=0
+    fi
+    if [ "$cleaned" = 1 ]; then
+        rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
+    else
+        echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
+        [ "$rc" != 0 ] || rc=1
+    fi
     exit "$rc"
 }
 trap cleanup EXIT
@@ -85,6 +100,15 @@ pass "no drift after apply"
 names=$(qualified_names v5)
 [ "${names% of *}" = "${names#* of }" ] || fail "v5: record_names are not all fully qualified (${names})"
 pass "v5: record_names fully qualified (${names})"
+
+# While values change, the records with the old values are in the state, not
+# unmanaged: the report (and so unmanaged_policy = "error") lets the update through.
+# Only records of this run are compared, since the zone has records of other tools
+tf v5 plan -no-color -out=tfplan -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true >"${E2E_DIR}/plan.log" 2>&1 ||
+    fail "plan of new values with report_unmanaged: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
+reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_values.outputs.unmanaged_records.value[] | select(.name | contains($label)) | .id] | sort | join(" ")')
+[ -z "$reported" ] || fail "report_unmanaged lists records of the module while their values change: ${reported}"
+pass "report_unmanaged: no record of the module reported while values change"
 
 # Changing a value without a key replaces the record, with a key updates it in place
 summary=$(plan_summary v5 -var a_value=192.0.2.20 -var txt_value=rotation=2)

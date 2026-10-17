@@ -113,6 +113,28 @@ class YamlTest(unittest.TestCase):
         self.assertIn('  "@":', out)
         self.assertTrue(out.splitlines()[3] == "records:")
 
+    def test_schema_of_this_release_by_default(self):
+        # The first version heading of the CHANGELOG next to tools/, not main: an editor
+        # must not offer fields that the installed module does not have yet
+        changelog = (HERE.parent.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+        version = next(line for line in changelog.splitlines() if line.startswith("## [") and line[4].isdigit()).split("]")[0][4:]
+        out = z.to_yaml({}, "example.com", 0)
+        self.assertEqual(out.splitlines()[0], f"# yaml-language-server: $schema={z.SCHEMA_URL.format(ref='v' + version)}")
+
+    def test_schema_option(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            z.main([str(HERE / "fixtures" / "zone.json"), "--zone", "example.com", "--schema", "modules/ezdns/schema/records.schema.json"])
+        self.assertEqual(out.getvalue().splitlines()[0], "# yaml-language-server: $schema=modules/ezdns/schema/records.schema.json")
+
+    def test_schema_with_a_line_break_is_exit_code_2(self):
+        with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
+            z.parse_args(["zone.json", "--zone", "example.com", "--schema", "a.json\nrecords: {}"])
+        self.assertEqual(e.exception.code, 2)
+        for brk in ["\u0085", "\u2028"]:
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                z.parse_args(["zone.json", "--zone", "example.com", "--schema", f"a.json{brk}records: {{}}"])
+
     def test_line_breaks_of_yaml_escaped(self):
         # YAML reads NEL and U+2028 as line breaks; other non-ASCII text stays as written
         self.assertEqual(z.quote("a\u0085b\u2028c\x7fd ü"), '"a\\u0085b\\u2028c\\u007fd ü"')

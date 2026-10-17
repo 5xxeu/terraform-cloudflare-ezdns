@@ -50,7 +50,7 @@ zone-to-ezdns: skipped NS example.com (372e67954025e0ba6aaa6d586b9e0b59): read o
 For a zone with a proxied apex and `www`, two MX records on one host, an SPF record with a TTL of 300 and an SRV record, `records.ezdns.yaml` is:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/main/schema/records.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/v2.14.1/schema/records.schema.json
 # Records of example.com written by zone-to-ezdns.py (6 records). Review them, then adopt them with
 # import_existing = true and import blocks, and check that the plan creates and deletes nothing.
 records:
@@ -85,6 +85,7 @@ The script exits with 1 when it skipped records or found copies (the file is wri
 
 - Every value is quoted, so YAML 1.1 keeps it as text. Records with the TTL of `--default-ttl` (the `default_ttl` of the module call) are written without one, proxied records without TTL. The proxy status of `A`, `AAAA` and `CNAME` records is written both ways (`proxied: false` too), so a `default_proxied = true` or the defaults of a group do not change a record of the zone.
 - `MX` and `URI` records that differ only in priority, and `CAA` records that differ only in flags, get a `key` each, since they would have the same record key. When these keys repeat within a name and type (two MX hosts, each with priorities 10 and 20), the target goes into the key (`mx1.example.com-priority-10`). Copies of one record in the zone (also with another TTL, comment or tags) are written once and reported with their IDs, not their values (the value of a proxied record is its origin address): the import of such a record stops until the zone has one copy.
+- The first line links the [JSON Schema](../README.md#records-in-yaml) of the module release that the script comes with (its version in `CHANGELOG.md` next to `tools/`), so an editor offers only the fields of that release. `--schema` writes another link: a URL, or a path relative to the YAML file, such as `modules/ezdns/schema/records.schema.json` for a [local copy](../README.md#local-copy).
 - Records that the module does not manage are left out and reported: read-only records of Cloudflare, records outside the zone and types that the module does not support.
 - The output of [`unmanaged_records`](unmanaged-records.md#records-not-in-the-configuration) has the same form, without TTL, proxy status, comments and tags. Records written from it get the module defaults, so check them before the import: a proxied record written as not proxied would publish its origin address after the apply.
 
