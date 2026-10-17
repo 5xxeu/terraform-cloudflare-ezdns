@@ -98,6 +98,10 @@ A text value was given as a number, usually in YAML without quotes (`content: 01
 
 The configuration has two different SPF records (`v=spf1 ...`) on one name, or two DMARC records (`v=DMARC1 ...`) on a `_dmarc` name. Cloudflare accepts both, but receivers do not: with two SPF records every SPF check fails (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge the mechanisms into one record, for example `v=spf1 include:_spf.google.com include:spf.protection.outlook.com -all`.
 
+### A name with a null MX has other MX records
+
+A null MX (`content = "."`, `priority = 0`, RFC 7505) says that a name takes no mail, and such a name must have no other MX record. Cloudflare accepts both, but senders then see a contradiction and may still deliver to the other records. Keep either the null MX (the name takes no mail) or the other MX records. Names are compared fully qualified, so `@` and the zone name are the same name.
+
 ## Unexpected Plans
 
 ### The plan deletes and creates a record whose value I changed

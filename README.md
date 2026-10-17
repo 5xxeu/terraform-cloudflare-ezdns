@@ -702,6 +702,7 @@ The `records` input (and the records of `record_groups`) is validated before any
 - `CAA` records require `tag`: `issue`, `issuewild` or `iodef`
 - `key` must be a non-empty string without whitespace
 - Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) show a warning, since the module ignores them; they will fail from 3.0
+- Two different SPF records on one name, two DMARC records on a `_dmarc` name, and a null `MX` next to other `MX` records on one name (RFC 7505) show a warning: Cloudflare accepts them, but mail receivers do not, see [Troubleshooting](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/troubleshooting.md#a-name-with-a-null-mx-has-other-mx-records)
 - With [`owned_names`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#the-part-of-the-zone-a-module-call-owns), every record must be in the part of the zone that the module call owns
 - Record keys must be unique. The error shows where each duplicate is defined, e.g. `"_acme-challenge.app TXT 79bead8e6d65" from records["_acme-challenge.app"]["TXT"][0] and records["app"]["_acme-challenge.TXT"][0]`
 - The same record must not be written twice with different name forms (`www` and `www.example.com`, `@` and the zone name), which would give it two keys; addresses and hostnames (`A`, `AAAA`, `MX`, `NS`, `PTR`) are compared case-insensitively and without a trailing dot

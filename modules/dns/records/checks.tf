@@ -153,3 +153,21 @@ check "records_one_spf_and_dmarc_per_name" {
     error_message = "A name can have one SPF record and one DMARC record: with two SPF records every receiver fails the SPF check (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge them into one record:\n${join("\n", local.repeated_policies)}"
   }
 }
+
+# A null MX ("." with priority 0) says that a name takes no mail, and a name with a null
+# MX must have no other MX record (RFC 7505, section 3); Cloudflare accepts both. Only a
+# warning, like the SPF and DMARC check: zones that have it still plan
+locals {
+  mx_targets = { for key, rec in local.flat_records : rec.fqdn => rec.content... if rec.type == "MX" }
+  null_mx_with_others = [
+    for name, targets in local.mx_targets : "${name}: a null MX and ${length([for t in targets : t if t != "."])} other MX records"
+    if anytrue([for t in targets : t == "."]) && length([for t in targets : t if t != "."]) > 0
+  ]
+}
+
+check "records_null_mx_alone" {
+  assert {
+    condition     = length(local.null_mx_with_others) == 0
+    error_message = "A name with a null MX (content \".\", RFC 7505) takes no mail and must have no other MX record; senders may still try the other records. Remove the null MX, or the other MX records:\n${join("\n", local.null_mx_with_others)}"
+  }
+}

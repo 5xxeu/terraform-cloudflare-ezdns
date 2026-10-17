@@ -1177,3 +1177,33 @@ run "one_spf_and_dmarc_per_name" {
     error_message = "One SPF and one DMARC record per name do not warn"
   }
 }
+
+run "null_mx_with_other_mx_warns" {
+  command = plan
+
+  variables {
+    records = {
+      "@"           = { MX = [{ content = ".", priority = 0 }] }
+      "example.com" = { MX = [{ content = "mx.example.net", priority = 10 }] }
+      "nomail"      = { MX = [{ content = ".", priority = 0 }] }
+    }
+  }
+
+  expect_failures = [check.records_null_mx_alone]
+}
+
+run "null_mx_alone" {
+  command = plan
+
+  variables {
+    records = {
+      "nomail" = { MX = [{ content = ".", priority = 0 }] }
+      "mail"   = { MX = [{ content = "mx1.example.net", priority = 10 }, { content = "mx2.example.net", priority = 20 }] }
+    }
+  }
+
+  assert {
+    condition     = length(local.null_mx_with_others) == 0
+    error_message = "A null MX alone and ordinary MX records do not warn"
+  }
+}
