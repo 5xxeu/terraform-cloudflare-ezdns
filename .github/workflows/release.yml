@@ -13,6 +13,8 @@ permissions:
   artifact-metadata: write
   # The CI result of the tagged commit
   checks: read
+  # The end-to-end runs of the tagged commit
+  actions: read
 
 jobs:
   release:
@@ -42,6 +44,28 @@ jobs:
           done
           echo "No CI result for ${GITHUB_SHA} after 30 minutes"; exit 1
 
+      # The end-to-end test (a real zone, run by hand or weekly) must have passed on the
+      # tagged commit too: gh workflow run End-to-end --ref main after the merge, then
+      # the tag. The latest run counts; a run still going is waited for (it times out
+      # after 30 minutes)
+      - name: Require the end-to-end test of the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 70); do
+            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/e2e.yml/runs?head_sha=${GITHUB_SHA}&per_page=100" \
+              --jq '.workflow_runs | if length == 0 then "missing" else (sort_by(.id) | last | if .status != "completed" then "pending" elif .conclusion == "success" then "success" else "failure" end) end') ||
+              conclusion="unavailable (API error)"
+            case "$conclusion" in
+              success) echo "End-to-end test passed for ${GITHUB_SHA}"; exit 0 ;;
+              failure) echo "End-to-end test failed for ${GITHUB_SHA}"; exit 1 ;;
+              missing) echo "No end-to-end run for ${GITHUB_SHA}: run gh workflow run End-to-end --ref main, then re-run this workflow"; exit 1 ;;
+            esac
+            echo "End-to-end test for ${GITHUB_SHA}: ${conclusion}, waiting (${attempt}/70)"
+            sleep 30
+          done
+          echo "No end-to-end result for ${GITHUB_SHA} after 35 minutes"; exit 1
+
       - name: Release notes from the changelog
         run: |
           awk -v v="${GITHUB_REF_NAME#v}" '
@@ -68,6 +92,15 @@ jobs:
           tar -czf "dist/${full}" -C dist/module .
           tar -czf "dist/${v5}" -C dist/module-v5 .
           (cd dist && sha256sum "${full}" "${v5}" >SHA256SUMS)
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      # Before anything is published: the files a configuration needs, no tests, no v4
+      # wrapper in the v5 archive, and both archives validate as modules
+      - name: Check the archives
+        run: ./scripts/check-archives.sh "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
 
       # Signed SLSA build provenance of the archives, checked with
       # gh attestation verify <archive> --repo 5xxeu/terraform-cloudflare-ezdns \
