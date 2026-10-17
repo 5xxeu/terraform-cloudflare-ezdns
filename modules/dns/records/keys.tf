@@ -85,6 +85,7 @@ locals {
       tags            = distinct(concat(var.default_tags, coalesce(r.rec.tags, [])))
       settings        = r.rec.settings
       private_routing = r.rec.private_routing
+      ignore_changes  = sort(distinct(coalesce(r.rec.ignore_changes, [])))
       priority        = contains(["MX", "URI"], r.type) ? r.rec.priority : r.type == "SRV" ? tonumber(r.rec.data.priority) : null
       data = (
         r.type == "CAA" ? tomap({ flags = tostring(r.rec.flags), tag = r.rec.tag, value = r.content }) :
@@ -122,6 +123,7 @@ locals {
       tags            = group[0].tags
       settings        = group[0].settings
       private_routing = group[0].private_routing
+      ignore_changes  = group[0].ignore_changes
       priority        = group[0].priority
       data            = group[0].data
     }

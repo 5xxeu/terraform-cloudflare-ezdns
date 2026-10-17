@@ -209,6 +209,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "proxied": {
           "description": "Proxied by Cloudflare (default: default_proxied)",
           "type": "boolean"
@@ -277,6 +291,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "proxied": {
           "description": "Proxied by Cloudflare (default: default_proxied)",
           "type": "boolean"
@@ -343,6 +371,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "proxied": {
@@ -434,6 +476,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "proxied": {
           "description": "Proxied by Cloudflare (default: default_proxied)",
           "type": "boolean"
@@ -500,6 +556,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "content": {
@@ -583,6 +653,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "content": {
           "description": "Hostname",
           "type": "string",
@@ -664,6 +748,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "content": {
           "description": "Text value",
           "type": "string",
@@ -724,6 +822,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "content": {
           "description": "Public key",
           "type": "string"
@@ -782,6 +894,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "content": {
@@ -890,6 +1016,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "content": {
           "description": "Value, e.g. letsencrypt.org",
           "type": "string"
@@ -961,6 +1101,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {
@@ -1073,6 +1227,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "DNSKEY fields",
           "type": "object",
@@ -1183,6 +1351,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "DS fields",
           "type": "object",
@@ -1291,6 +1473,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {
@@ -1427,6 +1623,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {
@@ -1637,6 +1847,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "NAPTR fields",
           "type": "object",
@@ -1765,6 +1989,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "SMIMEA fields",
           "type": "object",
@@ -1873,6 +2111,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {
@@ -2008,6 +2260,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "SSHFP fields",
           "type": "object",
@@ -2102,6 +2368,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {
@@ -2240,6 +2520,20 @@
             }
           }
         },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
+          }
+        },
         "data": {
           "description": "TLSA fields",
           "type": "object",
@@ -2349,6 +2643,20 @@
             "ipv6_only": {
               "type": "boolean"
             }
+          }
+        },
+        "ignore_changes": {
+          "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "content",
+              "ttl",
+              "proxied",
+              "comment",
+              "tags"
+            ]
           }
         },
         "data": {

@@ -30,11 +30,13 @@ records:
 """,
     "empty records": "records: {}",
     "HTTPS service parameters as fields": 'records: { "@": { HTTPS: [{ data: { priority: 1, target: ".", alpn: "h3,h2", port: 443, ipv4hint: "192.0.2.1" } }] } }',
+    "ignore_changes": 'records: { _acme-challenge: { TXT: [{ content: init, key: acme, ignore_changes: [content, ttl] }] } }',
     "data at the limits of their ranges": 'records: { _sip._tcp: { SRV: [{ data: { priority: 65535, weight: 0, port: 65535, target: sip.example.com } }] }, "@": { CAA: [{ content: letsencrypt.org, tag: issue, flags: 255 }] } }',
 }
 
 INVALID = {
     "misspelled attribute": 'records: { app: { A: [{ content: 192.0.2.10, proxid: true }] } }',
+    "unknown attribute in ignore_changes": 'records: { _acme-challenge: { TXT: [{ content: init, ignore_changes: [name] }] } }',
     "misspelled setting": 'records: { app: { AAAA: [{ content: "2001:db8::1", settings: { ipv6_onyl: true } }] } }',
     "unknown record type": 'records: { app: { CNAMe: [{ content: target.example.net }] } }',
     "TTL as text": 'records: { app: { A: [{ content: 192.0.2.10, ttl: 5m }] } }',

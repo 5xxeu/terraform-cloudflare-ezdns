@@ -1146,3 +1146,34 @@ run "ipv4_mapped_written_in_two_forms" {
   expect_failures = [output.flat_records]
 }
 
+
+run "repeated_spf_and_dmarc_warn" {
+  command = plan
+
+  variables {
+    records = {
+      "@"      = { TXT = [{ content = "v=spf1 include:a.example -all" }, { content = "\"V=SPF1 mx\" \" -all\"" }, { content = "v=spf10 other" }] }
+      "_dmarc" = { TXT = [{ content = "v=DMARC1; p=none" }, { content = "v=DMARC1;p=reject" }] }
+      "mail"   = { TXT = [{ content = "v=spf1 -all" }] }
+    }
+  }
+
+  expect_failures = [check.records_one_spf_and_dmarc_per_name]
+}
+
+run "one_spf_and_dmarc_per_name" {
+  command = plan
+
+  variables {
+    records = {
+      "@"      = { TXT = [{ content = "v=spf1 -all" }, { content = "google-site-verification=x" }] }
+      "_dmarc" = { TXT = [{ content = "v=DMARC1; p=none" }] }
+      "mail"   = { TXT = [{ content = "v=spf1 -all" }] }
+    }
+  }
+
+  assert {
+    condition     = length(local.repeated_policies) == 0
+    error_message = "One SPF and one DMARC record per name do not warn"
+  }
+}

@@ -4,7 +4,7 @@ output "record_names" {
 }
 
 output "records" {
-  description = "Managed records keyed by their stable identifier: id, zone_id, name (as returned by Cloudflare), fqdn (fully qualified, lower case, from the configuration, so known at plan), type, content, ttl, proxied, priority, data (structured records), comment, tags, settings and private_routing (the last two with provider v5, null with v4), the last five as configured, e.g. for monitoring or certificates of these names"
+  description = "Managed records keyed by their stable identifier: id, zone_id, name (as returned by Cloudflare), fqdn (fully qualified, lower case, from the configuration, so known at plan), type, content, ttl, proxied, priority, data (structured records), comment, tags, settings and private_routing (the last two with provider v5, null with v4), the last five as configured (for a record with ignore_changes, the listed attributes as in the zone), e.g. for monitoring or certificates of these names"
   value       = module.v5.records
 }
 

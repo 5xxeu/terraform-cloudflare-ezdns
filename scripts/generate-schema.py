@@ -129,6 +129,12 @@ def schema():
                 "ipv6_only": {"type": "boolean"},
             },
         },
+        "ignore_changes": {
+            "description": "Attributes taken from the record in the zone instead of the configuration, for values changed outside Terraform (provider v5 only; the record is found by name and type)",
+            "type": "array",
+            "uniqueItems": True,
+            "items": {"enum": ["content", "ttl", "proxied", "comment", "tags"]},
+        },
     }
     proxied = {
         "proxied": {"description": "Proxied by Cloudflare (default: default_proxied)", "type": "boolean"},

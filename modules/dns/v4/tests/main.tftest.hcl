@@ -530,3 +530,13 @@ run "owned_names" {
 
   expect_failures = [var.owned_names]
 }
+
+run "ignore_changes_needs_provider_v5" {
+  command = plan
+
+  variables {
+    records = { "_acme-challenge" = { TXT = [{ content = "init", key = "acme", ignore_changes = ["content"] }] } }
+  }
+
+  expect_failures = [cloudflare_record.record]
+}

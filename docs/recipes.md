@@ -86,6 +86,41 @@ The module manages only the records in its configuration and leaves the others a
   unmanaged_ignore = [{ name_regex = "^extdns-", types = ["TXT"] }] # --txt-prefix=extdns-
   ```
 
+## Cloudflare Tunnel
+
+A [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) answers on a proxied `CNAME` to `<tunnel ID>.cfargotunnel.com`. The ID comes from the tunnel resource, known only after it is created, so the record needs a `key` (see [Record Keys](../README.md#record-keys)):
+
+```hcl
+resource "cloudflare_zero_trust_tunnel_cloudflared" "app" {
+  account_id = "<account ID>"
+  name       = "app"
+}
+
+# In the module call
+records = {
+  "app" = {
+    CNAME = [{ key = "tunnel", content = "${cloudflare_zero_trust_tunnel_cloudflared.app.id}.cfargotunnel.com", proxied = true }]
+  }
+}
+```
+
+The plan warns that some checks of the records are known only after apply, as for any value computed by another resource.
+
+The ingress rules of the tunnel (which hostname goes to which service) stay in the configuration of the tunnel; the module only publishes the name. A Load Balancer creates the DNS name of its hostname itself: leave that name out of `records`.
+
+## A Table of the Zone for a Wiki
+
+The `records` output has every record with its name, type, value, TTL and proxy status, so a table for a wiki page or a pull request comment is one command after `apply` (or from a saved plan, with `terraform show -json`):
+
+```sh
+terraform output -json dns_records | jq -r '
+  "| Name | Type | Value | TTL | Proxied |", "|---|---|---|---|---|",
+  (to_entries | sort_by(.value.fqdn, .value.type)[] | .value
+   | "| \(.fqdn) | \(.type) | \(.content // (.data | tostring)) | \(if .proxied then "auto" else .ttl end) | \(.proxied) |")'
+```
+
+with the output passed through in the root module (`output "dns_records" { value = module.dns.records }`). The values of proxied records are origin addresses, which the proxy hides: leave them out of a table that is published more widely (`select(.value.proxied | not)`).
+
 ## Internationalized Names
 
 The module expects internationalized names in Punycode, as the Cloudflare API does. The `idna` submodule takes them in Unicode instead: it converts them with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider and passes everything to the v5 wrapper. The provider has only functions (Terraform 1.8 or later): no configuration and no network requests, but `terraform init` installs it, which is why the root module does not use it.
@@ -93,7 +128,7 @@ The module expects internationalized names in Punycode, as the Cloudflare API do
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/idna"
-  version = "2.14.1"
+  version = "2.15.0"
 
   zone_id   = var.zone_id
   zone_name = "münchen.de" # or null: the zone is looked up and its name converted
@@ -138,7 +173,7 @@ locals {
 
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.14.1"
+  version = "2.15.0"
 
   zone_id   = var.zone_id
   zone_name = provider::idna::to_ascii("münchen.de")

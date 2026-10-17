@@ -109,6 +109,11 @@ variable "records" {
 
           # Private network routing to the origin (Cloudflare provider v5)
           private_routing = optional(bool)
+
+          # Attributes taken from the record in the zone instead of the configuration,
+          # for values that change outside Terraform: content (with data), ttl,
+          # proxied, comment, tags
+          ignore_changes = optional(list(string))
         })
       )
     )
@@ -785,6 +790,10 @@ variable "existing_records" {
     content  = optional(string)
     priority = optional(number)
     data     = optional(map(string))
+    ttl      = optional(number)
+    proxied  = optional(bool)
+    comment  = optional(string)
+    tags     = optional(list(string))
   }))
   default = []
 }

@@ -94,8 +94,28 @@ data "cloudflare_zone" "this" {
   }
 }
 
+# Records with ignore_changes get the listed attributes from the record in the zone
+locals {
+  effective_records = {
+    for key, rec in module.records.flat_records : key => (
+      lookup(module.records.live_records, key, null) == null ? rec : merge(rec, {
+        # Structured records are sent as data only: the API returns their content too, as
+        # text computed from data, and the resource takes one of the two
+        content = rec.data != null ? null : contains(rec.ignore_changes, "content") ? module.records.live_records[key].content : rec.content
+        data    = contains(rec.ignore_changes, "content") && rec.data != null ? module.records.live_records[key].data : rec.data
+        # SRV keeps its priority in data too: the top-level one follows the data in the zone
+        priority = contains(rec.ignore_changes, "content") && rec.type == "SRV" ? try(tonumber(module.records.live_records[key].data["priority"]), rec.priority) : rec.priority
+        ttl      = contains(rec.ignore_changes, "ttl") ? module.records.live_records[key].ttl : rec.ttl
+        proxied  = contains(rec.ignore_changes, "proxied") ? module.records.live_records[key].proxied : rec.proxied
+        comment  = contains(rec.ignore_changes, "comment") ? module.records.live_records[key].comment : rec.comment
+        tags     = contains(rec.ignore_changes, "tags") ? coalesce(module.records.live_records[key].tags, []) : rec.tags
+      })
+    )
+  }
+}
+
 resource "cloudflare_dns_record" "record" {
-  for_each = module.records.flat_records
+  for_each = local.effective_records
 
   zone_id = var.zone_id
   name    = each.value.name

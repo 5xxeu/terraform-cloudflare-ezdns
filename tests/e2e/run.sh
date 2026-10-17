@@ -66,10 +66,12 @@ plan_summary() {
         "move=\([$rc[] | select(.previous_address and .previous_address != .address)] | length)"'
 }
 
-# Prints "<record key> <Cloudflare record ID>" for the records in the state, sorted by key
+# Prints "<record key> <Cloudflare record ID>" for the records in the state, sorted by key.
+# Only the resources under .values: the checks of a resource with a precondition list
+# its address too, without an index or values
 record_ids() {
     tf "$1" show -json | jq -r '
-        [.. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
+        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
         | map("\(.index) \(.values.id)") | sort[]'
 }
 
@@ -132,6 +134,19 @@ reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_value
 [ "$reported" = "$stray_id" ] || fail "report_unmanaged: expected only ${stray_id} of this run, got '${reported}'"
 grep -q "records that the configuration does not describe" "${E2E_DIR}/plan.log" || fail "report_unmanaged: no plan warning"
 pass "report_unmanaged lists the stray record and none of the module"
+
+# A record with ignore_changes = ["content"] keeps a value changed outside Terraform
+acme_id=$(record_ids v5 | grep ' TXT acme ' | awk '{print $NF}')
+[ -n "$acme_id" ] || fail "ignore_changes: the record is not in the state"
+curl -fsS -X PATCH -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "${api}/${acme_id}" \
+    -d '{"content": "\"changed outside\""}' >/dev/null || fail "ignore_changes: could not change the record"
+srv_id=$(record_ids v5 | grep ' SRV xmpp ' | awk '{print $NF}')
+[ -n "$srv_id" ] || fail "ignore_changes: the SRV record is not in the state"
+curl -fsS -X PATCH -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "${api}/${srv_id}" \
+    -d "$(jq -n --arg target "xmpp2.${E2E_ZONE_NAME}" '{data: {priority: 20, weight: 5, port: 5270, target: $target}}')" >/dev/null ||
+    fail "ignore_changes: could not change the SRV record"
+assert_no_changes v5 -var a_value=192.0.2.20 -var txt_value=rotation=2
+pass "ignore_changes: a TXT content and SRV data changed outside Terraform plan no change"
 
 # Scenario 2: the same records are adopted into an empty state. Provider v5 plans a
 # one-time update without visible changes for imported structured records (SRV, ...)

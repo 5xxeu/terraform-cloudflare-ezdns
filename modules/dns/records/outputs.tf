@@ -72,3 +72,23 @@ output "unmanaged_records" {
   sensitive   = true
 }
 
+
+output "live_records" {
+  description = "Records with ignore_changes, keyed like flat_records: the record of the same name and type in the zone (id, content, data, ttl, proxied, comment, tags), or null when the zone has none yet"
+  value       = local.live_records
+
+  precondition {
+    condition     = length(local.unknown_ignored) == 0
+    error_message = "ignore_changes can list content (with data), ttl, proxied, comment and tags:\n${join("\n", local.unknown_ignored)}"
+  }
+
+  precondition {
+    condition     = length(local.ignored_shared) == 0
+    error_message = "A record with ignore_changes is found in the zone by its name and type, so it must be the only configured record of its type on its name (other records of the type can go on another name, or without ignore_changes):\n${join("\n", local.ignored_shared)}"
+  }
+
+  precondition {
+    condition     = length(local.live_ambiguous) == 0
+    error_message = "A record with ignore_changes is found in the zone by its name and type, and the zone has several records of that name and type (delete the extra records in the zone):\n${join("\n", local.live_ambiguous)}"
+  }
+}
