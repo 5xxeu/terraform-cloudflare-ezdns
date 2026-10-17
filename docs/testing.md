@@ -70,7 +70,7 @@ run "zone" {
 # tests/compile/main.tf
 module "compiled" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/compile"
-  version = "2.14.0"
+  version = "2.14.1"
 
   zone_name = "example.com"
   records   = yamldecode(file("${path.module}/../../records.ezdns.yaml")).records
