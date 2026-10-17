@@ -60,27 +60,27 @@ locals {
     if rec.type == "TXT"
   }
 
+  # Existing records grouped by type and name, so each configured record is compared
+  # only with the records of its own name and type (not every record of the zone)
+  existing_by_name = { for e in local.existing : "${e.type} ${e.name}" => e... }
+
   import_matches = {
     for key, rec in local.flat_records : key => [
-      for e in local.existing : e.id
-      if e.type == rec.type
-      && e.name == rec.fqdn
-      && (
-        rec.data == null
-        ? e.content == (
-          rec.type == "TXT" ? local.configured_txt[key] : contains(local.exact_content_types, rec.type) ? rec.content : lower(trimsuffix(rec.content, "."))
-        )
-        : alltrue([
-          for field, value in rec.data : (
-            (contains(local.case_insensitive_fields, field) && !(field == "target" && rec.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], rec.type))
-            ? lower(trimsuffix(lookup(e.data, field, ""), ".")) == lower(trimsuffix(value, "."))
-            : rec.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(rec.data, "tag", ""))
-            ? format("%s%s", lower(trimsuffix(trimspace(split(";", lookup(e.data, field, ""))[0]), ".")), substr(lookup(e.data, field, ""), length(split(";", lookup(e.data, field, ""))[0]), -1))
-            == format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1))
-            : lookup(e.data, field, "") == value
-          )
-        ])
+      for e in try(local.existing_by_name["${rec.type} ${rec.fqdn}"], []) : e.id
+      if rec.data == null
+      ? e.content == (
+        rec.type == "TXT" ? local.configured_txt[key] : contains(local.exact_content_types, rec.type) ? rec.content : lower(trimsuffix(rec.content, "."))
       )
+      : alltrue([
+        for field, value in rec.data : (
+          (contains(local.case_insensitive_fields, field) && !(field == "target" && rec.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], rec.type))
+          ? lower(trimsuffix(lookup(e.data, field, ""), ".")) == lower(trimsuffix(value, "."))
+          : rec.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(rec.data, "tag", ""))
+          ? format("%s%s", lower(trimsuffix(trimspace(split(";", lookup(e.data, field, ""))[0]), ".")), substr(lookup(e.data, field, ""), length(split(";", lookup(e.data, field, ""))[0]), -1))
+          == format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1))
+          : lookup(e.data, field, "") == value
+        )
+      ])
     ]
   }
 
@@ -138,11 +138,10 @@ locals {
 
   # Existing records that no configured record matches: records in the zone that the
   # configuration does not describe. For the report, an MX or URI record describes only
-  # the existing records of its priority (MX 20 next to, or instead of, the configured
-  # MX 10 is unmanaged); an existing record without a known priority still matches.
-  # SRV keeps its priority in data, compared already. An import candidate of another
-  # priority is still listed: import_existing only offers IDs, and whether an import
-  # block adopts the record is not known here
+  # the existing records of its priority (MX 20 next to the configured MX 10 is
+  # unmanaged; MX 20 instead of it is its old priority, see previous_value_ids); an
+  # existing record without a known priority still matches. SRV keeps its priority in
+  # data, compared already
   report_matches = {
     for key, ids in local.import_matches : key => (
       contains(["MX", "URI"], local.flat_records[key].type) && local.flat_records[key].priority != null
@@ -150,7 +149,31 @@ locals {
       : ids
     )
   }
-  matched_ids = toset(flatten(values(local.report_matches)))
+  # Maps of IDs rather than sets, read by index: contains() and lookup() walk the whole
+  # collection on every call, so a test per existing record would grow quadratically
+  matched_ids = { for id in flatten(values(local.report_matches)) : id => true... }
+
+  # A configured record that matches no existing record is new or gets a new value (or
+  # priority) in this apply, and the existing record with its old value then matches
+  # nothing either: it is in the state, not unmanaged. The state is not known here, so
+  # on a name and type where the existing records without a match are no more than the
+  # configured records without one, they are taken as the old values and left out of
+  # the report. A record added by hand next to a new record is then reported only from
+  # the next plan on, once the new record exists
+  unmatched_configured = {
+    for key, ids in local.report_matches : "${local.flat_records[key].type} ${local.flat_records[key].fqdn}" => key...
+    if length(ids) == 0
+  }
+  unmatched_existing = {
+    for e in local.existing : "${e.type} ${e.name}" => e.id...
+    if !can(local.matched_ids[e.id])
+  }
+  previous_value_ids = {
+    for id in flatten([
+      for group, ids in local.unmatched_existing : ids
+      if length(ids) <= length(try(local.unmatched_configured[group], []))
+    ]) : id => true
+  }
 
   # Configured records that several existing records match (copies of one record) for
   # the report: type, name and IDs only, since record keys may contain origin
@@ -181,6 +204,6 @@ locals {
       priority = r.priority
       data     = r.data
     }
-    if !contains(local.matched_ids, r.id) && local.reported[r.id]
+    if !can(local.matched_ids[r.id]) && !can(local.previous_value_ids[r.id]) && local.reported[r.id]
   ]
 }

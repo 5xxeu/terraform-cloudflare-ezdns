@@ -25,6 +25,15 @@ CI runs `terraform fmt`, `validate` and `test` for the root module, the core mod
 
 Plan time grows a little faster than the number of records. Measured on 2026-10-13 with Terraform 1.16.4, the root module and a mocked provider (`terraform test`, `command = plan`) on an Apple M2 Pro: 1,000 records (A, AAAA, CNAME, TXT and MX in equal parts) take about 8 seconds, 5,000 records about 55 seconds. A real plan adds the refresh of every record by the provider.
 
+`import_existing` and `report_unmanaged` compare the configured records with the records of the zone. `tests/bench/import` measures that part on the core module, without a provider: `hosts` hosts (default 1,000) with an A, a TXT and an MX record each, a zone with the same records, half of the A records with another value, and a stray record per host:
+
+```sh
+terraform -chdir=tests/bench/import init
+time terraform -chdir=tests/bench/import plan -var hosts=1000
+```
+
+Measured on 2026-10-17 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (3,000 configured and 4,000 existing records) take about 8 seconds, 500 hosts about 3 seconds, and the time grows linearly. Up to 2.14.0 the comparison was quadratic: 500 hosts took 65 seconds, 1,000 hosts more than 4 minutes.
+
 ## Testing Your Records
 
 The `compile` submodule runs the checks of the wrappers on a configuration and returns its records as the wrappers would create them, keyed by their record keys, without a provider and without credentials. A test of your own configuration can then check what matters for your zone:

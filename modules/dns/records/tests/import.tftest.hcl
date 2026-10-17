@@ -673,9 +673,9 @@ run "copies_next_to_another_priority" {
   }
 }
 
-# Only MX 20 in the zone, MX 10 configured: MX 20 is unmanaged. With import_existing it
-# is also offered for import (an import block would adopt it as MX 10), but the module
-# cannot know whether there is an import block, so the report still lists it
+# Only MX 20 in the zone, MX 10 configured: MX 20 is taken as the old priority of the
+# configured record (an update in this apply, see previous_value_ids), not as an
+# unmanaged record. With import_existing it is also offered for import
 run "other_priority_only_without_import" {
   command = plan
 
@@ -686,8 +686,8 @@ run "other_priority_only_without_import" {
   }
 
   assert {
-    condition     = [for r in output.unmanaged_records : r.id] == ["id-mx-20"]
-    error_message = "A record of another priority is unmanaged without the import"
+    condition     = length(output.unmanaged_records) == 0
+    error_message = "A record of another priority instead of the configured one is its old priority"
   }
 }
 
@@ -700,8 +700,70 @@ run "other_priority_only_with_import" {
   }
 
   assert {
-    condition     = output.import_record_ids == { "@ MX mail.example.com" = "id-mx-20" } && [for r in output.unmanaged_records : r.id] == ["id-mx-20"]
-    error_message = "An import candidate of another priority is offered and still reported"
+    condition     = output.import_record_ids == { "@ MX mail.example.com" = "id-mx-20" } && length(output.unmanaged_records) == 0
+    error_message = "An import candidate of another priority is offered and not reported"
+  }
+}
+
+# A managed record gets a new value: the record with the old value is in the state, so
+# it is not unmanaged (unmanaged_policy = "error" must not stop an ordinary update)
+run "new_value_of_a_record_is_not_unmanaged" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "app", content = "192.0.2.2" }] }, "www" = { CNAME = [{ content = "new.example.net" }] } }
+    existing_records = [
+      { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-www", name = "www.example.com", type = "CNAME", content = "old.example.net" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = length(output.unmanaged_records) == 0
+    error_message = "The old value of a record with a new value is not unmanaged"
+  }
+}
+
+# More records without a match than configured records without one on a name and type:
+# they cannot all be old values, so all of them are reported
+run "new_value_next_to_a_stray_record" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "app", content = "192.0.2.2" }] } }
+    existing_records = [
+      { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-stray", name = "app.example.com", type = "A", content = "192.0.2.9" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = toset([for r in output.unmanaged_records : r.id]) == toset(["id-app", "id-stray"])
+    error_message = "Records without a match beyond the configured records without one are reported"
+  }
+}
+
+# Only records of the same name and type can be old values, and a configured record
+# that matches an existing one has no old value
+run "old_values_only_of_the_same_name_and_type" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.2" }] }, "web" = { A = [{ content = "192.0.2.5" }] } }
+    existing_records = [
+      { id = "id-aaaa", name = "app.example.com", type = "AAAA", content = "2001:db8::1" },
+      { id = "id-other", name = "other.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-web", name = "web.example.com", type = "A", content = "192.0.2.5" },
+      { id = "id-web-stray", name = "web.example.com", type = "A", content = "192.0.2.6" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = toset([for r in output.unmanaged_records : r.id]) == toset(["id-aaaa", "id-other", "id-web-stray"])
+    error_message = "Records of another type or name, or next to a matched record, are unmanaged"
   }
 }
 

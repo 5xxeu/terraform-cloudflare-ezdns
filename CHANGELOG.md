@@ -10,6 +10,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- `report_unmanaged`: a record whose value (or `MX`/`URI` priority) changes in the plan is no longer reported with its old value, which matched no configured record, so `unmanaged_policy = "error"` no longer stops an ordinary update. On a name and type, existing records without a match are taken as the old values while they are no more than the configured records without one (the state is not visible to the module); a record added by hand next to a new record is reported from the next plan on. The e2e test checks the report during a value change
+- `import_existing` and `report_unmanaged` no longer slow down the plan quadratically: each configured record is compared only with the existing records of its name and type, and IDs are looked up by index. 3,000 configured and 4,000 existing records plan in about 8 seconds instead of 4 minutes (`tests/bench/import`, see [Testing](docs/testing.md))
 - `tools/zone-to-ezdns.py` links the JSON Schema of its own module release instead of `main`, so an editor does not offer fields of a newer version
 - e2e test: a failed `terraform destroy` or sweep at the end fails the run, also when every check passed, and the state files are kept so the records can still be destroyed
 
