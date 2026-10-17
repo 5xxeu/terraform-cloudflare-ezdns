@@ -77,3 +77,14 @@ run "listed_attributes_come_from_the_zone" {
     error_message = "Records without ignore_changes are as configured"
   }
 }
+
+run "only_the_records_with_ignore_changes_are_read" {
+  command = plan
+
+  # By name, one lookup each; an empty ignore_changes reads nothing, and the lookups by
+  # type stay off without import_existing and report_unmanaged
+  assert {
+    condition     = toset(keys(data.cloudflare_dns_records.live)) == toset(["TXT _acme-challenge.example.com", "SRV _sip._tcp.example.com"]) && length(data.cloudflare_dns_records.existing) == 0
+    error_message = "Only the records with ignore_changes are read, by name"
+  }
+}

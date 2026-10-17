@@ -14,20 +14,18 @@ locals {
   # Record types that cloudflare_dns_record manages
   all_types = ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"]
 
-  # Record types with ignore_changes: their values are read from the zone
-  ignore_types = toset(flatten([
-    for base_name, type_map in local.all_records : [
-      for raw_key, recs in type_map :
-      replace(element(split(".", raw_key), length(split(".", raw_key)) - 1), "ALIASES", "CNAME")
-      if anytrue([for r in recs : try(r.ignore_changes, null) != null])
-    ]
-  ]))
-
   lookup_types = setunion(
     var.import_existing ? local.import_types : toset([]),
     var.report_unmanaged ? toset(local.all_types) : toset([]),
-    local.ignore_types,
   )
+
+  # Records with ignore_changes whose type the lookups above do not read: each is read
+  # on its own, by name, so that the state does not get the other records of the
+  # type (the values of proxied records are origin addresses)
+  live_lookups = {
+    for key, rec in module.records.flat_records : "${rec.type} ${rec.fqdn}" => { type = rec.type, name = rec.fqdn }
+    if length(rec.ignore_changes) > 0 && !contains(local.lookup_types, rec.type)
+  }
 }
 
 # One lookup per record type: the provider returns data.flags as a number for CAA and
@@ -51,6 +49,16 @@ data "cloudflare_dns_records" "existing" {
   }
 }
 
+data "cloudflare_dns_records" "live" {
+  for_each = local.live_lookups
+
+  zone_id = var.zone_id
+  type    = each.value.type
+  name    = { exact = each.value.name }
+  # More than one is an error of the records module: a few are enough to show it
+  max_items = 10
+}
+
 locals {
   # Records read per type, a limit of the module (the provider pages through the API
   # without one): a lookup that returns this many was probably cut off. Raised from
@@ -58,7 +66,7 @@ locals {
   import_max_items = 100000
 
   existing_records = flatten([
-    for type, lookup in data.cloudflare_dns_records.existing : [
+    for lookup in concat(values(data.cloudflare_dns_records.existing), values(data.cloudflare_dns_records.live)) : [
       for r in lookup.result : {
         id      = r.id
         name    = r.name
