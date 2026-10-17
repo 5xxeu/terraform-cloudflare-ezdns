@@ -99,7 +99,9 @@ locals {
   effective_records = {
     for key, rec in module.records.flat_records : key => (
       lookup(module.records.live_records, key, null) == null ? rec : merge(rec, {
-        content = contains(rec.ignore_changes, "content") ? module.records.live_records[key].content : rec.content
+        # Structured records are sent as data only: the API returns their content too, as
+        # text computed from data, and the resource takes one of the two
+        content = rec.data != null ? null : contains(rec.ignore_changes, "content") ? module.records.live_records[key].content : rec.content
         data    = contains(rec.ignore_changes, "content") && rec.data != null ? module.records.live_records[key].data : rec.data
         # SRV keeps its priority in data too: the top-level one follows the data in the zone
         priority = contains(rec.ignore_changes, "content") && rec.type == "SRV" ? try(tonumber(module.records.live_records[key].data["priority"]), rec.priority) : rec.priority

@@ -27,7 +27,7 @@ override_module {
     }
     live_records = {
       "_sip._tcp SRV sip" = {
-        id   = "id-srv", name = "_sip._tcp.example.com", type = "SRV", content = null, priority = null, ttl = 300, proxied = false, comment = null, tags = null,
+        id   = "id-srv", name = "_sip._tcp.example.com", type = "SRV", content = "5 5061 sip2.example.com", priority = null, ttl = 300, proxied = false, comment = null, tags = null,
         data = { priority = "20", weight = "5", port = "5061", target = "sip2.example.com" }
       }
       "_acme-challenge TXT acme" = {
@@ -68,7 +68,7 @@ run "listed_attributes_come_from_the_zone" {
   }
 
   assert {
-    condition     = cloudflare_dns_record.record["_sip._tcp SRV sip"].priority == 20 && cloudflare_dns_record.record["_sip._tcp SRV sip"].data.priority == 20 && cloudflare_dns_record.record["_sip._tcp SRV sip"].data.port == 5061
+    condition     = local.effective_records["_sip._tcp SRV sip"].content == null && cloudflare_dns_record.record["_sip._tcp SRV sip"].priority == 20 && cloudflare_dns_record.record["_sip._tcp SRV sip"].data.priority == 20 && cloudflare_dns_record.record["_sip._tcp SRV sip"].data.port == 5061
     error_message = "An SRV record takes data and its priority from the zone together"
   }
 
