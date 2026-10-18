@@ -11,10 +11,10 @@ output "records" {
       MX            = [{ content = "mx.${local.z}", priority = 10 }]
       CAA           = [{ content = "letsencrypt.org", tag = "issue" }]
       "_dmarc.TXT"  = [{ content = "v=DMARC1; p=none" }]
-      ALIASES       = [{ content = "alias-${local.p}" }]
-      "www.ALIASES" = [{ content = "inline-${local.p}" }]
+      ALIASES       = [{ content = "alias.${local.p}" }]
+      "www.ALIASES" = [{ content = "inline.${local.p}" }]
     }
-    "proxied-${local.p}" = { CNAME = [{ content = "example.com", proxied = true }] }
+    "proxied.${local.p}" = { CNAME = [{ content = "example.com", proxied = true }] }
     # Its content is changed outside Terraform by run.sh: the plan stays empty, and the
     # import scenario adopts it by name and type
     "acme.${local.p}" = { TXT = [{ key = "acme", content = "init", ignore_changes = ["content"] }] }

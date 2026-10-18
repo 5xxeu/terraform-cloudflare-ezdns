@@ -136,7 +136,7 @@ locals {
   # records), so nothing is imported and an ambiguous match does not stop the plan
   import_record_ids = merge(
     # An ID that a record with ignore_changes takes is not imported a second time
-    { for key, id in local.matched_record_ids : key => id if var.import_existing && !contains(local.live_ids, id) },
+    { for key, id in local.matched_record_ids : key => id if var.import_existing && !lookup(local.live_id_names, id, false) },
     { for key, r in local.live_records : key => r.id if var.import_existing && r != null },
   )
   import_duplicates = { for key, ids in local.matched_duplicates : key => ids if var.import_existing }

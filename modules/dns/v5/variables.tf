@@ -43,17 +43,17 @@ variable "records" {
   }
 
   validation {
-    condition = try(alltrue(flatten([
-      for name, types in var.records : [
-        for type, list in types : [
+    condition = try(alltrue([
+      for name, types in var.records : alltrue([
+        for type, list in types : alltrue([
           for record in list : (
             can(keys(record))
             && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
             && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
           )
-        ]
-      ]
-    ])), false)
+        ])
+      ])
+    ]), false)
     error_message = try(
       "Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
         for name, types in var.records : [
@@ -73,18 +73,18 @@ variable "records" {
   # into "false"/"true" without an error; values that must be text cannot be booleans.
   # An unquoted N is accepted as a LOC lat_direction, where it can only mean north
   validation {
-    condition = try(alltrue(flatten([
-      for name, types in var.records : [
-        for type, list in types : [
-          for record in list : concat(
+    condition = try(alltrue([
+      for name, types in var.records : alltrue([
+        for type, list in types : alltrue([
+          for record in list : alltrue(concat(
             [for attribute in ["content", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
             [for field in try(keys(record.data), []) : !contains(["true", "false"], jsonencode(try(record.data[field], ""))) || (field == "lat_direction" && jsonencode(try(record.data[field], "")) == "false")],
             # tags may be a list or a set (a set has no index), so the values are iterated
             try([for tag in record.tags : !contains(["true", "false"], jsonencode(tag))], []),
-          )
-        ]
-      ]
-    ])), true)
+          ))
+        ])
+      ])
+    ]), true)
     error_message = try(
       "Text values must be strings, in YAML quote them (\"off\", \"yes\", \"N\"); unquoted they are read as booleans:\n${join("\n", flatten([
         for name, types in var.records : [
@@ -135,8 +135,8 @@ variable "record_groups" {
   }
 
   validation {
-    condition = try(alltrue(flatten([
-      for group, g in var.record_groups : concat(
+    condition = try(alltrue([
+      for group, g in var.record_groups : alltrue(concat(
         [
           can(keys(g)) && length(setsubtract(keys(g), ["defaults", "records"])) == 0 && can(keys(g.records)),
           # Terraform 1.8 evaluates both sides of ||, so g.defaults is read with try
@@ -149,18 +149,18 @@ variable "record_groups" {
           ),
         ],
         [
-          for name, types in try(g.records, {}) : [
-            for type, list in types : [
+          for name, types in try(g.records, {}) : alltrue([
+            for type, list in types : alltrue([
               for record in list : (
                 can(keys(record))
                 && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
                 && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
               )
-            ]
-          ]
+            ])
+          ])
         ],
-      )
-    ])), false)
+      ))
+    ]), false)
     error_message = try(
       "Invalid record_groups (a group has records and optionally defaults with ttl, proxied, comment and tags; allowed record attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
         for group, g in var.record_groups : concat(
@@ -191,19 +191,19 @@ variable "record_groups" {
 
   # Text values of grouped records cannot be booleans either (see records)
   validation {
-    condition = try(alltrue(flatten([
-      for group, g in var.record_groups : [
-        for name, types in try(g.records, {}) : [
-          for type, list in types : [
-            for record in list : concat(
+    condition = try(alltrue([
+      for group, g in var.record_groups : alltrue([
+        for name, types in try(g.records, {}) : alltrue([
+          for type, list in types : alltrue([
+            for record in list : alltrue(concat(
               [for attribute in ["content", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
               [for field in try(keys(record.data), []) : !contains(["true", "false"], jsonencode(try(record.data[field], ""))) || (field == "lat_direction" && jsonencode(try(record.data[field], "")) == "false")],
               try([for tag in record.tags : !contains(["true", "false"], jsonencode(tag))], []),
-            )
-          ]
-        ]
-      ]
-    ])), true)
+            ))
+          ])
+        ])
+      ])
+    ]), true)
     error_message = try(
       "Text values must be strings, in YAML quote them (\"off\", \"yes\", \"N\"); unquoted they are read as booleans:\n${join("\n", flatten([
         for group, g in var.record_groups : [

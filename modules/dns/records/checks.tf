@@ -33,10 +33,14 @@ locals {
     if name != lower(local.zone) && anytrue([for r in group : r.type == "CNAME"]) && anytrue([for r in group : r.type != "CNAME"])
   ]
   allowed_cname_conflicts = distinct([for n in var.allowed_cname_conflicts : local.fqdn[n]])
+  # Looked up by name: contains() reads its whole list on every call, which is
+  # quadratic over the names of a large zone
+  cname_shared_names  = { for n in local.cname_shared : n => true }
+  allowed_cname_names = { for n in local.allowed_cname_conflicts : n => true }
   cname_conflicts = [
     for name, group in local.by_name : "\"${name}\": ${join(", ", [for r in group : "${r.type} from ${r.source}"])}"
     if length([for r in group : r if r.type == "CNAME"]) > 1
-    || (contains(local.cname_shared, name) && !contains(local.allowed_cname_conflicts, name))
+    || (lookup(local.cname_shared_names, name, false) && !lookup(local.allowed_cname_names, name, false))
   ]
   # TTLs below minimum_ttl (records that are not proxied; 1 means automatic), and a
   # default_ttl below it even when no record uses it. The plan is not known here, so a
@@ -93,7 +97,7 @@ locals {
   ]
 
   # Listed names that no longer have a conflict, so the list does not keep growing
-  unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !contains(local.cname_shared, n)]
+  unused_allowed_cname_conflicts = [for n in local.allowed_cname_conflicts : n if !lookup(local.cname_shared_names, n, false)]
 }
 
 # owned_names: the part of the zone this module call manages, by whole labels. A name is
@@ -147,5 +151,23 @@ check "records_one_spf_and_dmarc_per_name" {
   assert {
     condition     = length(local.repeated_policies) == 0
     error_message = "A name can have one SPF record and one DMARC record: with two SPF records every receiver fails the SPF check (RFC 7208), with two DMARC records the domain has no DMARC policy (RFC 7489). Merge them into one record:\n${join("\n", local.repeated_policies)}"
+  }
+}
+
+# A null MX ("." with priority 0) says that a name takes no mail, and a name with a null
+# MX must have no other MX record (RFC 7505, section 3); Cloudflare accepts both. Only a
+# warning, like the SPF and DMARC check: zones that have it still plan
+locals {
+  mx_targets = { for key, rec in local.flat_records : rec.fqdn => rec.content... if rec.type == "MX" }
+  null_mx_with_others = [
+    for name, targets in local.mx_targets : "${name}: a null MX and ${length([for t in targets : t if t != "."])} other MX records"
+    if anytrue([for t in targets : t == "."]) && length([for t in targets : t if t != "."]) > 0
+  ]
+}
+
+check "records_null_mx_alone" {
+  assert {
+    condition     = length(local.null_mx_with_others) == 0
+    error_message = "A name with a null MX (content \".\", RFC 7505) takes no mail and must have no other MX record; senders may still try the other records. Remove the null MX, or the other MX records:\n${join("\n", local.null_mx_with_others)}"
   }
 }

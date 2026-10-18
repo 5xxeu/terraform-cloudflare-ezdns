@@ -88,7 +88,8 @@ assert_no_changes() {
     [ "$rc" -eq 0 ] || fail "$1: expected no changes, plan exit code $rc: $(grep -E '^  #|~ |\+ |- ' "${E2E_DIR}/plan.log" | head -40)"
 }
 
-echo "Label: ${LABEL}, zone: ${E2E_ZONE_NAME}"
+# The names of the zone and the records are public, so they are not printed
+echo "Label: ${LABEL}"
 "${E2E_DIR}/sweep.sh" --stale
 
 for dir in v5 import v4 v4to5; do tf "$dir" init -no-color >/dev/null; done
@@ -104,13 +105,14 @@ names=$(qualified_names v5)
 pass "v5: record_names fully qualified (${names})"
 
 # While values change, the records with the old values are in the state, not
-# unmanaged: the report (and so unmanaged_policy = "error") lets the update through.
-# Only records of this run are compared, since the zone has records of other tools
-tf v5 plan -no-color -out=tfplan -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true >"${E2E_DIR}/plan.log" 2>&1 ||
-    fail "plan of new values with report_unmanaged: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
-reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_values.outputs.unmanaged_records.value[] | select(.name | contains($label)) | .id] | sort | join(" ")')
-[ -z "$reported" ] || fail "report_unmanaged lists records of the module while their values change: ${reported}"
-pass "report_unmanaged: no record of the module reported while values change"
+# unmanaged: the report lets the update through, also with unmanaged_policy = "error"
+# (limited to the label of this run with owned_names, since the zone has records of
+# other runs and tools)
+tf v5 plan -no-color -out=tfplan -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true -var unmanaged_policy=error >"${E2E_DIR}/plan.log" 2>&1 ||
+    fail "plan of new values with unmanaged_policy = error: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
+reported=$(tf v5 show -json tfplan | jq -r '.planned_values.outputs.unmanaged_records.value | length')
+[ "$reported" = 0 ] || fail "report_unmanaged lists ${reported} records of the module while their values change"
+pass "unmanaged_policy = error: no record of the module reported while values change"
 
 # Changing a value without a key replaces the record, with a key updates it in place
 summary=$(plan_summary v5 -var a_value=192.0.2.20 -var txt_value=rotation=2)
@@ -134,6 +136,11 @@ reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_value
 [ "$reported" = "$stray_id" ] || fail "report_unmanaged: expected only ${stray_id} of this run, got '${reported}'"
 grep -q "records that the configuration does not describe" "${E2E_DIR}/plan.log" || fail "report_unmanaged: no plan warning"
 pass "report_unmanaged lists the stray record and none of the module"
+rc=0
+tf v5 plan -no-color -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true -var unmanaged_policy=error >"${E2E_DIR}/plan.log" 2>&1 || rc=$?
+[ "$rc" != 0 ] || fail "unmanaged_policy = error: the plan passes with a stray record under the label"
+grep -q 'unmanaged_policy is "error"' "${E2E_DIR}/plan.log" || fail "unmanaged_policy = error: the plan fails for another reason: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -5)"
+pass "unmanaged_policy = error stops the plan for the stray record"
 
 # A record with ignore_changes = ["content"] keeps a value changed outside Terraform
 acme_id=$(record_ids v5 | grep ' TXT acme ' | awk '{print $NF}')

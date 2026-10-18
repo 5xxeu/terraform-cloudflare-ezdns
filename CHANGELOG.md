@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-18
+
+### Added
+
+- `tools/zone-to-ezdns.py --stable-keys`: every record but a CNAME gets a `key` from its Cloudflare ID (`cf-` and the first 8 characters), so a later change of its value updates the record in place instead of deleting and creating it
+- A warning for a null MX (content `.`, RFC 7505) on a name that has other MX records too: Cloudflare accepts it, but RFC 7505 forbids other MX records next to a null MX
+
+### Changed
+
+- Releases: the release workflow also requires a passed end-to-end test of the tagged commit, and checks the archives before it publishes them (`scripts/check-archives.sh`: the files of the module are there, tests are not, the v5 archive has no v4 wrapper, both validate as modules)
+
+### Fixed
+
+- Plans no longer slow down quadratically with many records or `record_groups`: the merge of the groups, the checks of names and CNAME conflicts and the validations of `records` and `record_groups` in the wrappers no longer compare every record or name with all the others. 11,100 records in 10 groups plan in about 37 seconds instead of 203 (`tests/bench/groups`, see [Testing](docs/testing.md))
+
 ## [2.15.0] - 2026-10-17
 
 ### Added
@@ -473,7 +488,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...v2.15.0
 [2.14.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...v2.14.0

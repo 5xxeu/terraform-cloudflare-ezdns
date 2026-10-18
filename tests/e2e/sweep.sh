@@ -29,6 +29,7 @@ fi
 [ -n "$selected" ] || exit 0
 echo "$selected" | while read -r record; do
     id=$(echo "$record" | jq -r .id)
-    echo "Deleting $(echo "$record" | jq -r '"\(.type) \(.name)"')"
+    # The type only: the names of the zone and the records are public
+    echo "Deleting a $(echo "$record" | jq -r .type) record"
     curl -fsS -X DELETE "${auth[@]}" "${api}/${id}" >/dev/null
 done
