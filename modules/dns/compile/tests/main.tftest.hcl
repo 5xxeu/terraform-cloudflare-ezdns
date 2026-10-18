@@ -91,3 +91,25 @@ run "null_data_fields" {
     error_message = "A null field of data must plan without the warning about numbers"
   }
 }
+
+# records: [] or record_groups: [] in YAML is a list: it must stop the plan, not pass
+# the validations as no records and delete them
+run "list_records" {
+  command = plan
+
+  variables {
+    records = []
+  }
+
+  expect_failures = [var.records]
+}
+
+run "list_record_groups" {
+  command = plan
+
+  variables {
+    record_groups = []
+  }
+
+  expect_failures = [var.record_groups]
+}
