@@ -3,8 +3,8 @@
 
 locals {
   # Names, hostnames and hex values are compared case-insensitively and without a
-  # trailing dot, numbers in data as numbers, other values exactly. OPENPGPKEY content is base64, so it is
-  # compared exactly.
+  # trailing dot, numbers in data as numbers, other values exactly. OPENPGPKEY content
+  # is base64, so it is compared exactly.
   #
   # Cloudflare stores TXT content as it was sent, and v=spf1 "a" -all and
   # "v=spf1 \"a\" -all" are the same DNS record. A value in the zone file form
