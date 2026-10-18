@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.1] - 2026-10-18
+
+### Fixed
+
+- `record_groups` given as a list (`record_groups: []` in YAML) passed the validations as no groups and planned the deletion of every grouped record; it now fails at `plan`, like an explicit `null`. `records` given as a list also fails with a clear message instead of an error of `keys()` in the wrappers. Pass `{}` or leave the input out for no records (root module, both wrappers, `compile` and `idna`)
+
 ## [2.16.0] - 2026-10-18
 
 ### Added
@@ -488,7 +494,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...HEAD
+[2.16.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...v2.15.0
 [2.14.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...v2.14.1
