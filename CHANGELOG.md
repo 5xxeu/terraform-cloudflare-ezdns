@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-18
+
 ### Added
 
 - `tools/zone-to-ezdns.py --stable-keys`: every record but a CNAME gets a `key` from its Cloudflare ID (`cf-` and the first 8 characters), so a later change of its value updates the record in place instead of deleting and creating it
@@ -486,7 +488,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...v2.15.0
 [2.14.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.13.1...v2.14.0

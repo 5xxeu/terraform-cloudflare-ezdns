@@ -128,7 +128,7 @@ The module expects internationalized names in Punycode, as the Cloudflare API do
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/idna"
-  version = "2.15.0"
+  version = "2.16.0"
 
   zone_id   = var.zone_id
   zone_name = "münchen.de" # or null: the zone is looked up and its name converted
@@ -173,7 +173,7 @@ locals {
 
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.15.0"
+  version = "2.16.0"
 
   zone_id   = var.zone_id
   zone_name = provider::idna::to_ascii("münchen.de")
