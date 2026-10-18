@@ -63,19 +63,19 @@ locals {
       source  = r.source
       name    = r.name
       fqdn    = local.fqdn[r.name]
-      # The key without its name part, normalized like DNS compares it: addresses
-      # and hostnames case-insensitively and without a trailing dot, IPv6 addresses
-      # in their canonical form (2001:0db8:0:0:0:0:0:1 is 2001:db8::1)
-      key_value = (
-        r.rec.key == null && contains(["A", "AAAA", "MX", "NS", "PTR"], r.type)
-        ? "${r.type} ${r.type == "AAAA" ? local.canonical_ipv6[r.content] : lower(trimsuffix(r.content, "."))}"
-        : trimprefix(r.key, "${r.name} ")
+      # An explicit key without its name part ("A main"), null for a key from the value
+      explicit_key = r.rec.key != null ? trimprefix(r.key, "${r.name} ") : null
+      type         = r.type
+      # IPv6 addresses are sent in the canonical form, as Cloudflare stores them, and
+      # "@" as a CNAME, MX, NS or PTR target as the zone name (the import compares it
+      # with the name in the zone); the key keeps the value as written
+      content = (
+        r.type == "CAA" || contains(local.data_types, r.type) ? null :
+        r.type == "AAAA" ? local.canonical_ipv6[r.content] :
+        contains(["CNAME", "MX", "NS", "PTR"], r.type) && r.content == "@" ? local.zone :
+        r.content
       )
-      type = r.type
-      # IPv6 addresses are sent in the canonical form, as Cloudflare stores them; the
-      # key keeps the address as written
-      content = r.type == "CAA" || contains(local.data_types, r.type) ? null : r.type == "AAAA" ? local.canonical_ipv6[r.content] : r.content
-      ttl     = coalesce(r.rec.ttl, var.default_ttl)
+      ttl = coalesce(r.rec.ttl, var.default_ttl)
       proxied = (
         r.rec.proxied != null ? r.rec.proxied :
         contains(["A", "AAAA", "CNAME"], r.type) ? var.default_proxied :

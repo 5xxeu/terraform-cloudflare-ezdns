@@ -598,6 +598,75 @@ run "duplicate_hostname_case_and_dot" {
   expect_failures = [output.flat_records]
 }
 
+# Values that the import takes for one record are duplicates too
+run "duplicate_txt_quoted_and_literal" {
+  command = plan
+
+  variables {
+    records = { "@" = { TXT = [{ content = "v=spf1 -all" }, { content = "\"v=spf1\" \" -all\"" }] } }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "duplicate_caa_issuer_case" {
+  command = plan
+
+  variables {
+    records = { "@" = { CAA = [{ content = "letsencrypt.org", tag = "issue" }, { content = "LetsEncrypt.org", tag = "issue" }] } }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "duplicate_data_hostname_and_numbers" {
+  command = plan
+
+  variables {
+    records = {
+      "_sip._tcp" = {
+        SRV = [
+          { data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" } },
+          { data = { priority = "10", weight = "5", port = "5060.0", target = "SIP.example.com." } },
+        ]
+      }
+    }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "duplicate_at_and_zone_name_as_target" {
+  command = plan
+
+  variables {
+    records = { "@" = { MX = [{ content = "@", priority = 10 }, { content = "example.com", priority = 10 }] } }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "same_data_other_numbers_not_duplicates" {
+  command = plan
+
+  variables {
+    records = {
+      "_sip._tcp" = {
+        SRV = [
+          { data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" } },
+          { data = { priority = 10, weight = 5, port = 5061, target = "sip.example.com" } },
+        ]
+      }
+      "@" = { CAA = [{ content = "letsencrypt.org; accounturi=https://acme.example/A", tag = "issue" }, { content = "letsencrypt.org; accounturi=https://acme.example/a", tag = "issue" }] }
+    }
+  }
+
+  assert {
+    condition     = length(output.flat_records) == 4
+    error_message = "Other numbers and CAA parameters in another case are other records"
+  }
+}
+
 run "same_name_forms_different_records" {
   command = plan
 
