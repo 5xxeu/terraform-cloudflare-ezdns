@@ -29,6 +29,13 @@ variable "records" {
     error_message = "records is null, for example from an empty YAML file or a records: key without records. Pass {} (or leave records out) to manage no records in records; null is rejected so that an emptied file does not delete every record."
   }
 
+  # A list or another value that is not a map (records: [] in YAML) would pass the
+  # validations below as no records at all, like null
+  validation {
+    condition     = var.records == null || can(keys(var.records))
+    error_message = "records must be a map of names to maps of record types to lists of records, not a list or a single value (in YAML, records: [] is a list). Pass {} (or leave records out) to manage no records in records."
+  }
+
   validation {
     condition = try(alltrue([
       for name, types in var.records : alltrue([
@@ -119,6 +126,13 @@ variable "record_groups" {
   validation {
     condition     = var.record_groups != null
     error_message = "record_groups is null, for example from a YAML file that decodes to nothing. Pass {} (or leave record_groups out) for no groups; null is rejected so that an emptied file does not delete the records of every group."
+  }
+
+  # A list or another value that is not a map (record_groups: [] in YAML) would pass the
+  # validations below as no groups at all, like null
+  validation {
+    condition     = var.record_groups == null || can(keys(var.record_groups))
+    error_message = "record_groups must be a map of group names to objects with records and optionally defaults, not a list or a single value (in YAML, record_groups: [] is a list). Pass {} (or leave record_groups out) for no groups."
   }
 
   validation {

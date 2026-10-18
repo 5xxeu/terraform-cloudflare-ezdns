@@ -37,6 +37,12 @@ Version 2 changes the record keys in the state (see [Record Keys](../README.md#r
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
+## To 2.16.1: Lists in records and record_groups
+
+> **Configurations that pass a list as `record_groups` (`record_groups: []` in YAML):** `plan` now fails. Pass `{}` or leave `record_groups` out.
+
+Such a list passed the validations as no groups, so the plan deleted every record of the groups. A list in `records` failed before too, with an error of `keys()`; the message now says what to change.
+
 ## To 2.13: Ranges of Data Fields, Unused Attributes
 
 > **Configurations with out-of-range `data` values:** `plan` now fails for them, e.g. an SRV `port` of 70000 or a CAA `flags` of 256.

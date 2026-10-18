@@ -215,3 +215,25 @@ run "only_groups" {
     error_message = "Records only in groups must be planned"
   }
 }
+
+# records: [] or record_groups: [] in YAML is a list: it must stop the plan, not pass
+# the validations as no records and delete them
+run "list_records" {
+  command = plan
+
+  variables {
+    records = []
+  }
+
+  expect_failures = [var.records]
+}
+
+run "list_record_groups" {
+  command = plan
+
+  variables {
+    record_groups = []
+  }
+
+  expect_failures = [var.record_groups]
+}
