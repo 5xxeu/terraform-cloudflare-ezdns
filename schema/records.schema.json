@@ -9,6 +9,9 @@
       "$ref": "#/definitions/records"
     }
   },
+  "required": [
+    "records"
+  ],
   "definitions": {
     "records": {
       "description": "records[NAME][TYPE] = [RECORD, ...]; NAME is a name within the zone (@ for the apex)",

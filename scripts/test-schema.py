@@ -93,6 +93,13 @@ TERRAFORM_ONLY = {
     "name over 253 characters with the zone": 'records: { ' + '.'.join(['a' * 63] * 3) + ': { ' + 'b' * 63 + '.TXT: [{ content: x }] } }',
 }
 
+# Documents with a wrong shape around records, which the module never sees (the caller
+# passes yamldecode(...).records): only the schema checks them
+SCHEMA_ONLY = {
+    "misspelled records key": 'record: { app: { A: [{ content: 192.0.2.10 }] } }',
+    "no records key": '{}',
+}
+
 # Documents that the schema rejects and the module accepts on purpose, with the reason
 KNOWN_DIFFERENCES = {}
 
@@ -174,7 +181,7 @@ for name, document in TERRAFORM_ONLY.items():
         print(f"FAIL: {name} has only valid values, the schema should accept it: {errors[0].message}")
     else:
         print(f"ok - valid values: {name}")
-for name, document in INVALID.items():
+for name, document in {**INVALID, **SCHEMA_ONLY}.items():
     if validator.is_valid(yaml.safe_load(document)):
         failures += 1
         print(f"FAIL: {name} should be invalid")
