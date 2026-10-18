@@ -32,5 +32,5 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           E2E_ZONE_ID: ${{ vars.E2E_ZONE_ID }}
-          E2E_ZONE_NAME: ${{ vars.E2E_ZONE_NAME }}
+          E2E_ZONE_NAME: ${{ secrets.E2E_ZONE_NAME }}
           E2E_LABEL: e2e-${{ github.run_id }}-${{ github.run_attempt }}

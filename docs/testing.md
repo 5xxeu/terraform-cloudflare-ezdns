@@ -116,10 +116,10 @@ Pass the same inputs as to the module call that manages the zone (`record_groups
 4. Creates records with the v4 wrapper and opens the state with the v5 wrapper: the records must be moved, not recreated, and keep their keys and Cloudflare IDs.
 5. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
 
-The log of a run names neither the zone nor the records, since the CI logs are public.
+The log of a run names neither the zone nor the records, since the CI logs are public; in CI the zone name is a secret of the environment, so GitHub masks it.
 
 ```sh
 CLOUDFLARE_API_TOKEN=... E2E_ZONE_ID=... E2E_ZONE_NAME=example.com tests/e2e/run.sh
 ```
 
-The token needs the `DNS Edit` permission on the zone. In CI, the test runs weekly and on demand (never for pull requests), with the token stored in the `cloudflare-e2e` environment.
+The token needs the `DNS Edit` permission on the zone. In CI, the test runs weekly and on demand (never for pull requests), with the token and the zone name stored in the `cloudflare-e2e` environment.
