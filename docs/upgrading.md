@@ -37,7 +37,7 @@ Version 2 changes the record keys in the state (see [Record Keys](../README.md#r
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
-## To 2.16.2: Lists in records and record_groups
+## To 2.16.1: Lists in records and record_groups
 
 > **Configurations that pass a list as `record_groups` (`record_groups: []` in YAML):** `plan` now fails. Pass `{}` or leave `record_groups` out.
 
