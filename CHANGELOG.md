@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.4] - 2026-10-20
+
 ### Changed
 
 - The v4 wrapper warns about the `settings` and `private_routing` of records (set to `true`): provider v4 has no such attributes, and the wrapper ignored them without a word
@@ -523,7 +525,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...HEAD
+[2.16.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...v2.16.4
 [2.16.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...v2.16.3
 [2.16.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...v2.16.1
