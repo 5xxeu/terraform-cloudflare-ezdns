@@ -34,6 +34,10 @@ Two records get the same key, or are the same DNS record written in two forms. T
 - One name written in two forms (`www` and `www.example.com`, `@` and the zone name): remove one of them.
 - An `ALIASES` entry and a `CNAME` record for the same name.
 
+### Records with the same name, type and value under different keys, which Cloudflare rejects as identical records
+
+Two records with different keys (at least one of them set with `key`) are the same DNS record: the same name, type and value, and for MX and URI the same priority. Cloudflare rejects the second one at `apply`. Remove all but one of them. Values are compared as the import compares them, so `www` and `www.example.com`, or a hostname with and without the trailing dot, are the same. When a value is known only after `apply` (computed by another resource), this check runs at `apply`, before any record is changed.
+
 ### A CNAME record cannot share its name with other records (except at the zone apex, where only A and AAAA conflict with it), and a name has at most one CNAME.
 
 DNS does not allow a CNAME next to other records of the same name, and Cloudflare rejects it. Remember that `ALIASES` entries are CNAME records too. Put the other records on the target of the CNAME, or replace the CNAME with the records it points to. A zone that already has such names (Cloudflare accepted them for records that are not proxied) can list them in `allowed_cname_conflicts` while they are cleaned up.
@@ -85,6 +89,10 @@ A record of the configuration conflicts with a record in the zone that the confi
 ### These attributes do not apply to the type of their record and are ignored
 
 A record sets an attribute its type does not use: `priority` on an A record, `content` on a record with `data`, `tag` outside CAA, or `priority` on SRV (it belongs in `data`). The attribute has no effect; remove it. From 3.0 this will be an error.
+
+### These attributes need provider v5 (the root module) and are ignored by the v4 wrapper
+
+A record of the v4 wrapper sets `settings` (`flatten_cname`, `ipv4_only`, `ipv6_only`) or `private_routing` to `true`. Provider v4 has no such attributes, so the record is created without them. Move to provider v5 (the root module) to apply them, or remove them. `false` is the default and needs no warning.
 
 ### Text values given as numbers are written in their canonical form
 

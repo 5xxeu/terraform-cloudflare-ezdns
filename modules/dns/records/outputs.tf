@@ -8,6 +8,11 @@ output "flat_records" {
   }
 
   precondition {
+    condition     = length(local.same_values) == 0
+    error_message = "Records with the same name, type and value under different keys, which Cloudflare rejects as identical records (remove all but one of them):\n${join("\n", local.same_values)}"
+  }
+
+  precondition {
     condition     = length(local.low_ttls) == 0
     error_message = "TTLs below ${var.minimum_ttl} seconds are only available on the Cloudflare Enterprise plan. If this zone is on Enterprise, set minimum_ttl = 30 in the module call; otherwise use a TTL of at least 60 seconds, or 1 for automatic:\n${join("\n", local.low_ttls)}"
   }

@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format is b
 
 - The v4 wrapper warns about the `settings` and `private_routing` of records (set to `true`): provider v4 has no such attributes, and the wrapper ignored them without a word
 
+### Fixed
+
+- Records with an explicit `key` are also compared by their values: two records with the same name, type and value (and priority, for `MX` and `URI`) under different keys now fail at `plan`, as Cloudflare rejects identical records at `apply`. A value known only after `apply` defers this check to `apply`, before any record is changed
+
 ## [2.16.3] - 2026-10-19
 
 ### Fixed

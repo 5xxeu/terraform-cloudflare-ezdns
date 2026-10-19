@@ -145,6 +145,42 @@ run "same_key_twice" {
   expect_failures = [output.flat_records]
 }
 
+run "same_value_under_explicit_keys" {
+  command = plan
+
+  variables {
+    records = { "app" = { TXT = [{ key = "foo", content = "a" }, { key = "bar", content = "a" }] } }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "same_value_with_and_without_a_key" {
+  command = plan
+
+  variables {
+    records = {
+      "app"             = { A = [{ key = "main", content = "192.0.2.1" }] }
+      "app.example.com" = { A = [{ content = "192.0.2.1" }] }
+    }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "mx_priorities_under_explicit_keys" {
+  command = plan
+
+  variables {
+    records = { "app" = { MX = [{ key = "primary", content = "mx.example.com", priority = 10 }, { key = "backup", content = "mx.example.com", priority = 20 }] } }
+  }
+
+  assert {
+    condition     = length(output.flat_records) == 2
+    error_message = "MX records that differ only in priority are distinct records"
+  }
+}
+
 run "key_with_surrounding_whitespace" {
   command = plan
 

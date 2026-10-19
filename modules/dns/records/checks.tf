@@ -26,6 +26,21 @@ locals {
     ],
   )
 
+  # Cloudflare rejects a record with the same name, type and value as another one
+  # whatever their keys, so records with an explicit key are compared by their values
+  # too (MX and URI with the priority: records that differ only in priority are
+  # distinct). Separate from duplicates: a value computed by another resource makes
+  # these keys unknown, and only this check then waits for apply
+  by_value = {
+    for r in local.records : "${r.fqdn} ${r.type} ${contains(["MX", "URI"], r.type) && r.priority != null ? "${r.priority} " : ""}${(
+      r.data != null || contains(["TXT", "OPENPGPKEY"], r.type) ? substr(sha1(local.configured_value[r.key]), 0, 12) : local.configured_value[r.key]
+    )}" => r...
+  }
+  same_values = [
+    for identity, group in local.by_value : "\"${identity}\" as ${join(" and ", [for r in group : "\"${r.key}\" from ${r.source}"])}"
+    if length(distinct([for r in group : r.key])) > 1 && anytrue([for r in group : r.explicit_key != null])
+  ]
+
   # A CNAME cannot share its name with other records, except at the zone apex (CNAME
   # flattening: MX, TXT and others, but not A or AAAA, which Cloudflare rejects there
   # too) and on names listed in allowed_cname_conflicts (existing zones, where
