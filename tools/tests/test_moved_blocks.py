@@ -173,6 +173,19 @@ class MovedBlocksTest(unittest.TestCase):
             self.assertEqual(run({"values": {}})[0], 2)
             self.assertEqual(run({"format_version": "1.2", "planned_values": {}, "resource_changes": [{"address": 1}]})[0], 2)
 
+    def test_malformed_change_is_exit_code_2(self):
+        # actions as a string (or a change without actions) would skip the record and
+        # give no moved block with exit code 0
+        broken = [
+            {**record("www A 192.0.2.1", ["delete"], A, None), "change": {"actions": "delete", "before": A, "after": None}},
+            {**record("www A 192.0.2.1", ["delete"], A, None), "change": {"before": A, "after": None}},
+            {**record("www A 192.0.2.1", ["delete"], A, None), "change": {"actions": ["drop"], "before": A, "after": None}},
+            {**record("www A 192.0.2.1", ["delete"], A, None), "change": {"actions": ["delete"], "before": "A", "after": None}},
+        ]
+        with contextlib.redirect_stderr(io.StringIO()):
+            for rc in broken:
+                self.assertEqual(run(plan(rc, record("www A web", ["create"], None, A)))[0], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

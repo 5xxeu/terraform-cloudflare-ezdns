@@ -220,6 +220,9 @@ def schema():
         "description": "DNS records of the ezdns Terraform module: a document with a records key, as passed through yamldecode",
         "type": "object",
         "properties": {"records": {"$ref": "#/definitions/records"}},
+        # Other keys are allowed (anchors, notes of the file), but records must be there:
+        # a misspelled records key would otherwise pass as a document without records
+        "required": ["records"],
         "definitions": {
             "records": {
                 "description": "records[NAME][TYPE] = [RECORD, ...]; NAME is a name within the zone (@ for the apex)",

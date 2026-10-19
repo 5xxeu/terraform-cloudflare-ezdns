@@ -3,12 +3,16 @@
 # validations of var.records cannot do on Terraform 1.8.
 
 locals {
-  # The same record written with different name forms ("www" and "www.example.com",
-  # "@" and the zone name) gets different keys, so it is checked separately. HTTPS and
-  # SVCB records compare their data as sent (service parameters as fields or in value,
-  # a target with or without the trailing dot), the key keeps the data as written
+  # The same record written in different forms gets different keys, so it is checked
+  # separately: names in different forms ("www" and "www.example.com", "@" and the zone
+  # name), and values that the import takes for one record (import.tf: hostnames in any
+  # case and with or without the trailing dot, TXT text quoted or not, numbers in data
+  # as numbers, HTTPS service parameters as fields or in value). Records with an
+  # explicit key are compared by their keys. Long values and data are shown as a hash
   by_identity = {
-    for r in local.records : "${r.fqdn} ${contains(["HTTPS", "SVCB"], r.type) ? "${r.type} ${substr(sha1(jsonencode(r.data)), 0, 12)}" : r.key_value}" => r...
+    for r in local.records : "${r.fqdn} ${r.explicit_key != null ? r.explicit_key : "${r.type} ${(
+      r.data != null || contains(["TXT", "OPENPGPKEY"], r.type) ? substr(sha1(local.configured_value[r.key]), 0, 12) : local.configured_value[r.key]
+    )}"}" => r...
   }
 
   duplicates = concat(
@@ -85,14 +89,14 @@ locals {
   ))
 
   # A CNAME pointing to its own name is a loop. Targets are compared like names: case,
-  # a trailing dot, "@" and the short form ("www" on www.example.com) do not matter
+  # a trailing dot and the short form ("www" on www.example.com) do not matter, and "@"
+  # is the zone name in content already
   self_cnames = [
     for r in local.records : "\"${r.key}\" from ${r.source}"
     # Terraform 1.8 evaluates both sides of &&, and records of other types may have no content
     if r.type == "CNAME" && contains([
       lower(trimsuffix((r.content == null ? "" : r.content), ".")),
       "${lower(trimsuffix((r.content == null ? "" : r.content), "."))}.${lower(local.zone)}",
-      trimsuffix((r.content == null ? "" : r.content), ".") == "@" ? lower(local.zone) : "",
     ], r.fqdn)
   ]
 

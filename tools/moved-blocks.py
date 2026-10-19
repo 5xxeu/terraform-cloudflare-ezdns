@@ -33,6 +33,8 @@ import re
 import sys
 
 RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
+# The actions of a change in a plan (terraform show -json)
+ACTIONS = {"no-op", "create", "read", "update", "delete", "forget"}
 # Types whose content is a hostname, compared in lower case without the trailing dot
 HOSTNAME_TYPES = ("CNAME", "MX", "NS", "PTR")
 # Types identified by their content; the others by their data, when they have one
@@ -201,6 +203,17 @@ def main(argv=None):
     if not isinstance(changes, list) or not all(isinstance(rc, dict) and isinstance(rc.get("address"), str) for rc in changes):
         print(f"moved-blocks: {args.plan}: resource_changes is not a list of changes", file=sys.stderr)
         return 2
+    # The changes of records must have the shape of a plan: a wrong one (actions as a
+    # string) would not fail below, but skip the change and give no moved block
+    for rc in changes:
+        if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
+            continue
+        change = rc.get("change")
+        actions = change.get("actions") if isinstance(change, dict) else None
+        if not isinstance(actions, list) or not actions or not all(isinstance(a, str) and a in ACTIONS for a in actions) \
+                or not all(isinstance(change.get(side), (dict, type(None))) for side in ("before", "after", "after_unknown")):
+            print(f"moved-blocks: {args.plan}: the change of {rc['address']!r} does not have the shape of a plan", file=sys.stderr)
+            return 2
     try:
         moves, manual = propose(plan, args.zone)
     except (AttributeError, KeyError, TypeError, ValueError) as e:

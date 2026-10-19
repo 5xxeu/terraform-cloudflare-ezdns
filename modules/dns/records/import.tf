@@ -3,8 +3,8 @@
 
 locals {
   # Names, hostnames and hex values are compared case-insensitively and without a
-  # trailing dot, other values exactly. OPENPGPKEY content is base64, so it is
-  # compared exactly.
+  # trailing dot, numbers in data as numbers, other values exactly. OPENPGPKEY content
+  # is base64, so it is compared exactly.
   #
   # Cloudflare stores TXT content as it was sent, and v=spf1 "a" -all and
   # "v=spf1 \"a\" -all" are the same DNS record. A value in the zone file form
@@ -36,7 +36,14 @@ locals {
         lower(trimsuffix(r.content, "."))
       )
       priority = r.priority
-      data     = coalesce(r.data, {})
+      data = {
+        for field, value in coalesce(r.data, {}) : field => (
+          contains(lookup(local.numeric_fields, r.type, []), field) && can(tonumber(value)) ? tostring(tonumber(value)) :
+          (contains(local.case_insensitive_fields, field) && !(field == "target" && r.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], r.type)) ? lower(trimsuffix(value, ".")) :
+          r.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(r.data, "tag", "")) ? format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1)) :
+          value
+        )
+      }
     }
   ]
 
@@ -50,6 +57,50 @@ locals {
   # CAA issue/issuewild values are "<issuer domain>[; parameters]": the domain is
   # compared like a hostname, the parameters (account URIs, ...) exactly
   caa_issuer_tags = ["issue", "issuewild"]
+
+  # Data fields that hold numbers, compared as numbers ("5060.0" is 5060; Cloudflare
+  # returns numbers). The fields of the range validation of records
+  numeric_fields = {
+    SRV    = ["priority", "weight", "port"]
+    URI    = ["weight"]
+    HTTPS  = ["priority"]
+    SVCB   = ["priority"]
+    TLSA   = ["usage", "selector", "matching_type"]
+    SMIMEA = ["usage", "selector", "matching_type"]
+    SSHFP  = ["algorithm", "type"]
+    DS     = ["key_tag", "algorithm", "digest_type"]
+    DNSKEY = ["flags", "protocol", "algorithm"]
+    CERT   = ["type", "key_tag", "algorithm"]
+    NAPTR  = ["order", "preference"]
+    CAA    = ["flags"]
+    LOC = [
+      "lat_degrees", "lat_minutes", "lat_seconds", "long_degrees", "long_minutes", "long_seconds",
+      "altitude", "size", "precision_horz", "precision_vert",
+    ]
+  }
+
+  # The data of the configured records in the form of the existing ones above
+  configured_data = {
+    for key, rec in local.flat_records : key => {
+      for field, value in rec.data : field => (
+        contains(lookup(local.numeric_fields, rec.type, []), field) && can(tonumber(value)) ? tostring(tonumber(value)) :
+        (contains(local.case_insensitive_fields, field) && !(field == "target" && rec.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], rec.type)) ? lower(trimsuffix(value, ".")) :
+        rec.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(rec.data, "tag", "")) ? format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1)) :
+        value
+      )
+    } if rec.data != null
+  }
+
+  # The value that the import compares, per configured record: the data, the TXT text
+  # or the content. Records with the same name, type and value are one DNS record
+  configured_value = {
+    for key, rec in local.flat_records : key => (
+      rec.data != null ? jsonencode(local.configured_data[key]) :
+      rec.type == "TXT" ? local.configured_txt[key] :
+      contains(local.exact_content_types, rec.type) ? rec.content :
+      lower(trimsuffix(rec.content, "."))
+    )
+  }
 
   configured_txt = {
     for key, rec in local.flat_records : key => (
@@ -69,19 +120,8 @@ locals {
     for key, rec in local.flat_records : key => [
       for e in try(local.existing_by_name["${rec.type} ${rec.fqdn}"], []) : e.id
       if rec.data == null
-      ? e.content == (
-        rec.type == "TXT" ? local.configured_txt[key] : contains(local.exact_content_types, rec.type) ? rec.content : lower(trimsuffix(rec.content, "."))
-      )
-      : alltrue([
-        for field, value in rec.data : (
-          (contains(local.case_insensitive_fields, field) && !(field == "target" && rec.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], rec.type))
-          ? lower(trimsuffix(lookup(e.data, field, ""), ".")) == lower(trimsuffix(value, "."))
-          : rec.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(rec.data, "tag", ""))
-          ? format("%s%s", lower(trimsuffix(trimspace(split(";", lookup(e.data, field, ""))[0]), ".")), substr(lookup(e.data, field, ""), length(split(";", lookup(e.data, field, ""))[0]), -1))
-          == format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1))
-          : lookup(e.data, field, "") == value
-        )
-      ])
+      ? e.content == local.configured_value[key]
+      : alltrue([for field, value in local.configured_data[key] : lookup(e.data, field, "") == value])
     ] if length(rec.ignore_changes) == 0
   }
 

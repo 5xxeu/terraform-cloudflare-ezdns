@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.2] - 2026-10-19
+
+### Fixed
+
+- The same record written in two forms that the import takes for one record now fails at `plan` as a duplicate, like two name forms already did: a TXT value quoted and not quoted (`v=spf1 -all` and `"v=spf1 -all"`), a CAA issuer in another case, a hostname in `data` in another case or with a trailing dot, numbers in `data` written differently (`5060` and `"5060.0"`). Before, such records got two keys, and the second one failed at `apply` or made the import ambiguous. Records with a `key` are still compared by their keys
+- `@` as the target of a `CNAME`, `MX`, `NS` or `PTR` record is sent as the zone name, and the import and the report of unmanaged records match it with the zone name; before, it was sent as `@` and never matched. The key keeps `@` as written
+- Import and the report of unmanaged records compare numeric `data` fields as numbers: `port = "5060.0"` matches the `5060` that Cloudflare returns
+- `tools/moved-blocks.py` exits with code 2 on a change that does not have the shape of a plan (actions as a string, unknown actions), like `plan-guard.py`; before, it skipped the record and exited with 0
+- The JSON Schema requires the `records` key at the root, so a misspelled key no longer passes as a document without records
+
 ## [2.16.1] - 2026-10-18
 
 ### Fixed
@@ -494,7 +504,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...HEAD
+[2.16.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.14.1...v2.15.0

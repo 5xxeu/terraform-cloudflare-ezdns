@@ -423,6 +423,51 @@ run "import_ipv6_in_another_form" {
   }
 }
 
+# Numbers in data are compared as numbers: Cloudflare returns 5060 for "5060.0"
+run "import_numeric_data_as_numbers" {
+  command = plan
+
+  variables {
+    records = {
+      "_sip._tcp" = { SRV = [{ data = { priority = "10", weight = "05", port = "5060.0", target = "sip.example.com" } }] }
+    }
+    existing_records = [
+      { id = "id-srv", name = "_sip._tcp.example.com", type = "SRV", data = { priority = "10", weight = "5", port = "5060", target = "sip.example.com." } },
+    ]
+  }
+
+  assert {
+    condition     = values(output.import_record_ids) == ["id-srv"]
+    error_message = "Numeric data fields must be compared as numbers"
+  }
+}
+
+# "@" as a target is the zone name, sent and compared as such
+run "import_at_as_target" {
+  command = plan
+
+  variables {
+    records = {
+      "www" = { CNAME = [{ content = "@" }] }
+      "@"   = { MX = [{ content = "@", priority = 10 }] }
+    }
+    existing_records = [
+      { id = "id-cname", name = "www.example.com", type = "CNAME", content = "example.com" },
+      { id = "id-mx", name = "example.com", type = "MX", content = "example.com", priority = 10 },
+    ]
+  }
+
+  assert {
+    condition     = output.import_record_ids == { "www CNAME" = "id-cname", "@ MX @" = "id-mx" }
+    error_message = "\"@\" as a target must match the zone name"
+  }
+
+  assert {
+    condition     = output.flat_records["www CNAME"].content == "example.com" && output.flat_records["@ MX @"].content == "example.com"
+    error_message = "\"@\" as a target must be sent as the zone name, and the key must keep it as written"
+  }
+}
+
 # Quotes inside a value that is not in the zone file form count: prefix" "suffix is
 # not prefixsuffix
 run "import_txt_quote_space_quote_inside_the_value" {
