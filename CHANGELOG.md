@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- Records with an explicit `key` are also compared by their values: two records with the same name, type and value (and priority, for `MX` and `URI`) under different keys now fail at `plan`, as Cloudflare rejects identical records at `apply`. A value known only after `apply` defers this check to `apply`, before any record is changed
+- Records with an explicit `key` are also compared by their values: two records with the same name, type and value (and priority, for `MX` and `URI`) under different keys now fail at `plan`, as Cloudflare rejects identical records at `apply`. A value known only after `apply` defers this check to `apply`, before the configured records are created or updated (records removed from the configuration may be deleted first)
 - `private_routing = true` on a record that is not proxied now fails at `plan`; Cloudflare rejects it at `apply`
 
 ## [2.16.3] - 2026-10-19
