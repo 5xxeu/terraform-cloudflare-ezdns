@@ -14,7 +14,8 @@ zone) empty, unless the change is allowed explicitly.
 
 Only DNS record resources (cloudflare_dns_record, cloudflare_record) are checked; the
 other resources of the plan are ignored. Exit status: 0 when the plan passes, 1 when it
-does not, 2 when the plan cannot be read. Python 3.8 or later, standard library only.
+does not, 2 when the plan cannot be read, has errored, uses an unsupported format or is
+incomplete (unless --allow-incomplete is given). Python 3.8 or later, standard library only.
 """
 
 import argparse
@@ -33,6 +34,8 @@ def parse_args(argv):
         description="Check a saved Terraform plan (terraform show -json) for risky DNS record changes.",
     )
     parser.add_argument("plan", help="JSON plan from terraform show -json, or - for standard input")
+    parser.add_argument("--allow-incomplete", action="store_true",
+                        help="check incomplete plans (including plans made with -target); rejected by default")
     parser.add_argument("--max-deletes", type=int, default=0, metavar="N",
                         help="records the plan may delete (default 0; replacements are counted separately)")
     parser.add_argument("--max-replacements", type=int, default=0, metavar="N",
@@ -461,6 +464,17 @@ def main(argv=None):
     # resource_changes); the state (terraform show -json without a plan file) has values
     if not isinstance(plan, dict) or "format_version" not in plan or "planned_values" not in plan:
         print(f"plan-guard: {args.plan} is not a plan in the JSON format of terraform show -json", file=sys.stderr)
+        return 2
+    if plan.get("errored") is True:
+        print(f"plan-guard: {args.plan}: the plan errored, so it cannot be checked", file=sys.stderr)
+        return 2
+    version = plan["format_version"]
+    if not isinstance(version, str) or re.fullmatch(r"[0-9]+\.[0-9]+", version) is None or version.split(".")[0] != "1":
+        print(f"plan-guard: {args.plan}: unsupported format_version {version!r}, expected 1.N", file=sys.stderr)
+        return 2
+    if plan.get("complete") is False and not args.allow_incomplete:
+        print(f"plan-guard: {args.plan}: the plan is incomplete (including plans made with -target); "
+              "use --allow-incomplete to check it anyway", file=sys.stderr)
         return 2
     changes = plan.get("resource_changes", [])
     if not isinstance(changes, list) or not all(isinstance(rc, dict) for rc in changes):

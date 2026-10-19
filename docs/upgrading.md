@@ -37,6 +37,12 @@ Version 2 changes the record keys in the state (see [Record Keys](../README.md#r
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
+## To 2.17: plan-guard Rejects Incomplete Plans
+
+> **CI steps that check targeted plans:** add `--allow-incomplete` to the `plan-guard.py` command.
+
+[plan-guard](plan-guard.md) now exits with status 2 on errored plans, on a `format_version` other than `1.N` and on incomplete plans. Terraform marks every plan made with `-target` as incomplete. `--allow-incomplete` lets the usual checks run on these plans; errored plans and unsupported format versions are still rejected.
+
 ## To 2.16.1: Lists in records and record_groups
 
 > **Configurations that pass a list as `record_groups` (`record_groups: []` in YAML):** `plan` now fails. Pass `{}` or leave `record_groups` out.

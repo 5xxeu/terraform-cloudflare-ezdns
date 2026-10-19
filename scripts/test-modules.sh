@@ -3,7 +3,7 @@
 # (.github/workflows/ci.yml), with the given Terraform binary (default: terraform):
 #
 #   ./scripts/test-modules.sh
-#   ./scripts/test-modules.sh ~/bin/terraform-1.8.5
+#   ./scripts/test-modules.sh ~/bin/terraform-1.8.0
 set -eu
 
 cd "$(dirname "$0")/.."

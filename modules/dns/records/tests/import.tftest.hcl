@@ -760,13 +760,23 @@ run "new_value_of_a_record_is_not_unmanaged" {
     existing_records = [
       { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.1" },
       { id = "id-www", name = "www.example.com", type = "CNAME", content = "old.example.net" },
+      { id = "id-other", name = "other.example.com", type = "A", content = "192.0.2.9" },
+      { id = "id-aaaa", name = "app.example.com", type = "AAAA", content = "2001:db8::1" },
     ]
     import_existing = false
   }
 
   assert {
-    condition     = length(output.unmanaged_records) == 0
+    condition     = toset([for r in output.unmanaged_records : r.id]) == toset(["id-other", "id-aaaa"])
     error_message = "The old value of a record with a new value is not unmanaged"
+  }
+
+  assert {
+    condition = output.presumed_previous_records == [
+      { id = "id-app", name = "app.example.com", type = "A" },
+      { id = "id-www", name = "www.example.com", type = "CNAME" },
+    ]
+    error_message = "Only old values of the same name and type are listed as presumed previous records, without content"
   }
 }
 

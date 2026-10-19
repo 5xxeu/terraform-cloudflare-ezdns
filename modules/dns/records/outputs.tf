@@ -71,6 +71,14 @@ output "ambiguous_matches" {
   sensitive   = true
 }
 
+output "presumed_previous_records" {
+  description = "Existing records without a match taken as the old values of records that get a new value in this apply (left out of unmanaged_records), with id, name and type. The module cannot see the state, so a record added by hand may be among them"
+  value = [
+    for r in var.existing_records : { id = r.id, name = r.name, type = r.type }
+    if can(local.previous_value_ids[r.id]) && local.reported[r.id]
+  ]
+}
+
 output "unmanaged_records" {
   description = "existing_records that no configured record matches: records in the zone that the configuration does not describe. Sensitive: the content of a proxied record is the origin address that Cloudflare hides"
   value       = local.unmanaged_records

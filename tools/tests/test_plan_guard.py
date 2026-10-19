@@ -610,17 +610,43 @@ class PlanGuardTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
-    def exit_code(self, document):
+    def exit_code(self, document, *args):
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
             json.dump(document, f)
         try:
-            return plan_guard.main([f.name])
+            return plan_guard.main([f.name, *args])
         finally:
             pathlib.Path(f.name).unlink()
 
     def test_plan_without_changes_passes(self):
         # terraform show -json of a plan without changes has no resource_changes
         self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}}), 0)
+
+    def test_errored_plan_is_exit_code_2(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}, "errored": True}, "--allow-incomplete"), 2)
+        self.assertIn("the plan errored", stderr.getvalue())
+
+    def test_unsupported_format_is_exit_code_2(self):
+        for version in ("99.0", "2.0", "1", "1.2.0", "1.x", "1.2\n", 1.2, None, {}):
+            with self.subTest(version=version), contextlib.redirect_stderr(io.StringIO()) as stderr:
+                self.assertEqual(self.exit_code({"format_version": version, "planned_values": {}}), 2)
+                self.assertIn(f"unsupported format_version {version!r}", stderr.getvalue())
+
+    def test_supported_format_passes(self):
+        self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}, "errored": False, "complete": True, "applyable": False}), 0)
+
+    def test_incomplete_plan_is_exit_code_2(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}, "complete": False}), 2)
+        self.assertIn("-target", stderr.getvalue())
+        self.assertIn("--allow-incomplete", stderr.getvalue())
+
+    def test_allow_incomplete_plan(self):
+        self.assertEqual(self.exit_code({"format_version": "1.2", "planned_values": {}, "complete": False}, "--allow-incomplete"), 0)
+        p = plan(record(BASE.format("@ MX mx.example.com"), ["delete"], MX, None))
+        p["complete"] = False
+        self.assertEqual(self.exit_code(p, "--allow-incomplete"), 1)
 
     def test_state_is_not_a_plan(self):
         # terraform show -json without the plan file prints the state

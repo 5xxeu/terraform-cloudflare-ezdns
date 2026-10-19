@@ -23,6 +23,11 @@ output "import_duplicates" {
   value       = module.v5.import_duplicates
 }
 
+output "presumed_previous_records" {
+  description = "Existing records without a match taken as the old values of records that get a new value in this apply (left out of unmanaged_records), with id, name and type. The module cannot see the state, so a record added by hand may be among them. Empty unless report_unmanaged is true"
+  value       = module.v5.presumed_previous_records
+}
+
 output "unmanaged_records" {
   description = "Records in the zone that the configuration does not describe (id, name, type, content, priority, data). Empty unless report_unmanaged is true. Sensitive: the content of a proxied record is the origin address that Cloudflare hides"
   value       = module.v5.unmanaged_records

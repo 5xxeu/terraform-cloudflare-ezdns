@@ -25,7 +25,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -100,7 +100,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "2.16.4"
+     version = "2.17.0"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -227,7 +227,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
   # ...
 }
 ```
@@ -240,7 +240,7 @@ A copy in your repository needs neither GitHub nor the Terraform Registry to get
 
 ```sh
 REPO=https://github.com/5xxeu/terraform-cloudflare-ezdns
-VERSION=v2.16.4
+VERSION=v2.17.0
 ARCHIVE="terraform-cloudflare-ezdns-${VERSION}.tar.gz"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/SHA256SUMS"
@@ -276,10 +276,10 @@ What a copy may change without affecting the module:
 To fetch the module on `terraform init` instead, use a Git source with a tag (or the URL of your own mirror):
 
 ```hcl
-source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.16.4"
+source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.17.0"
 ```
 
-For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.16.4&depth=1`) to fetch only that commit instead of the whole history.
+For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.17.0&depth=1`) to fetch only that commit instead of the whole history.
 
 ### HCL or YAML
 
@@ -324,7 +324,7 @@ records:
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id      = var.zone_id
   zone_name    = "example.com"
@@ -380,7 +380,7 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -778,7 +778,7 @@ Values that most records share can be set once for the module call, and overridd
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -846,6 +846,7 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 - `state_migration`: map of the record keys used by 1.x to the current ones, see [Upgrading from v1](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#from-v1-to-v2)
 - `import_ids` (v5): import IDs of records that already exist in the zone, see [Importing Existing Records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records)
 - `import_duplicates` (v5): records that cannot be imported unambiguously, with the IDs of their matches; while there are any, `plan` stops
+- `presumed_previous_records` (v5): with `report_unmanaged`, existing records taken as old values of records getting a new value in this apply, with `id`, `name` and `type`. They are left out of `unmanaged_records`; the module cannot see the state, so a record added by hand may be among them
 - `unmanaged_records` (v5): with `report_unmanaged`, the records of the zone that the configuration does not describe, see [Records Not in the Configuration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration)
 
 ## Records in YAML
@@ -927,7 +928,7 @@ With `report_unmanaged = true`, the plan reports records of the zone that are no
 
 The module follows [Semantic Versioning](https://semver.org/): within 2.x, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys have not changed since 2.0. Each release passes the tests on Terraform 1.8 and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge; from 2.16.0 the release workflow publishes nothing unless CI and the end-to-end test passed on the tagged commit.
 
-Pin `version` exactly (or to a minor version, `~> 2.16.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](#local-copy) are upgraded by hand.
+Pin `version` exactly (or to a minor version, `~> 2.17.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](#local-copy) are upgraded by hand.
 
 ## Upgrading and Migration
 

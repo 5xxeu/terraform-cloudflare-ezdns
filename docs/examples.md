@@ -22,7 +22,7 @@ The MX record, SPF, the DKIM key from the Admin console (Apps, Google Workspace,
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -64,7 +64,7 @@ The values of the MX, autodiscover and DKIM records depend on the domain and the
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -119,7 +119,7 @@ A site with a custom domain on the apex and `www`. GitHub serves it from four IP
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -178,7 +178,7 @@ Netlify recommends a flattened CNAME on the apex, which Cloudflare supports, to 
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -217,7 +217,7 @@ Only Let's Encrypt may issue certificates for the zone, none for wildcard names,
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -255,7 +255,7 @@ Clients find some services through SRV records: here XMPP for clients and server
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -295,7 +295,7 @@ An HTTPS record tells browsers before the first connection that a name supports 
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -357,7 +357,7 @@ records:
 ```hcl
 module "dns_platform" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
@@ -370,7 +370,7 @@ module "dns_platform" {
 
 module "dns_marketing" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id      = var.zone_id
   zone_name    = "example.com"
@@ -405,7 +405,7 @@ A record whose value changes keeps its place in the state when it has a `key`. T
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -441,7 +441,7 @@ In a zone where [external-dns](https://github.com/kubernetes-sigs/external-dns) 
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.4"
+  version = "2.17.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
