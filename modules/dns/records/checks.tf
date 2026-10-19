@@ -30,14 +30,16 @@ locals {
   # whatever their keys, so records with an explicit key are compared by their values
   # too (MX and URI with the priority: records that differ only in priority are
   # distinct). Separate from duplicates: a value computed by another resource makes
-  # these keys unknown, and only this check then waits for apply
+  # these keys unknown, and only this check then waits for apply. Reported by name,
+  # type and the place in the configuration only: the value or a key may contain an
+  # origin address
   by_value = {
     for r in local.records : "${r.fqdn} ${r.type} ${contains(["MX", "URI"], r.type) && r.priority != null ? "${r.priority} " : ""}${(
       r.data != null || contains(["TXT", "OPENPGPKEY"], r.type) ? substr(sha1(local.configured_value[r.key]), 0, 12) : local.configured_value[r.key]
     )}" => r...
   }
   same_values = [
-    for identity, group in local.by_value : "\"${identity}\" as ${join(" and ", [for r in group : "\"${r.key}\" from ${r.source}"])}"
+    for identity, group in local.by_value : "${group[0].type} ${group[0].fqdn} from ${join(" and ", [for r in group : r.source])}"
     if length(distinct([for r in group : r.key])) > 1 && anytrue([for r in group : r.explicit_key != null])
   ]
 

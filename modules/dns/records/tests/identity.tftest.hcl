@@ -155,6 +155,21 @@ run "same_value_under_explicit_keys" {
   expect_failures = [output.flat_records]
 }
 
+run "same_value_shown_without_the_value" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "primary", content = "192.0.2.1", proxied = true }, { key = "backup", content = "192.0.2.1", proxied = true }] } }
+  }
+
+  assert {
+    condition     = local.same_values == ["A app.example.com from records[\"app\"][\"A\"][0] and records[\"app\"][\"A\"][1]"]
+    error_message = "Records with the same value are reported by name, type and source, without the value (an origin address)"
+  }
+
+  expect_failures = [output.flat_records]
+}
+
 run "same_value_with_and_without_a_key" {
   command = plan
 
