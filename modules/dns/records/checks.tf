@@ -27,14 +27,16 @@ locals {
   )
 
   # A CNAME cannot share its name with other records, except at the zone apex (CNAME
-  # flattening) and on names listed in allowed_cname_conflicts (existing zones,
-  # where Cloudflare accepted it for records that are not proxied). A name never
-  # has more than one CNAME, whatever keys the records have. Names are grouped
-  # fully qualified.
+  # flattening: MX, TXT and others, but not A or AAAA, which Cloudflare rejects there
+  # too) and on names listed in allowed_cname_conflicts (existing zones, where
+  # Cloudflare accepted it for records that are not proxied). A name never has more
+  # than one CNAME, whatever keys the records have. Names are grouped fully qualified.
   by_name = { for r in local.records : r.fqdn => r... }
   cname_shared = [
     for name, group in local.by_name : name
-    if name != lower(local.zone) && anytrue([for r in group : r.type == "CNAME"]) && anytrue([for r in group : r.type != "CNAME"])
+    if anytrue([for r in group : r.type == "CNAME"]) && anytrue([
+      for r in group : name == lower(local.zone) ? contains(["A", "AAAA"], r.type) : r.type != "CNAME"
+    ])
   ]
   allowed_cname_conflicts = distinct([for n in var.allowed_cname_conflicts : local.fqdn[n]])
   # Looked up by name: contains() reads its whole list on every call, which is

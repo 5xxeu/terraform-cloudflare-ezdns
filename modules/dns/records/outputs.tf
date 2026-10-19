@@ -34,7 +34,7 @@ output "flat_records" {
 
   precondition {
     condition     = length(local.cname_conflicts) == 0
-    error_message = "A CNAME record cannot share its name with other records (except at the zone apex), and a name has at most one CNAME. Names that already have a CNAME next to other records in the zone can be listed in allowed_cname_conflicts:\n${join("\n", local.cname_conflicts)}"
+    error_message = "A CNAME record cannot share its name with other records (except at the zone apex, where only A and AAAA conflict with it), and a name has at most one CNAME. Names that already have a CNAME next to other records in the zone can be listed in allowed_cname_conflicts:\n${join("\n", local.cname_conflicts)}"
   }
 }
 
