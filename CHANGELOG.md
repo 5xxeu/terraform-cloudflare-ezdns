@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- The v4 wrapper warns about the `settings` and `private_routing` of records (set to `true`): provider v4 has no such attributes, and the wrapper ignored them without a word
+
 ## [2.16.3] - 2026-10-19
 
 ### Fixed

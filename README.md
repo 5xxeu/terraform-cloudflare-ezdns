@@ -756,8 +756,8 @@ The type of `records` is shown as `any`: Terraform silently drops unknown attrib
 | `key` | Stable key used instead of the value in the record key, see [Record Keys](#record-keys) | `null` |
 | `comment` | Note shown in the Cloudflare dashboard | `default_comment` |
 | `tags` | Tags such as `owner:web`, added to `default_tags` | `[]` |
-| `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper) | `null` |
-| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper) | `null` |
+| `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper with a warning) | `null` |
+| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper with a warning) | `null` |
 | `ignore_changes` | Attributes taken from the record in the zone, for values changed outside Terraform: `content`, `ttl`, `proxied`, `comment`, `tags`; see [Values Changed Outside Terraform](#values-changed-outside-terraform) (provider v5 only) | `null` |
 
 ### Defaults, Comments and Tags
