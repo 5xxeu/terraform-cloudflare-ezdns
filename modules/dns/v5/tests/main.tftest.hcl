@@ -150,6 +150,33 @@ run "private_routing" {
   }
 }
 
+run "private_routing_needs_proxied" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = true }] } }
+  }
+
+  expect_failures = [cloudflare_dns_record.record]
+}
+
+run "private_routing_proxied_by_default" {
+  command = plan
+
+  variables {
+    default_proxied = true
+    records = {
+      "app" = { A = [{ content = "192.0.2.1", private_routing = true }] }
+      "db"  = { A = [{ content = "192.0.2.2", proxied = false, private_routing = false }] }
+    }
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.record["app A 192.0.2.1"].proxied == true
+    error_message = "private_routing on a record proxied by default_proxied is fine, and false needs no proxy"
+  }
+}
+
 run "unknown_settings_attribute" {
   command = plan
 

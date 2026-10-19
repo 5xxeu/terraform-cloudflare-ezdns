@@ -88,3 +88,66 @@ run "only_the_records_with_ignore_changes_are_read" {
     error_message = "Only the records with ignore_changes are read, by name"
   }
 }
+
+run "private_routing_with_proxied_from_the_zone" {
+  command = plan
+
+  override_module {
+    target = module.records
+    outputs = {
+      flat_records = {
+        "on A on" = {
+          name           = "on", fqdn = "on.example.com", type = "A", content = "192.0.2.1", ttl = 300, proxied = false,
+          comment        = null, tags = [], settings = null, private_routing = true, priority = null, data = null,
+          ignore_changes = ["proxied"]
+        }
+      }
+      live_records = {
+        "on A on" = {
+          id  = "id-on", name = "on.example.com", type = "A", content = "192.0.2.1", priority = null, data = null,
+          ttl = 1, proxied = true, comment = null, tags = null
+        }
+      }
+      state_migration   = {}
+      import_record_ids = {}
+      import_duplicates = {}
+      ambiguous_matches = {}
+      unmanaged_records = []
+    }
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.record["on A on"].proxied == true
+    error_message = "With ignore_changes = [\"proxied\"], private_routing is checked against proxied from the zone"
+  }
+}
+
+run "private_routing_with_unproxied_record_in_the_zone" {
+  command = plan
+
+  override_module {
+    target = module.records
+    outputs = {
+      flat_records = {
+        "on A on" = {
+          name           = "on", fqdn = "on.example.com", type = "A", content = "192.0.2.1", ttl = 300, proxied = true,
+          comment        = null, tags = [], settings = null, private_routing = true, priority = null, data = null,
+          ignore_changes = ["proxied"]
+        }
+      }
+      live_records = {
+        "on A on" = {
+          id  = "id-on", name = "on.example.com", type = "A", content = "192.0.2.1", priority = null, data = null,
+          ttl = 1, proxied = false, comment = null, tags = null
+        }
+      }
+      state_migration   = {}
+      import_record_ids = {}
+      import_duplicates = {}
+      ambiguous_matches = {}
+      unmanaged_records = []
+    }
+  }
+
+  expect_failures = [cloudflare_dns_record.record]
+}

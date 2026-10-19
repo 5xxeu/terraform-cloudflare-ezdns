@@ -173,6 +173,16 @@ resource "cloudflare_dns_record" "record" {
     value          = lookup(each.value.data, "value", null)
     weight         = lookup(each.value.data, "weight", null)
   }
+
+  lifecycle {
+    # Cloudflare routes privately only to the origin of a proxied record and rejects
+    # private_routing on the others at apply (error 9232). proxied as it is sent: with
+    # ignore_changes = ["proxied"], from the record in the zone
+    precondition {
+      condition     = each.value.private_routing != true || each.value.proxied == true
+      error_message = "${each.value.type} ${each.value.fqdn}: private_routing needs a proxied record (set proxied = true, or remove private_routing)."
+    }
+  }
 }
 
 # Numbers in text values are written in their canonical form ("0123" -> "123",

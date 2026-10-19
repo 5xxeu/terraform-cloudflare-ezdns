@@ -38,6 +38,10 @@ Two records get the same key, or are the same DNS record written in two forms. T
 
 Two records with different keys (at least one of them set with `key`) are the same DNS record: the same name, type and value, and for MX and URI the same priority. Cloudflare rejects the second one at `apply`. Remove all but one of them. Values are compared as the import compares them, so `www` and `www.example.com`, or a hostname with and without the trailing dot, are the same. When a value is known only after `apply` (computed by another resource), this check runs at `apply`, before any record is changed.
 
+### private_routing needs a proxied record
+
+Cloudflare routes privately only to the origin of a proxied record and rejects `private_routing` on any other at `apply` ("Private routing requires the record to be proxied"). Set `proxied = true` on the record (or `default_proxied`), or remove `private_routing`. Private routing must also be available to the account.
+
 ### A CNAME record cannot share its name with other records (except at the zone apex, where only A and AAAA conflict with it), and a name has at most one CNAME.
 
 DNS does not allow a CNAME next to other records of the same name, and Cloudflare rejects it. Remember that `ALIASES` entries are CNAME records too. Put the other records on the target of the CNAME, or replace the CNAME with the records it points to. A zone that already has such names (Cloudflare accepted them for records that are not proxied) can list them in `allowed_cname_conflicts` while they are cleaned up.
