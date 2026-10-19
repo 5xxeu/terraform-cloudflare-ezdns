@@ -18,6 +18,8 @@ module "dns" {
   default_comment = "ezdns-e2e"
   import_existing = true
   records         = module.fixture.records
+  # A group default wins over default_ttl
+  record_groups = { e2e = { records = module.fixture.group_records, defaults = { ttl = 600 } } }
 }
 
 import {

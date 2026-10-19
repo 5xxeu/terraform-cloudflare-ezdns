@@ -56,6 +56,16 @@ output "records" {
   }
 }
 
+output "group_records" {
+  description = "Records passed in record_groups, with a TTL default of the group"
+  value = {
+    "grp.${local.p}" = {
+      A   = [{ content = "192.0.2.40" }]
+      TXT = [{ content = "group" }]
+    }
+  }
+}
+
 output "migration_records" {
   description = "Records used to check the migration from provider v4 to v5"
   value = {

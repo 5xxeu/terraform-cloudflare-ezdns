@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- A `CNAME` at the zone apex next to an `A` or `AAAA` record now fails at `plan`, like on any other name; Cloudflare rejects it at `apply`. Other records (`MX`, `TXT`, ...) next to an apex `CNAME` are still allowed, and `allowed_cname_conflicts` still lets such a name through
+
+### Internal
+
+- Release workflow: only the highest version tag is marked as the latest release, and the checkout keeps no credentials. CI pins the Python packages of the schema check. The end-to-end test also covers `record_groups` and the `idna` submodule, and its cleanup matches the run label only as a whole part of a name
+
 ## [2.16.2] - 2026-10-19
 
 ### Fixed

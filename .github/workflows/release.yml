@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # A tag is released only from a commit that passed CI. The latest run counts, so a
       # re-run after a flaky failure is enough (latest by id: a queued run has no
@@ -110,10 +112,17 @@ jobs:
         with:
           subject-path: dist/*.tar.gz
 
+      # Only the highest version is marked as the latest release, so a patch of an
+      # older line (v2.15.3 after v2.16.0) does not take the mark. Tags with a suffix
+      # (v3.0.0-rc1) are never the latest
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest \
+          highest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          latest=false
+          [ "$GITHUB_REF_NAME" != "$highest" ] || latest=true
+          echo "Highest version tag: ${highest}, latest release: ${latest}"
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest="$latest" \
             "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
             "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS

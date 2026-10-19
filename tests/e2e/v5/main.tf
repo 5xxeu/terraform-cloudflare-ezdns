@@ -21,4 +21,6 @@ module "dns" {
   # The zone has records of other runs and tools: "error" is checked on this run only
   owned_names = var.unmanaged_policy == "error" ? { include = [var.prefix] } : null
   records     = module.fixture.records
+  # A group default wins over default_ttl
+  record_groups = { e2e = { records = module.fixture.group_records, defaults = { ttl = 600 } } }
 }

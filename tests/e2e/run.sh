@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end test against a real Cloudflare zone: creates records of all types
-# under a label of this run, checks updates, import and the v4 to v5 migration,
-# and deletes everything at the end.
+# under a label of this run, checks updates, import, the v4 to v5 migration and
+# names in Unicode, and deletes everything at the end.
 #
 # Requires CLOUDFLARE_API_TOKEN (DNS Edit on the zone), E2E_ZONE_ID and E2E_ZONE_NAME.
 set -euo pipefail
@@ -33,7 +33,7 @@ qualified_names() {
 cleanup() {
     local rc=$? cleaned=1 dir
     set +e
-    for dir in v4to5 v4 v5; do
+    for dir in idna v4to5 v4 v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
             echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
@@ -92,7 +92,7 @@ assert_no_changes() {
 echo "Label: ${LABEL}"
 "${E2E_DIR}/sweep.sh" --stale
 
-for dir in v5 import v4 v4to5; do tf "$dir" init -no-color >/dev/null; done
+for dir in v5 import v4 v4to5 idna; do tf "$dir" init -no-color >/dev/null; done
 
 # Scenario 1: create all record types, then check there is no drift
 tf v5 apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "apply: $(tail -40 "${E2E_DIR}/apply.log")"
@@ -103,6 +103,10 @@ pass "no drift after apply"
 names=$(qualified_names v5)
 [ "${names% of *}" = "${names#* of }" ] || fail "v5: record_names are not all fully qualified (${names})"
 pass "v5: record_names fully qualified (${names})"
+# The TTL default of the group wins over default_ttl (300)
+ttls=$(tf v5 show -json | jq -r '[.values | .. | objects | select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .values | select(.name | startswith("grp.")) | .ttl] | "\(length) \(unique | join(","))"')
+[ "$ttls" = "2 600" ] || fail "record_groups: expected 2 records with the group TTL 600, got ${ttls}"
+pass "record_groups: records of a group created with the TTL default of the group"
 
 # While values change, the records with the old values are in the state, not
 # unmanaged: the report lets the update through, also with unmanaged_policy = "error"
@@ -205,5 +209,15 @@ assert_no_changes v4to5
 record_ids v4to5 >"${E2E_DIR}/ids-v4to5.txt"
 assert_same_ids "v4 to v5 migration" "${E2E_DIR}/ids-v4.txt" "${E2E_DIR}/ids-v4to5.txt"
 pass "v4 to v5 migration without recreating records, same IDs (${summary})"
+
+# Scenario 4: names, a prefix of a record type and a CNAME target in Unicode through
+# the idna submodule, stored in Punycode without drift
+tf idna apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "idna apply: $(tail -40 "${E2E_DIR}/apply.log")"
+assert_no_changes idna
+names=$(qualified_names idna)
+[ "${names% of *}" = "${names#* of }" ] || fail "idna: record_names are not all fully qualified (${names})"
+punycode=$(tf idna output -json record_names | jq '[.[] | select(startswith("xn--"))] | length')
+[ "$punycode" = 2 ] || fail "idna: expected 2 names in Punycode, got ${punycode}"
+pass "idna: records with names in Unicode created in Punycode without drift (${names})"
 
 echo "All end-to-end checks passed"

@@ -18,12 +18,14 @@ if [ "${1:-}" = "--stale" ]; then
     cutoff=$(($(date +%s) - 3 * 3600))
     # $cutoff is a jq variable
     # shellcheck disable=SC2016
-    filter='select(.name | test("(^|[.-])e2e-[0-9]+")) | select((.created_on | sub("\\.[0-9]+Z$"; "Z") | fromdate) < ($cutoff | tonumber))'
+    filter='select(.name | test("(^|[.-])e2e-[0-9]+(-[0-9]+)?(\\.|$)")) | select((.created_on | sub("\\.[0-9]+Z$"; "Z") | fromdate) < ($cutoff | tonumber))'
     selected=$(echo "$records" | jq -c --arg cutoff "$cutoff" "$filter")
 else
     label="${1:?label or --stale}"
     [[ "$label" =~ ^e2e-[0-9a-z-]+$ ]] || { echo "Invalid label: $label" >&2; exit 1; }
-    selected=$(echo "$records" | jq -c --arg label "$label" 'select(.name | contains($label))')
+    # The label as a whole part of the name: e2e-123-1 must not match e2e-123-10.
+    # The label has no regex metacharacters (checked above)
+    selected=$(echo "$records" | jq -c --arg label "$label" 'select(.name | test("(^|[.-])" + $label + "(\\.|$)"))')
 fi
 
 [ -n "$selected" ] || exit 0
