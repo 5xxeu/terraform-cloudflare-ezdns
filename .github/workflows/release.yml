@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
 
+# One release at a time: the latest mark is decided from the tags on origin, so a run
+# of an older tag must not finish after the run of a newer one
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   # Build provenance of the archives: a Sigstore certificate (id-token) and the
