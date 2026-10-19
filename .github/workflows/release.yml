@@ -4,12 +4,6 @@ on:
   push:
     tags: ["v*"]
 
-# One release at a time: the latest mark is decided from the tags on origin, so a run
-# of an older tag must not finish after the run of a newer one
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 permissions:
   contents: write
   # Build provenance of the archives: a Sigstore certificate (id-token) and the
@@ -118,17 +112,34 @@ jobs:
         with:
           subject-path: dist/*.tar.gz
 
-      # Only the highest version is marked as the latest release, so a patch of an
-      # older line (v2.15.3 after v2.16.0) does not take the mark. Tags with a suffix
-      # (v3.0.0-rc1) are never the latest
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          highest=$(git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-          latest=false
-          [ "$GITHUB_REF_NAME" != "$highest" ] || latest=true
-          echo "Highest version tag: ${highest}, latest release: ${latest}"
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest="$latest" \
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest=false \
             "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
             "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
+
+      # The latest mark goes to the highest published version, so a patch of an older
+      # line (v2.15.3 after v2.16.0) does not take it; versions with a suffix
+      # (v3.0.0-rc1) never do. Decided anew from the published releases at the end of
+      # every run, so runs of several tags may finish in any order. After the mark the
+      # list is read again: a release published meanwhile by another run is marked
+      # instead
+      - name: Mark the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          highest_release() {
+            gh release list --exclude-drafts --exclude-pre-releases --limit 1000 --json tagName --jq '.[].tagName' |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
+          }
+          marked=""
+          highest=$(highest_release)
+          for attempt in 1 2 3 4 5; do
+            [ "$highest" != "$marked" ] || { echo "Latest release: ${marked}"; exit 0; }
+            gh release edit "$highest" --latest >/dev/null
+            marked=$highest
+            highest=$(highest_release)
+          done
+          echo "The highest release kept changing, last marked: ${marked}"; exit 1
