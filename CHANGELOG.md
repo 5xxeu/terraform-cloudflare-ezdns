@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.3] - 2026-10-19
+
 ### Fixed
 
 - A `CNAME` at the zone apex next to an `A` or `AAAA` record now fails at `plan`, like on any other name; Cloudflare rejects it at `apply`. Other records (`MX`, `TXT`, ...) next to an apex `CNAME` are still allowed, and `allowed_cname_conflicts` still lets such a name through
@@ -512,7 +514,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...HEAD
+[2.16.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...v2.16.3
 [2.16.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.15.0...v2.16.0
