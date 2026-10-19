@@ -164,7 +164,8 @@ resource "cloudflare_record" "record" {
 
 # Provider v4 has no settings and private_routing: the attributes are accepted (the
 # configuration stays the same for both providers) and ignored, which a warning makes
-# visible. Only the values that ask for something are listed; false is the default
+# visible. Only the values that ask for something are listed; false is the default.
+# Records are of type any here, so "true" (a string in YAML or JSON) counts too
 locals {
   v5_only_attributes = flatten([
     for name, types in local.all_records : [
@@ -172,9 +173,9 @@ locals {
         for index, record in list : concat(
           [
             for setting in ["flatten_cname", "ipv4_only", "ipv6_only"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.settings.${setting}"
-            if try(record.settings[setting], null) == true
+            if try(tobool(record.settings[setting]), null) == true
           ],
-          [for attribute in ["private_routing"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute}" if try(record[attribute], null) == true],
+          [for attribute in ["private_routing"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute}" if try(tobool(record[attribute]), null) == true],
         )
       ]
     ]

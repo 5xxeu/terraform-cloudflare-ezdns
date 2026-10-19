@@ -155,6 +155,21 @@ run "settings_are_ignored_with_a_warning" {
   expect_failures = [check.records_v5_only_attributes]
 }
 
+run "v5_only_attributes_as_strings" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxied = true, private_routing = "true", settings = { ipv4_only = "true" } }] } }
+  }
+
+  assert {
+    condition     = length(local.v5_only_attributes) == 2
+    error_message = "\"true\" as a string (YAML, JSON) is converted to true by the core and warns too"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
 run "default_settings_need_no_warning" {
   command = plan
 
