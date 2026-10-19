@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.16.4] - 2026-10-20
+
+### Changed
+
+- The v4 wrapper warns about the `settings` and `private_routing` of records (set to `true`): provider v4 has no such attributes, and the wrapper ignored them without a word
+
+### Fixed
+
+- Records with an explicit `key` are also compared by their values: two records with the same name, type and value (and priority, for `MX` and `URI`) under different keys now fail at `plan`, as Cloudflare rejects identical records at `apply`. A value known only after `apply` defers this check to `apply`, before the configured records are created or updated (records removed from the configuration may be deleted first)
+- `private_routing = true` on a record that is not proxied now fails at `plan`; Cloudflare rejects it at `apply`
+
 ## [2.16.3] - 2026-10-19
 
 ### Fixed
@@ -514,7 +525,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...HEAD
+[2.16.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...v2.16.4
 [2.16.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...v2.16.3
 [2.16.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.0...v2.16.1

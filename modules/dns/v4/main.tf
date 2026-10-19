@@ -162,6 +162,33 @@ resource "cloudflare_record" "record" {
   }
 }
 
+# Provider v4 has no settings and private_routing: the attributes are accepted (the
+# configuration stays the same for both providers) and ignored, which a warning makes
+# visible. Only the values that ask for something are listed; false is the default.
+# Records are of type any here, so "true" (a string in YAML or JSON) counts too
+locals {
+  v5_only_attributes = flatten([
+    for name, types in local.all_records : [
+      for type, list in types : [
+        for index, record in list : concat(
+          [
+            for setting in ["flatten_cname", "ipv4_only", "ipv6_only"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.settings.${setting}"
+            if try(tobool(record.settings[setting]), null) == true
+          ],
+          [for attribute in ["private_routing"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute}" if try(tobool(record[attribute]), null) == true],
+        )
+      ]
+    ]
+  ])
+}
+
+check "records_v5_only_attributes" {
+  assert {
+    condition     = length(local.v5_only_attributes) == 0
+    error_message = "These attributes need provider v5 (the root module) and are ignored by the v4 wrapper:\n${join("\n", local.v5_only_attributes)}"
+  }
+}
+
 # Numbers in text values are written in their canonical form ("0123" -> "123",
 # "1.10" -> "1.1"), which loses what was written in YAML; quoting keeps it. The text
 # fields of data are checked too (a hex digest of digits loses its leading zeros);

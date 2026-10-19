@@ -25,7 +25,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.3"
+  version = "2.16.4"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -100,7 +100,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "2.16.3"
+     version = "2.16.4"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -227,7 +227,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.3"
+  version = "2.16.4"
   # ...
 }
 ```
@@ -240,7 +240,7 @@ A copy in your repository needs neither GitHub nor the Terraform Registry to get
 
 ```sh
 REPO=https://github.com/5xxeu/terraform-cloudflare-ezdns
-VERSION=v2.16.3
+VERSION=v2.16.4
 ARCHIVE="terraform-cloudflare-ezdns-${VERSION}.tar.gz"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 curl -fsSL -O "${REPO}/releases/download/${VERSION}/SHA256SUMS"
@@ -276,10 +276,10 @@ What a copy may change without affecting the module:
 To fetch the module on `terraform init` instead, use a Git source with a tag (or the URL of your own mirror):
 
 ```hcl
-source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.16.3"
+source = "git::https://github.com/5xxeu/terraform-cloudflare-ezdns.git?ref=v2.16.4"
 ```
 
-For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.16.3&depth=1`) to fetch only that commit instead of the whole history.
+For provider v4, add `//modules/dns/v4` before `?ref=`. In CI, where every run starts from a clean checkout, add `&depth=1` after the tag (`?ref=v2.16.4&depth=1`) to fetch only that commit instead of the whole history.
 
 ### HCL or YAML
 
@@ -324,7 +324,7 @@ records:
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.3"
+  version = "2.16.4"
 
   zone_id      = var.zone_id
   zone_name    = "example.com"
@@ -380,7 +380,7 @@ A zone with most of the features: the apex, nested names, aliases, CAA and a str
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.3"
+  version = "2.16.4"
 
   zone_id   = var.zone_id
   zone_name = "example.com" # optional, looked up from zone_id when omitted
@@ -595,6 +595,8 @@ MX = [
 ]
 ```
 
+A `key` does not make a copy of a record a new one: two records with the same name, type and value (and priority, for `MX` and `URI`) fail at `plan` whatever their keys, since Cloudflare rejects identical records at `apply`.
+
 Names are sent to Cloudflare in lower case, as Cloudflare stores them; the key keeps the name as written (`M1._domainkey TXT dkim`).
 
 **Rewriting a name in another form changes its key.** `www`, `WWW` and `www.example.com` are the same DNS name, but the key keeps the form as written, so changing it (`www` to `www.example.com`, or `WWW` to `www`) gives the record a new address, and Terraform plans to delete and create it. The two are different instances, so their order is not fixed: when the delete goes first, the name does not answer until the create, and resolvers cache the empty answer for the negative TTL of the zone; when the create goes first, Cloudflare may reject it as a copy of the record that still exists, and the apply fails. To keep the existing record, add a `moved` block with the old and the new key, then check that the plan neither deletes nor creates it:
@@ -756,8 +758,8 @@ The type of `records` is shown as `any`: Terraform silently drops unknown attrib
 | `key` | Stable key used instead of the value in the record key, see [Record Keys](#record-keys) | `null` |
 | `comment` | Note shown in the Cloudflare dashboard | `default_comment` |
 | `tags` | Tags such as `owner:web`, added to `default_tags` | `[]` |
-| `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper) | `null` |
-| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper) | `null` |
+| `settings` | `flatten_cname`, `ipv4_only` and `ipv6_only` (provider v5 only, ignored by the v4 wrapper with a warning) | `null` |
+| `private_routing` | Private network routing to the origin of an `A`, `AAAA` or `CNAME` record (provider v5 only, ignored by the v4 wrapper with a warning) | `null` |
 | `ignore_changes` | Attributes taken from the record in the zone, for values changed outside Terraform: `content`, `ttl`, `proxied`, `comment`, `tags`; see [Values Changed Outside Terraform](#values-changed-outside-terraform) (provider v5 only) | `null` |
 
 ### Defaults, Comments and Tags
@@ -776,7 +778,7 @@ Values that most records share can be set once for the module call, and overridd
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.16.3"
+  version = "2.16.4"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"

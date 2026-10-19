@@ -130,6 +130,57 @@ run "private_routing_is_ignored" {
     condition     = output.records["app A 192.0.2.1"].private_routing == null
     error_message = "Provider v4 has no private_routing: the attribute is accepted and ignored"
   }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "settings_are_ignored_with_a_warning" {
+  command = plan
+
+  variables {
+    records = { "app" = { CNAME = [{ content = "target.example.net", settings = { flatten_cname = true } }] } }
+    record_groups = {
+      "mail" = { records = { "mx" = { AAAA = [{ content = "2001:db8::1", settings = { ipv6_only = true } }] } } }
+    }
+  }
+
+  assert {
+    condition = local.v5_only_attributes == [
+      "records[\"app\"][\"CNAME\"][0].settings.flatten_cname",
+      "record_groups[\"mail\"].records[\"mx\"][\"AAAA\"][0].settings.ipv6_only",
+    ]
+    error_message = "Settings that ask for something are listed with their source"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "v5_only_attributes_as_strings" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxied = true, private_routing = "true", settings = { ipv4_only = "true" } }] } }
+  }
+
+  assert {
+    condition     = length(local.v5_only_attributes) == 2
+    error_message = "\"true\" as a string (YAML, JSON) is converted to true by the core and warns too"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "default_settings_need_no_warning" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = false, settings = { ipv4_only = false } }] } }
+  }
+
+  assert {
+    condition     = length(local.v5_only_attributes) == 0
+    error_message = "false is the default: nothing is lost with provider v4"
+  }
 }
 
 run "unknown_settings_attribute" {
