@@ -36,7 +36,7 @@ Two records get the same key, or are the same DNS record written in two forms. T
 
 ### Records with the same name, type and value under different keys, which Cloudflare rejects as identical records
 
-Two records with different keys (at least one of them set with `key`) are the same DNS record: the same name, type and value, and for MX and URI the same priority. Cloudflare rejects the second one at `apply`. Remove all but one of them. Values are compared as the import compares them, so `www` and `www.example.com`, or a hostname with and without the trailing dot, are the same. When a value is known only after `apply` (computed by another resource), this check runs at `apply`, before the configured records are created or updated; records removed from the configuration may already be deleted by then.
+Two records with different keys (at least one of them set with `key`) are the same DNS record: the same name, type and value, and for MX and URI the same priority. Cloudflare rejects the second one at `apply`. Remove all but one of them. Values are compared as the import compares them: hostnames ignore case and the trailing dot, so `MX.EXAMPLE.COM.` and `mx.example.com` are the same (a short value such as `mx` is not completed with the zone name and differs from `mx.example.com`). When a value is known only after `apply` (computed by another resource), this check runs at `apply`, before the configured records are created or updated; records removed from the configuration may already be deleted by then.
 
 ### private_routing needs a proxied record
 
