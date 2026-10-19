@@ -541,6 +541,41 @@ run "cname_conflict_across_name_forms" {
   expect_failures = [output.flat_records]
 }
 
+run "cname_at_apex_with_a" {
+  command = plan
+
+  variables {
+    records = {
+      "@" = {
+        CNAME = [{ content = "target.example.net" }]
+        A     = [{ content = "192.0.2.1" }]
+      }
+      "example.com" = { AAAA = [{ content = "2001:db8::1" }] }
+    }
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "cname_at_apex_with_a_allowed" {
+  command = plan
+
+  variables {
+    records = {
+      "@" = {
+        CNAME = [{ content = "target.example.net" }]
+        A     = [{ content = "192.0.2.1" }]
+      }
+    }
+    allowed_cname_conflicts = ["@"]
+  }
+
+  assert {
+    condition     = length(output.flat_records) == 2
+    error_message = "allowed_cname_conflicts must let an apex CNAME next to an A record through"
+  }
+}
+
 run "cname_at_apex_by_zone_name" {
   command = plan
 

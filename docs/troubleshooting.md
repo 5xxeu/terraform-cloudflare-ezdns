@@ -34,7 +34,7 @@ Two records get the same key, or are the same DNS record written in two forms. T
 - One name written in two forms (`www` and `www.example.com`, `@` and the zone name): remove one of them.
 - An `ALIASES` entry and a `CNAME` record for the same name.
 
-### A CNAME record cannot share its name with other records (except at the zone apex), and a name has at most one CNAME.
+### A CNAME record cannot share its name with other records (except at the zone apex, where only A and AAAA conflict with it), and a name has at most one CNAME.
 
 DNS does not allow a CNAME next to other records of the same name, and Cloudflare rejects it. Remember that `ALIASES` entries are CNAME records too. Put the other records on the target of the CNAME, or replace the CNAME with the records it points to. A zone that already has such names (Cloudflare accepted them for records that are not proxied) can list them in `allowed_cname_conflicts` while they are cleaned up.
 

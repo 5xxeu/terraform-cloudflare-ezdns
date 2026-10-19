@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # A tag is released only from a commit that passed CI. The latest run counts, so a
       # re-run after a flaky failure is enough (latest by id: a queued run has no
@@ -114,6 +116,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest \
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest=false \
             "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
             "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
+
+      # The latest mark goes to the highest published version, so a patch of an older
+      # line (v2.15.3 after v2.16.0) does not take it; versions with a suffix
+      # (v3.0.0-rc1) never do. Decided anew from the published releases at the end of
+      # every run, so runs of several tags may finish in any order. After the mark the
+      # list is read again: a release published meanwhile by another run is marked
+      # instead
+      - name: Mark the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          highest_release() {
+            gh release list --exclude-drafts --exclude-pre-releases --limit 1000 --json tagName --jq '.[].tagName' |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
+          }
+          marked=""
+          highest=$(highest_release)
+          for attempt in 1 2 3 4 5; do
+            [ "$highest" != "$marked" ] || { echo "Latest release: ${marked}"; exit 0; }
+            gh release edit "$highest" --latest >/dev/null
+            marked=$highest
+            highest=$(highest_release)
+          done
+          echo "The highest release kept changing, last marked: ${marked}"; exit 1
