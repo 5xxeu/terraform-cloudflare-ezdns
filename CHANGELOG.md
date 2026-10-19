@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-20
+
 ### Added
 
 - `presumed_previous_records` output (v5): IDs, names and types of existing records taken as old values during a value change and left out of `unmanaged_records`. The module cannot see the state, so a record added by hand may be among them
@@ -537,7 +539,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.17.0...HEAD
+[2.17.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...v2.17.0
 [2.16.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...v2.16.4
 [2.16.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...v2.16.3
 [2.16.2]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.1...v2.16.2

@@ -9,7 +9,7 @@ To read the values, pass the output through in the root module and read it from 
 ```hcl
 module "dns" {
   source           = "5xxeu/ezdns/cloudflare"
-  version          = "2.16.4"
+  version          = "2.17.0"
   zone_id          = var.zone_id
   report_unmanaged = true
   records          = { "@" = { A = [{ content = "192.0.2.1" }] } }
