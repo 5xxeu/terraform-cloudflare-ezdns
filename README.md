@@ -846,6 +846,7 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 - `state_migration`: map of the record keys used by 1.x to the current ones, see [Upgrading from v1](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#from-v1-to-v2)
 - `import_ids` (v5): import IDs of records that already exist in the zone, see [Importing Existing Records](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records)
 - `import_duplicates` (v5): records that cannot be imported unambiguously, with the IDs of their matches; while there are any, `plan` stops
+- `presumed_previous_records` (v5): with `report_unmanaged`, existing records taken as old values of records getting a new value in this apply, with `id`, `name` and `type`. They are left out of `unmanaged_records`; the module cannot see the state, so a record added by hand may be among them
 - `unmanaged_records` (v5): with `report_unmanaged`, the records of the zone that the configuration does not describe, see [Records Not in the Configuration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration)
 
 ## Records in YAML

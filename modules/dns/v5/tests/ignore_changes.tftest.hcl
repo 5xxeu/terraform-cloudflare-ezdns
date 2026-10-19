@@ -35,11 +35,12 @@ override_module {
         ttl = 120, proxied = false, comment = "changed in the dashboard", tags = null
       }
     }
-    state_migration   = {}
-    import_record_ids = {}
-    import_duplicates = {}
-    ambiguous_matches = {}
-    unmanaged_records = []
+    state_migration           = {}
+    import_record_ids         = {}
+    import_duplicates         = {}
+    ambiguous_matches         = {}
+    unmanaged_records         = []
+    presumed_previous_records = []
   }
 }
 
@@ -108,11 +109,12 @@ run "private_routing_with_proxied_from_the_zone" {
           ttl = 1, proxied = true, comment = null, tags = null
         }
       }
-      state_migration   = {}
-      import_record_ids = {}
-      import_duplicates = {}
-      ambiguous_matches = {}
-      unmanaged_records = []
+      state_migration           = {}
+      import_record_ids         = {}
+      import_duplicates         = {}
+      ambiguous_matches         = {}
+      unmanaged_records         = []
+      presumed_previous_records = []
     }
   }
 
@@ -141,11 +143,12 @@ run "private_routing_with_unproxied_record_in_the_zone" {
           ttl = 1, proxied = false, comment = null, tags = null
         }
       }
-      state_migration   = {}
-      import_record_ids = {}
-      import_duplicates = {}
-      ambiguous_matches = {}
-      unmanaged_records = []
+      state_migration           = {}
+      import_record_ids         = {}
+      import_duplicates         = {}
+      ambiguous_matches         = {}
+      unmanaged_records         = []
+      presumed_previous_records = []
     }
   }
 

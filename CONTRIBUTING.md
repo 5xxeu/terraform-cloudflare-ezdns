@@ -6,7 +6,7 @@ Security problems are reported privately, see [SECURITY.md](SECURITY.md).
 
 ## Development Setup
 
-- Terraform 1.8.5 or later (CI tests 1.8.5 and the latest version)
+- Terraform 1.8.0 or later (CI tests 1.8.0 and the latest version)
 - [terraform-docs](https://terraform-docs.io) v0.24.0
 - [TFLint](https://github.com/terraform-linters/tflint)
 - Python 3 with `jsonschema` and `pyyaml`
@@ -31,7 +31,7 @@ tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 
 # in the changed module and its examples
 terraform init -backend=false && terraform validate && terraform test
-# or in every directory that CI tests, with a given Terraform binary (CI tests 1.8.5 too)
+# or in every directory that CI tests, with a given Terraform binary (CI tests 1.8.0 too)
 ./scripts/test-modules.sh [path/to/terraform]
 ```
 

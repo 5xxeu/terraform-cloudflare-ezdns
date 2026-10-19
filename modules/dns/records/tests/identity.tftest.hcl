@@ -170,6 +170,54 @@ run "same_value_shown_without_the_value" {
   expect_failures = [output.flat_records]
 }
 
+run "caa_flags_under_explicit_keys" {
+  command = plan
+
+  variables {
+    records = { "@" = { "app.CAA" = [{ key = "primary", tag = "issue", content = "letsencrypt.org", flags = 0 }, { key = "backup", tag = "issue", content = "letsencrypt.org", flags = 128 }] } }
+  }
+
+  assert {
+    condition     = length(local.same_values) == 0
+    error_message = "CAA records that differ only in flags are distinct records"
+  }
+}
+
+run "same_caa_flags_under_explicit_keys" {
+  command = plan
+
+  variables {
+    records = { "@" = { "app.CAA" = [{ key = "primary", tag = "issue", content = "letsencrypt.org", flags = 128 }, { key = "backup", tag = "issue", content = "letsencrypt.org", flags = 128 }] } }
+  }
+
+  assert {
+    condition     = local.same_values == ["CAA app.example.com from records[\"@\"][\"app.CAA\"][0] and records[\"@\"][\"app.CAA\"][1]"]
+    error_message = "CAA records with the same flags, tag and value are reported by name, type and source"
+  }
+
+  expect_failures = [output.flat_records]
+}
+
+run "srv_priorities_under_explicit_keys" {
+  command = plan
+
+  variables {
+    records = {
+      "_sip._tcp" = {
+        SRV = [
+          { key = "primary", data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" } },
+          { key = "backup", data = { priority = 20, weight = 5, port = 5060, target = "sip.example.com" } },
+        ]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(local.same_values) == 0
+    error_message = "SRV records that differ only in priority in data are distinct records"
+  }
+}
+
 run "same_value_with_and_without_a_key" {
   command = plan
 

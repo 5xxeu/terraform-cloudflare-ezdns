@@ -163,3 +163,26 @@ run "ignore_unknown_type" {
 
   expect_failures = [var.unmanaged_ignore]
 }
+
+run "presumed_previous_records_respect_reporting_rules" {
+  command = plan
+
+  variables {
+    records = {
+      "apps"     = { A = [{ key = "apps", content = "192.0.2.2" }] }
+      "web.apps" = { A = [{ key = "web", content = "192.0.2.3" }] }
+    }
+    owned_names      = { include = ["apps"], exclude = ["k8s.apps"] }
+    unmanaged_ignore = [{ name_regex = "^web\\.apps\\.", types = ["A"] }]
+    existing_records = [
+      { id = "id-apps", name = "apps.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-web", name = "web.apps.example.com", type = "A", content = "192.0.2.2" },
+      { id = "id-other", name = "other.example.com", type = "A", content = "192.0.2.9" },
+    ]
+  }
+
+  assert {
+    condition     = [for r in output.presumed_previous_records : r.id] == ["id-apps"]
+    error_message = "Presumed previous records follow unmanaged_ignore and owned_names reporting rules"
+  }
+}

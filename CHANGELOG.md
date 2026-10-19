@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `presumed_previous_records` output (v5): IDs, names and types of existing records taken as old values during a value change and left out of `unmanaged_records`. The module cannot see the state, so a record added by hand may be among them
+
+### Changed
+
+- `tools/plan-guard.py` rejects errored plans, unsupported format versions and incomplete plans (including targeted plans); `--allow-incomplete` allows checking incomplete plans with the usual checks
+
+### Internal
+
+- CI tests Terraform 1.8.0, the promised minimum, and the latest version
+
 ## [2.16.4] - 2026-10-20
 
 ### Changed

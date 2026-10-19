@@ -39,7 +39,7 @@ jobs:
           - examples/yaml
           - examples/import
         # Minimum supported and the latest version
-        terraform: [1.8.5, latest]
+        terraform: [1.8.0, latest]
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
