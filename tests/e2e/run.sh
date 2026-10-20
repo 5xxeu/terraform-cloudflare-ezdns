@@ -250,9 +250,10 @@ pass "idna: records with names in Unicode created in Punycode without drift (${n
 mkdir -p "${E2E_DIR}/.upgrade-from"
 # Archive from the repository root, git archive otherwise uses the current subdirectory.
 git -C "$(git rev-parse --show-toplevel)" archive "refs/tags/${upgrade_from}" | tar -x -C "${E2E_DIR}/.upgrade-from"
-grep -q '^module "v5" {' "${E2E_DIR}/.upgrade-from/main.tf" &&
-    [ -f "${E2E_DIR}/.upgrade-from/modules/dns/v5/main.tf" ] ||
+if ! grep -q '^module "v5" {' "${E2E_DIR}/.upgrade-from/main.tf" ||
+    [ ! -f "${E2E_DIR}/.upgrade-from/modules/dns/v5/main.tf" ]; then
     fail "upgrade: archive of ${upgrade_from} does not contain the root module and v5 wrapper"
+fi
 cat >"${E2E_DIR}/upgrade/source_override.tf" <<'EOF'
 module "dns" {
   source = "../.upgrade-from"
