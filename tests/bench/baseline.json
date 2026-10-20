@@ -1,0 +1,4 @@
+{
+  "note": "Fill measurements from the first CI run on GitHub ubuntu-latest with Terraform 1.16.4.",
+  "workloads": {}
+}
