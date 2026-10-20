@@ -76,7 +76,12 @@ trap cleanup EXIT
 # Prints how many resources a saved plan creates, deletes, updates, imports and moves
 plan_summary() {
     # A failed plan must not summarize a stale tfplan.
-    tf "$1" plan -no-color -out=tfplan "${@:2}" >"${E2E_DIR}/plan.log" 2>&1 || return $?
+    local rc=0
+    tf "$1" plan -no-color -out=tfplan "${@:2}" >"${E2E_DIR}/plan.log" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        tail -40 "${E2E_DIR}/plan.log" >&2
+        return "$rc"
+    fi
     tf "$1" show -json tfplan | jq -r '
         [.resource_changes[]? | select(.mode == "managed")] as $rc |
         "create=\([$rc[] | select(.change.actions | index("create"))] | length) " +
@@ -256,17 +261,20 @@ EOF
 tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
 tf upgrade apply -auto-approve -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
 record_ids upgrade >"${E2E_DIR}/ids-upgrade-before.txt"
+# Capture addresses before moved blocks in the new source can rewrite the prior state.
+tf upgrade show -json | jq '
+    [.values | .. | objects |
+        select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] | sort
+' >"${E2E_DIR}/ids-upgrade-addresses.json"
 rm "${E2E_DIR}/upgrade/source_override.tf"
 tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of current checkout: $(tail -40 "${E2E_DIR}/upgrade.log")"
-summary=$(plan_summary upgrade 2>"${E2E_DIR}/upgrade.log") || fail "upgrade: plan: $(tail -40 "${E2E_DIR}/plan.log" "${E2E_DIR}/upgrade.log")"
+summary=$(plan_summary upgrade) || fail "upgrade: plan failed"
 # Check the saved plan's actions, including both orders of a replacement.
-tf upgrade show -json tfplan | jq -e '
+tf upgrade show -json tfplan | jq -e --slurpfile before "${E2E_DIR}/ids-upgrade-addresses.json" '
     [.resource_changes[]? | select(.mode == "managed" and .type == "cloudflare_dns_record")] as $rc |
-    [.prior_state.values | .. | objects |
-        select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] as $before |
     ($rc | length) > 0 and
     all($rc[]; .change.actions == ["no-op"] or .change.actions == ["update"]) and
-    ($before | sort) == ([$rc[] | .previous_address // .address] | sort)
+    $before[0] == ([$rc[] | .previous_address // .address] | sort)
 ' >/dev/null || fail "upgrade: expected only no-op, in-place updates or explicit moves (${summary})"
 tf upgrade apply -auto-approve -no-color tfplan >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of saved plan: $(tail -40 "${E2E_DIR}/upgrade.log")"
 record_ids upgrade >"${E2E_DIR}/ids-upgrade-after.txt"
