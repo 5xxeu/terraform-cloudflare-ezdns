@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-10-20
+
 ### Added
 
 - `require_keys` input: record types whose records must have a `key`, e.g. `["A", "AAAA", "TXT"]`. A record of these types without a `key` fails at `plan` with where it is defined; `CNAME` and `ALIASES` are keyed by name and cannot be listed. The default `[]` changes nothing
@@ -547,7 +549,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.17.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...v2.17.0
 [2.16.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...v2.16.4
 [2.16.3]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.2...v2.16.3
