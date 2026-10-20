@@ -2,7 +2,7 @@
 
 Part of the documentation of [ezdns](../README.md).
 
-The core module, both wrappers and the examples have plan-only tests (the wrappers and examples use a mocked provider), no Cloudflare credentials needed. The core module's tests also pin the invariants of name normalization (`names.tftest.hcl`: every form of a name gives one fully qualified name) and record identity (`identity.tftest.hcl`: reordering records keeps their keys, a `key` keeps the address when the value changes, YAML and HCL give the same records):
+The core module, both wrappers and the examples have Terraform tests (the wrappers and examples use a mocked provider), no Cloudflare credentials needed. The core module's tests also pin the invariants of name normalization (`names.tftest.hcl`: every form of a name gives one fully qualified name) and record identity (`identity.tftest.hcl`: reordering records keeps their keys, a `key` keeps the address when the value changes, YAML and HCL give the same records). The v5 wrapper adds identity tests with applied mock state in `modules/dns/v5/tests/identity.tftest.hcl`: reordering, moving records between groups or between a group and `records`, and changing a value under the same key keep the addresses and IDs:
 
 ```sh
 cd modules/dns/v5
@@ -115,7 +115,8 @@ Pass the same inputs as to the module call that manages the zone (`record_groups
 3. Adopts the same records into an empty state with `import_existing` and checks that all of them are imported, none created, and each one under the ID of the record created in step 1.
 4. Creates records with the v4 wrapper and opens the state with the v5 wrapper: the records must be moved, not recreated, and keep their keys and Cloudflare IDs.
 5. Creates records with names, a prefix of a record type and a `CNAME` target in Unicode through the `idna` submodule, and checks that they are stored in Punycode without drift.
-6. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
+6. Applies a small configuration from the highest stable ancestor tag before the current commit (or `E2E_UPGRADE_FROM`), then switches to the current checkout. The saved plan must have no record creates or deletes; moves and in-place updates are reported. After apply, record keys and Cloudflare IDs must match and the next plan must show no changes. Tags and their commits must be available locally.
+7. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
 
 The log of a run names neither the zone nor the records, since the CI logs are public; in CI the zone name is a secret of the environment, so GitHub masks it.
 
