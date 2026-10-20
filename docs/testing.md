@@ -21,9 +21,18 @@ python3 scripts/test-schema.py --terraform   # the same documents through the mo
 
 The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/tests`), and the YAML that `zone-to-ezdns.py` writes from a fixture goes through the module in CI.
 
-CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile` and `idna` submodules, both wrappers and the examples (on Terraform 1.8.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request.
+CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile` and `idna` submodules, both wrappers and the examples (on Terraform 1.8.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request. The Benchmarks check measures the core on pull requests that change it and on pushes to main, and blocks time or peak memory regressions over 2x the stored CI baseline.
+
+## Benchmarks
 
 Plan time grows a little faster than the number of records. Measured on 2026-10-13 with Terraform 1.16.4, the root module and a mocked provider (`terraform test`, `command = plan`) on an Apple M2 Pro: 1,000 records (A, AAAA, CNAME, TXT and MX in equal parts) take about 8 seconds, 5,000 records about 55 seconds. A real plan adds the refresh of every record by the provider.
+
+`tests/bench/plain` measures plain records through the records module, without groups, import or a provider: `hosts` names (default 500) with an A, an AAAA, a TXT and an MX record each, plus `hosts` separate CNAME names. The five types have equal counts:
+
+```sh
+terraform -chdir=tests/bench/plain init
+time terraform -chdir=tests/bench/plain plan
+```
 
 `import_existing` and `report_unmanaged` compare the configured records with the records of the zone. `tests/bench/import` measures that part on the core module, without a provider: `hosts` hosts (default 1,000) with an A, a TXT and an MX record each, a zone with the same records, half of the A records with another value, and a stray record per host:
 
@@ -42,6 +51,21 @@ time terraform -chdir=tests/bench/groups plan -var hosts=1000
 ```
 
 Measured on 2026-10-18 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (11,100 records) take about 37 seconds, 500 hosts about 16 seconds, 250 hosts about 8 seconds. Up to 2.15.0 the time was quadratic: 17, 55 and 203 seconds.
+
+`scripts/bench.py` runs one plan per workload, after a quiet init, with fixed CI sizes: plain with 500 hosts, groups with 500 hosts and 10 groups, and import with 1,000 hosts. It records the Terraform version, variables, wall time and peak memory of the plan process, then compares time and memory with `tests/bench/baseline.json`. Either measurement more than 2x the baseline fails the check. Missing workloads or different sizes warn and skip comparison; a different Terraform version warns. There is no measurement history.
+
+```sh
+python3 scripts/bench.py
+python3 scripts/bench.py --json results.json
+python3 scripts/bench.py --summary summary.md
+python3 scripts/bench.py --only plain   # repeat --only to select several workloads
+python3 scripts/bench.py --baseline results.json --factor 2
+python3 scripts/bench.py --update
+```
+
+CI uses Terraform 1.16.4 on `ubuntu-latest`. On pull requests the Benchmarks job always runs, but only measures plans when the diff from the merge base with the base branch touches any root `.tf` file, Terraform files under `modules`, `tests/bench` or `scripts/bench.py`. Otherwise it reports "no core changes". Pushes to main always measure plans. The job writes a step summary and uploads `bench-results.json` in the `bench-results` artifact, including when a comparison fails.
+
+The baseline was measured by the CI job on `ubuntu-latest` with Terraform 1.16.4 on 2026-10-20: plain took about 8 seconds and 174.72 MiB peak memory, groups about 23 seconds and 312.96 MiB, and import about 9 seconds and 244.18 MiB. Update it from the JSON artifact of a CI run, or use `--update` on the runner, then commit it. Update it when changing the workloads, sizes, Terraform version or runner. `--update` replaces the baseline with the current run's results; with `--only`, it updates the measured workloads and keeps the others. Both forms set the Terraform version and platform from the current run. Local measurements are useful for investigating changes, but should not replace the CI baseline. An accepted slowdown needs an explanation in the pull request of the added work and why its cost is justified, then a reviewed baseline update from that CI run.
 
 To find the slow part of a plan, write a trace log and list the slowest locals, validations, outputs and checks:
 

@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Internal
 
+- Core changes run plain, groups and import benchmarks in CI, blocking time or peak memory regressions over 2x a stored runner baseline
+
 - End-to-end tests check upgrades from the previous release without recreating records or changing their Cloudflare IDs; mocked tests cover record identity across groups
 
 ### Changed
