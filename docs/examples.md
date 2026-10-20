@@ -4,6 +4,7 @@ Part of the documentation of [ezdns](../README.md).
 
 Complete module calls for common setups, each with the records it creates. Each one is planned in CI against a mocked provider, and the tables are generated from the module (`scripts/test-docs-examples.py`), so both stay valid for the current version. Values in angle brackets in the text, and the IDs, tokens and keys in the examples, are placeholders: take the real ones from the service you set up.
 
+- [Full Example](#full-example)
 - [Mail: Google Workspace](#mail-google-workspace)
 - [Mail: Microsoft 365](#mail-microsoft-365)
 - [Website: GitHub Pages](#website-github-pages)
@@ -14,6 +15,105 @@ Complete module calls for common setups, each with the records it creates. Each 
 - [Several Teams in One Zone](#several-teams-in-one-zone)
 - [Moving a Server Without a Gap](#moving-a-server-without-a-gap)
 - [Next to external-dns and cert-manager](#next-to-external-dns-and-cert-manager)
+
+## Full Example
+
+A zone with most of the features: the apex, nested names, aliases, CAA and a structured SRV record.
+
+```hcl
+module "dns" {
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "2.18.0"
+
+  zone_id   = var.zone_id
+  zone_name = "example.com" # optional, looked up from zone_id when omitted
+
+  records = {
+    # Zone apex (example.com)
+    "@" = {
+      A = [
+        { content = "192.0.2.1", proxied = true },
+      ]
+      # Result: TXT record for _dmarc.example.com
+      "_dmarc.TXT" = [
+        { content = "v=DMARC1; p=none" },
+      ]
+      # An explicit key keeps the record in place when the value changes
+      "google._domainkey.TXT" = [
+        { key = "dkim", content = "v=DKIM1; k=rsa; p=MIIBIjANBg..." },
+      ]
+      # Result: www.example.com -> CNAME -> example.com
+      ALIASES = [
+        { content = "www", proxied = true },
+      ]
+    }
+
+    # This will manage records for app.example.com
+    "app" = {
+      A = [
+        { content = "192.0.2.10", proxied = true },
+      ]
+      # Aliases create CNAMEs pointing to 'app.example.com'
+      # Result: support.example.com -> CNAME -> app.example.com
+      ALIASES = [
+        { content = "support", ttl = 1800 },
+      ]
+      TXT = [
+        { content = "v=spf1 include:_spf.google.com ~all" },
+      ]
+      MX = [
+        { content = "mail.example.com", priority = 10 },
+      ]
+      CAA = [
+        { content = "letsencrypt.org", tag = "issue" },
+        { content = "letsencrypt.org", tag = "issuewild" },
+      ]
+      # Supports specific sub-keys.
+      # Result: TXT record for _acme-challenge.app.example.com
+      "_acme-challenge.TXT" = [
+        { content = "verification-token" },
+      ]
+      # Inline aliases point to a prefixed name.
+      # Result: static.example.com -> CNAME -> cdn.app.example.com
+      "cdn.ALIASES" = [
+        { content = "static" },
+      ]
+    }
+
+    # Structured records use data instead of content
+    # Result: SRV record for _sip._tcp.example.com
+    "_sip._tcp" = {
+      SRV = [{
+        data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" }
+      }]
+    }
+  }
+}
+```
+
+The module creates these records:
+
+<!-- BEGIN_RECORDS -->
+
+| Name | Type | Value | TTL | Record key |
+|:-----|:-----|:------|----:|:-----------|
+| `example.com` | A | `192.0.2.1` | 1 (auto) | `@ A 192.0.2.1` |
+| `_acme-challenge.app.example.com` | TXT | `verification-token` | 3600 | `_acme-challenge.app TXT 2275f8d2b37d` |
+| `_dmarc.example.com` | TXT | `v=DMARC1; p=none` | 3600 | `_dmarc TXT 21541c4e7044` |
+| `_sip._tcp.example.com` | SRV | `10 5 5060 sip.example.com` | 3600 | `_sip._tcp SRV 9c61601f99e8` |
+| `app.example.com` | A | `192.0.2.10` | 1 (auto) | `app A 192.0.2.10` |
+| `app.example.com` | CAA | `issue letsencrypt.org` | 3600 | `app CAA issue letsencrypt.org` |
+| `app.example.com` | CAA | `issuewild letsencrypt.org` | 3600 | `app CAA issuewild letsencrypt.org` |
+| `app.example.com` | MX | `mail.example.com` (priority 10) | 3600 | `app MX mail.example.com` |
+| `app.example.com` | TXT | `v=spf1 include:_spf.google.com ~all` | 3600 | `app TXT 585509e95a34` |
+| `google._domainkey.example.com` | TXT | `v=DKIM1; k=rsa; p=MIIBIjANBg...` | 3600 | `google._domainkey TXT dkim` |
+| `static.example.com` | CNAME | `cdn.app.example.com` | 3600 | `static CNAME` |
+| `support.example.com` | CNAME | `app.example.com` | 1800 | `support CNAME` |
+| `www.example.com` | CNAME | `example.com` | 1 (auto) | `www CNAME` |
+
+<!-- END_RECORDS -->
+
+More module calls for common setups (mail, websites, CAA, SRV, teams) are in [docs/examples.md](#). Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
 
 ## Mail: Google Workspace
 
@@ -33,7 +133,7 @@ module "dns" {
       TXT = [{ key = "spf", content = "v=spf1 include:_spf.google.com ~all" }]
 
       # A key keeps each record in place when its value changes (a new DKIM key, a
-      # stricter DMARC policy), see "Record Keys" in the README
+      # stricter DMARC policy), see "Record Keys" in record-model.md
       "google._domainkey.TXT" = [{ key = "dkim", content = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA" }]
       "_dmarc.TXT"            = [{ key = "dmarc", content = "v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@example.com" }]
     }
@@ -328,7 +428,7 @@ The module creates these records:
 
 ## Several Teams in One Zone
 
-Each team keeps its records in a file of its own and owns a part of the zone. With one module call, [`record_groups`](../README.md#records-in-several-files) joins the files; with a module call per team (each in its own state, applied by its own pipeline), `owned_names` keeps every call in its part, so a record of one team cannot land in the part of another.
+Each team keeps its records in a file of its own and owns a part of the zone. With one module call, [`record_groups`](yaml.md#records-in-several-files) joins the files; with a module call per team (each in its own state, applied by its own pipeline), `owned_names` keeps every call in its part, so a record of one team cannot land in the part of another.
 
 ```yaml
 # platform.ezdns.yaml
@@ -400,7 +500,7 @@ The module creates these records:
 
 ## Moving a Server Without a Gap
 
-A record whose value changes keeps its place in the state when it has a `key`. To move `app` to a new address with both answering for a while (the steps are in [Changing Values Without a Gap](../README.md#changing-values-without-a-gap)), the old and the new address get their own keys:
+A record whose value changes keeps its place in the state when it has a `key`. To move `app` to a new address with both answering for a while (the steps are in [Changing Values Without a Gap](record-model.md#changing-values-without-a-gap)), the old and the new address get their own keys:
 
 ```hcl
 module "dns" {
@@ -475,4 +575,4 @@ The module creates these records:
 
 <!-- END_RECORDS -->
 
-cert-manager creates each challenge record and deletes it afterwards, so its records stay out of `records`; [`ignore_changes`](../README.md#values-changed-outside-terraform) is for a record that the module creates and another tool only updates. Records of the zone that neither the module nor the two tools manage appear as a warning in the plan and in the sensitive `unmanaged_records` output; with `unmanaged_policy = "error"` they stop the plan. See [Next to external-dns](recipes.md#next-to-external-dns) for why the names must not overlap.
+cert-manager creates each challenge record and deletes it afterwards, so its records stay out of `records`; [`ignore_changes`](record-model.md#values-changed-outside-terraform) is for a record that the module creates and another tool only updates. Records of the zone that neither the module nor the two tools manage appear as a warning in the plan and in the sensitive `unmanaged_records` output; with `unmanaged_policy = "error"` they stop the plan. See [Next to external-dns](recipes.md#next-to-external-dns) for why the names must not overlap.

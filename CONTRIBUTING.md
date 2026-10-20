@@ -12,7 +12,32 @@ Security problems are reported privately, see [SECURITY.md](SECURITY.md).
 - Python 3 with `jsonschema` and `pyyaml`
 - `shellcheck`, `jq`
 
-The [Structure](README.md#structure) section of the README shows where the code lives. In short: the record logic is in `modules/dns/records`, the provider wrappers in `modules/dns/v4` and `modules/dns/v5`, and the root module passes everything to the v5 wrapper. `modules/dns/compile` gives the records without a provider, `modules/dns/idna` converts names in Unicode before the v5 wrapper, and `tools` has the Python scripts (`plan-guard.py`, `zone-to-ezdns.py`). The README covers the use of the module; the longer guides (recipes, import, unmanaged records, plan checks, upgrading, testing) are in [docs](docs).
+## Structure
+
+```
+*.tf           # Root module: the v5 wrapper
+modules/dns/
+├── records/   # Provider-agnostic core: validation and flattening (internal)
+├── compile/   # The checks of the wrappers without a provider, for tests of your records
+├── idna/      # The v5 wrapper for names in Unicode, converted with the 5xxeu/idna provider
+├── v4/        # Wrapper for Cloudflare provider v4 (cloudflare_record)
+└── v5/        # Wrapper for Cloudflare provider v5 (cloudflare_dns_record);
+               # migrate-from-v4.tf moves the state of the v4 wrapper
+examples/
+├── v5/        # Records in HCL
+├── yaml/      # Records in a YAML file, validated by the JSON Schema
+├── import/    # Adopting a zone that already has records
+└── v4/        # Provider v4, for existing configurations
+schema/        # JSON Schema for records in YAML
+tools/         # plan-guard.py (checks a saved plan), moved-blocks.py (moved blocks from a plan), zone-to-ezdns.py (YAML of a zone)
+docs/          # The guides: record model, validation, inputs and outputs, YAML, examples, ...
+scripts/       # The checks of CI
+tests/         # terraform test with a mocked provider, the end-to-end test, benchmarks
+```
+
+Both wrappers share the same inputs, outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
+
+The README covers what the module does and how to start; the record model, validation, inputs and outputs and the longer guides are in [docs](docs).
 
 ## Checks
 
@@ -43,7 +68,7 @@ The plan-only tests use a mocked provider and need no Cloudflare credentials, se
 - Keep the wrappers in sync: a change of inputs or outputs goes into `modules/dns/v4`, `modules/dns/v5` and the root module.
 - Changing a record key moves records in the state of every user. Avoid it, or add `moved` blocks and a note in [Upgrading and Migration](docs/upgrading.md).
 - Add a line to the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) for changes users see.
-- Update the README (or the guide in `docs`) when the behavior or the inputs change.
+- Update the README or the guide in `docs` when the behavior or the inputs change.
 
 ## Rules the Code Keeps
 

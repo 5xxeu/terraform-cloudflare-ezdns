@@ -19,7 +19,7 @@ a part of what the record is: they change in place after the move. A record that
 matches several others (copies of one record), or whose name, type or value is known
 only after apply, gets no block; it is listed as a comment to decide by hand. Records
 of different resource types (cloudflare_record of provider v4 and cloudflare_dns_record
-of v5) are not paired: see the migration in the README for those.
+of v5) are not paired: see the migration from provider v4 to v5 in docs/upgrading.md.
 
 Python 3.8 or later, standard library only. Exit status: 0 when every deleted and
 created record is paired or has no counterpart, 1 when some need a choice by hand (the

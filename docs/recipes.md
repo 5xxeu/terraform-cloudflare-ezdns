@@ -88,7 +88,7 @@ The module manages only the records in its configuration and leaves the others a
 
 ## Cloudflare Tunnel
 
-A [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) answers on a proxied `CNAME` to `<tunnel ID>.cfargotunnel.com`. The ID comes from the tunnel resource, known only after it is created, so the record needs a `key` (see [Record Keys](../README.md#record-keys)):
+A [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) answers on a proxied `CNAME` to `<tunnel ID>.cfargotunnel.com`. The ID comes from the tunnel resource, known only after it is created, so the record needs a `key` (see [Record Keys](record-model.md#record-keys)):
 
 ```hcl
 resource "cloudflare_zero_trust_tunnel_cloudflared" "app" {
@@ -183,5 +183,5 @@ module "dns" {
 
 - An internationalized zone must set `zone_name` here, see [Requirements](../README.md#requirements).
 - `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names, but not the record types under them: `to_ascii` would write `"_acme-challenge.TXT"` in lower case. An internationalized prefix of a type is converted on its own (`"${provider::idna::to_ascii("straße")}.A"`). Convert targets where they are written: `content` of `CNAME`, `MX`, `NS`, `PTR` and `ALIASES`, `target` of `SRV`, `HTTPS` and `SVCB` and `replacement` of `NAPTR` in `data`. A `URI` target is a URI: convert only its host (`"https://${provider::idna::to_ascii("münchen.de")}/path"`).
-- Record keys contain the converted form (`xn--bcher-kva CNAME`). A configuration that wrote these names and targets in Punycode in lower case can switch to the readable form without changing addresses in the state. Keys keep a name as written, so a name written in another form (`XN--BCHER-KVA`) gets a new key: keep the record with a `moved` block, see [Record Keys](../README.md#record-keys).
+- Record keys contain the converted form (`xn--bcher-kva CNAME`). A configuration that wrote these names and targets in Punycode in lower case can switch to the readable form without changing addresses in the state. Keys keep a name as written, so a name written in another form (`XN--BCHER-KVA`) gets a new key: keep the record with a `moved` block, see [Record Keys](record-model.md#record-keys).
 - With records in YAML, convert the names of the decoded map the same way. The JSON Schema accepts names in Punycode only, so the editor marks names in Unicode.

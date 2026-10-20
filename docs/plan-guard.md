@@ -38,7 +38,7 @@ A plan without such changes prints `plan-guard: the plan passes` and exits with 
 - run: terraform apply tfplan
 ```
 
-With the module from the Terraform Registry or Git, `terraform init` puts the script into `.terraform/modules/<module name>/tools/`; with a [local copy](../README.md#local-copy), it is in `modules/ezdns/tools/` (full archive).
+With the module from the Terraform Registry or Git, `terraform init` puts the script into `.terraform/modules/<module name>/tools/`; with a [local copy](sources.md#local-copy), it is in `modules/ezdns/tools/` (full archive).
 
 - `--allow-incomplete` checks a plan with `complete = false`, including every plan made with `-target`. By default, these plans are rejected because they may leave changes out. The usual checks still apply with this flag.
 - `--max-deletes N` and `--max-replacements N` allow up to N deletions or replacements (default 0). A changed value without a `key` is a deletion and a creation, so it counts as a deletion.
