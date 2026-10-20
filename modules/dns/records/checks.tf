@@ -78,7 +78,7 @@ locals {
 
   # Records of the types in require_keys without a key. Reported by type, name and the
   # place in the configuration only: without a key, the record key contains the value
-  required_key_types = { for t in var.require_keys : t => true }
+  required_key_types = { for t in toset(var.require_keys) : t => true }
   missing_keys = [
     for r in local.records : "${r.type} ${r.fqdn} from ${r.source}"
     if r.explicit_key == null && can(local.required_key_types[r.type])

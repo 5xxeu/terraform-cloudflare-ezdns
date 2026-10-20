@@ -35,6 +35,19 @@ run "records_with_keys" {
   }
 }
 
+run "repeated_types" {
+  command = plan
+
+  variables {
+    require_keys = ["A", "A"]
+  }
+
+  assert {
+    condition     = length(output.flat_records) == 4
+    error_message = "A type listed twice is checked once"
+  }
+}
+
 run "record_without_a_key" {
   command = plan
 
