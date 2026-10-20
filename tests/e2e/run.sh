@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end test against a real Cloudflare zone: creates records of all types
 # under a label of this run, checks updates, import, the v4 to v5 migration and
-# names in Unicode, and deletes everything at the end.
+# names in Unicode, an upgrade from the previous release, and deletes everything
+# at the end.
 #
 # Requires CLOUDFLARE_API_TOKEN (DNS Edit on the zone), E2E_ZONE_ID and E2E_ZONE_NAME.
 set -euo pipefail
@@ -33,7 +34,7 @@ qualified_names() {
 cleanup() {
     local rc=$? cleaned=1 dir
     set +e
-    for dir in idna v4to5 v4 v5; do
+    for dir in upgrade idna v4to5 v4 v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
             echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
@@ -45,6 +46,7 @@ cleanup() {
         cleaned=0
     fi
     if [ "$cleaned" = 1 ]; then
+        rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/upgrade/source_override.tf"
         rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
     else
         echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
@@ -52,11 +54,34 @@ cleanup() {
     fi
     exit "$rc"
 }
+# A tag on HEAD is this release, so compare with the release before it.
+upgrade_from=${E2E_UPGRADE_FROM:-}
+if [ -n "$upgrade_from" ]; then
+    git show-ref --verify --quiet "refs/tags/${upgrade_from}" || fail "E2E_UPGRADE_FROM must name an available tag"
+else
+    head_commit=$(git rev-parse HEAD)
+    while read -r tag; do
+        [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+        tag_commit=$(git rev-parse "refs/tags/${tag}^{commit}")
+        [ "$tag_commit" != "$head_commit" ] || continue
+        if git merge-base --is-ancestor "$tag_commit" HEAD; then
+            upgrade_from=$tag
+            break
+        fi
+    done < <(git tag --merged HEAD --sort=-version:refname)
+    [ -n "$upgrade_from" ] || fail "no previous vX.Y.Z ancestor tag available, fetch full history and tags or set E2E_UPGRADE_FROM"
+fi
 trap cleanup EXIT
 
 # Prints how many resources a saved plan creates, deletes, updates, imports and moves
 plan_summary() {
-    tf "$1" plan -no-color -out=tfplan "${@:2}" >/dev/null
+    # A failed plan must not summarize a stale tfplan.
+    local rc=0
+    tf "$1" plan -no-color -out=tfplan "${@:2}" >"${E2E_DIR}/plan.log" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        tail -40 "${E2E_DIR}/plan.log" >&2
+        return "$rc"
+    fi
     tf "$1" show -json tfplan | jq -r '
         [.resource_changes[]? | select(.mode == "managed")] as $rc |
         "create=\([$rc[] | select(.change.actions | index("create"))] | length) " +
@@ -219,5 +244,43 @@ names=$(qualified_names idna)
 punycode=$(tf idna output -json record_names | jq '[.[] | select(startswith("xn--"))] | length')
 [ "$punycode" = 2 ] || fail "idna: expected 2 names in Punycode, got ${punycode}"
 pass "idna: records with names in Unicode created in Punycode without drift (${names})"
+
+# Scenario 5: upgrade the previous release to this checkout without losing records.
+# The override changes only the source, removing it restores ../../.. in main.tf.
+mkdir -p "${E2E_DIR}/.upgrade-from"
+# Archive from the repository root, git archive otherwise uses the current subdirectory.
+git -C "$(git rev-parse --show-toplevel)" archive "refs/tags/${upgrade_from}" | tar -x -C "${E2E_DIR}/.upgrade-from"
+if ! grep -q '^module "v5" {' "${E2E_DIR}/.upgrade-from/main.tf" ||
+    [ ! -f "${E2E_DIR}/.upgrade-from/modules/dns/v5/main.tf" ]; then
+    fail "upgrade: archive of ${upgrade_from} does not contain the root module and v5 wrapper"
+fi
+cat >"${E2E_DIR}/upgrade/source_override.tf" <<'EOF'
+module "dns" {
+  source = "../.upgrade-from"
+}
+EOF
+tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
+tf upgrade apply -auto-approve -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
+record_ids upgrade >"${E2E_DIR}/ids-upgrade-before.txt"
+# Capture addresses before moved blocks in the new source can rewrite the prior state.
+tf upgrade show -json | jq '
+    [.values | .. | objects |
+        select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] | sort
+' >"${E2E_DIR}/ids-upgrade-addresses.json"
+rm "${E2E_DIR}/upgrade/source_override.tf"
+tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of current checkout: $(tail -40 "${E2E_DIR}/upgrade.log")"
+summary=$(plan_summary upgrade) || fail "upgrade: plan failed"
+# Check the saved plan's actions, including both orders of a replacement.
+tf upgrade show -json tfplan | jq -e --slurpfile before "${E2E_DIR}/ids-upgrade-addresses.json" '
+    [.resource_changes[]? | select(.mode == "managed" and .type == "cloudflare_dns_record")] as $rc |
+    ($rc | length) > 0 and
+    all($rc[]; .change.actions == ["no-op"] or .change.actions == ["update"]) and
+    $before[0] == ([$rc[] | .previous_address // .address] | sort)
+' >/dev/null || fail "upgrade: expected only no-op, in-place updates or explicit moves (${summary})"
+tf upgrade apply -auto-approve -no-color tfplan >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of saved plan: $(tail -40 "${E2E_DIR}/upgrade.log")"
+record_ids upgrade >"${E2E_DIR}/ids-upgrade-after.txt"
+assert_same_ids "upgrade" "${E2E_DIR}/ids-upgrade-before.txt" "${E2E_DIR}/ids-upgrade-after.txt"
+assert_no_changes upgrade
+pass "upgrade from ${upgrade_from}: same record IDs, no drift (${summary})"
 
 echo "All end-to-end checks passed"
