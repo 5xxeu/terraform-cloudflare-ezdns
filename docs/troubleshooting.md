@@ -23,7 +23,7 @@ A record takes its value from another resource (`content = aws_instance.web.publ
 }
 ```
 
-Values of other attributes (`ttl`, `comment`) known only after apply need no key. See [Record Keys](../README.md#record-keys).
+Values of other attributes (`ttl`, `comment`) known only after apply need no key. See [Record Keys](record-model.md#record-keys).
 
 ### Duplicate records (remove the duplicates or set a unique key for each of them; ...
 
@@ -72,7 +72,7 @@ The zone has more records of one type than the lookup returns at once (100,000),
 
 ### A record with ignore_changes is found in the zone by its name and type ...
 
-A record with [`ignore_changes`](../README.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, so it must be the only configured record of its type on its name, and the zone may have only one record of that name and type. Move the other configured records of the type to another name or drop `ignore_changes`, or delete the extra records in the zone.
+A record with [`ignore_changes`](record-model.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, so it must be the only configured record of its type on its name, and the zone may have only one record of that name and type. Move the other configured records of the type to another name or drop `ignore_changes`, or delete the extra records in the zone.
 
 ### ignore_changes needs provider v5
 
@@ -118,11 +118,11 @@ A null MX (`content = "."`, `priority = 0`, RFC 7505) says that a name takes no 
 
 ### The plan deletes and creates a record whose value I changed
 
-A record without a `key` is addressed by its value, so a new value is a new record: Terraform deletes the old one and creates the new one, with a short gap between them. Give records whose values change a `key`, then the change is an update in place. See [Changing Values Without a Gap](../README.md#changing-values-without-a-gap).
+A record without a `key` is addressed by its value, so a new value is a new record: Terraform deletes the old one and creates the new one, with a short gap between them. Give records whose values change a `key`, then the change is an update in place. See [Changing Values Without a Gap](record-model.md#changing-values-without-a-gap).
 
 ### The plan deletes and creates a record whose name I only rewrote
 
-`www`, `WWW` and `www.example.com` are one DNS name, but the key keeps the name as written, so rewriting it gives the record a new address. Do not apply such a plan: the delete and the create run in no fixed order, so the name either stops answering for a moment or the create fails as a copy of the record that still exists. Add a `moved` block from the old key to the new one, see [Record Keys](../README.md#record-keys); the plan then changes nothing.
+`www`, `WWW` and `www.example.com` are one DNS name, but the key keeps the name as written, so rewriting it gives the record a new address. Do not apply such a plan: the delete and the create run in no fixed order, so the name either stops answering for a moment or the create fails as a copy of the record that still exists. Add a `moved` block from the old key to the new one, see [Record Keys](record-model.md#record-keys); the plan then changes nothing.
 
 A rename to another name (`app` to `api`) is a delete and a create too, and the old name stops answering at once, as it should. A `moved` block keeps the Cloudflare record (its ID and comment) and changes its name; to keep both names answering for a while, add the new name in one apply and remove the old one in the next.
 

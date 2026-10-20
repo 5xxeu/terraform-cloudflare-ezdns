@@ -252,7 +252,7 @@ variable "records" {
         ]
       ]
     ])) == 0
-    error_message = "Record data has unknown or missing fields. See \"Record Types\" in the README for the fields of each type:\n${join("\n", flatten([
+    error_message = "Record data has unknown or missing fields. See \"Record Types\" in docs/record-model.md for the fields of each type:\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
