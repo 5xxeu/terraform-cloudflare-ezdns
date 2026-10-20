@@ -76,6 +76,7 @@ module "records" {
   allowed_cname_conflicts = var.allowed_cname_conflicts
   minimum_ttl             = local.minimum_ttl
   owned_names             = var.owned_names
+  require_keys            = var.require_keys
 }
 
 data "cloudflare_zone" "this" {

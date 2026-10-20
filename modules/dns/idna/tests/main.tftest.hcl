@@ -197,3 +197,27 @@ run "list_record_groups" {
 
   expect_failures = [var.record_groups]
 }
+
+run "require_keys_passed_to_the_wrapper" {
+  command = plan
+
+  variables {
+    require_keys = ["A"]
+    records      = { "straße" = { A = [{ content = "192.0.2.9", key = "web" }] } }
+  }
+
+  assert {
+    condition     = toset(keys(output.records)) == toset(["xn--strae-oqa A web"])
+    error_message = "Records with a key are planned with require_keys"
+  }
+}
+
+run "require_keys_in_the_wrapper" {
+  command = plan
+
+  variables {
+    require_keys = ["ALIASES"]
+  }
+
+  expect_failures = [var.require_keys]
+}

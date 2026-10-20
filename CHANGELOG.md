@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `require_keys` input: record types whose records must have a `key`, e.g. `["A", "AAAA", "TXT"]`. A record of these types without a `key` fails at `plan` with where it is defined; `CNAME` and `ALIASES` are keyed by name and cannot be listed. The default `[]` changes nothing
+
+### Changed
+
+- The first example of the README and the examples with server addresses give the address records a `key`, so a new address is an update in place
+
 ## [2.17.0] - 2026-10-20
 
 ### Added

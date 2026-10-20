@@ -268,7 +268,7 @@ module "dns" {
       SRV = [{ data = { priority = 5, weight = 0, port = 5269, target = "xmpp.example.com" } }]
     }
     "xmpp" = {
-      A = [{ content = "192.0.2.20", proxied = false }]
+      A = [{ key = "xmpp", content = "192.0.2.20", proxied = false }]
     }
   }
 }
@@ -282,7 +282,7 @@ The module creates these records:
 |:-----|:-----|:------|----:|:-----------|
 | `_xmpp-client._tcp.example.com` | SRV | `5 0 5222 xmpp.example.com` | 3600 | `_xmpp-client._tcp SRV 684e805d2526` |
 | `_xmpp-server._tcp.example.com` | SRV | `5 0 5269 xmpp.example.com` | 3600 | `_xmpp-server._tcp SRV 178141a91006` |
-| `xmpp.example.com` | A | `192.0.2.20` | 3600 | `xmpp A 192.0.2.20` |
+| `xmpp.example.com` | A | `192.0.2.20` | 3600 | `xmpp A xmpp` |
 
 <!-- END_RECORDS -->
 
@@ -302,8 +302,8 @@ module "dns" {
 
   records = {
     "app" = {
-      A    = [{ content = "192.0.2.30", proxied = false }]
-      AAAA = [{ content = "2001:db8::30", proxied = false }]
+      A    = [{ key = "web", content = "192.0.2.30", proxied = false }]
+      AAAA = [{ key = "web", content = "2001:db8::30", proxied = false }]
       HTTPS = [{
         data = { priority = 1, target = ".", alpn = "h3,h2", ipv4hint = "192.0.2.30", ipv6hint = "2001:db8::30" }
       }]
@@ -318,8 +318,8 @@ The module creates these records:
 
 | Name | Type | Value | TTL | Record key |
 |:-----|:-----|:------|----:|:-----------|
-| `app.example.com` | A | `192.0.2.30` | 3600 | `app A 192.0.2.30` |
-| `app.example.com` | AAAA | `2001:db8::30` | 3600 | `app AAAA 2001:db8::30` |
+| `app.example.com` | A | `192.0.2.30` | 3600 | `app A web` |
+| `app.example.com` | AAAA | `2001:db8::30` | 3600 | `app AAAA web` |
 | `app.example.com` | HTTPS | `1 . alpn="h3,h2" ipv4hint="192.0.2.30" ipv6hint="2001:db8::30"` | 3600 | `app HTTPS c2403c3d36f3` |
 
 <!-- END_RECORDS -->
@@ -457,7 +457,7 @@ module "dns" {
 
   records = {
     "@" = {
-      A       = [{ content = "192.0.2.10", proxied = true }]
+      A       = [{ key = "web", content = "192.0.2.10", proxied = true }]
       ALIASES = [{ content = "www", proxied = true }]
     }
   }
@@ -470,7 +470,7 @@ The module creates these records:
 
 | Name | Type | Value | TTL | Record key |
 |:-----|:-----|:------|----:|:-----------|
-| `example.com` | A | `192.0.2.10` | 1 (auto) | `@ A 192.0.2.10` |
+| `example.com` | A | `192.0.2.10` | 1 (auto) | `@ A web` |
 | `www.example.com` | CNAME | `example.com` | 1 (auto) | `www CNAME` |
 
 <!-- END_RECORDS -->

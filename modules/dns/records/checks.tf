@@ -76,6 +76,14 @@ locals {
     ],
   )
 
+  # Records of the types in require_keys without a key. Reported by type, name and the
+  # place in the configuration only: without a key, the record key contains the value
+  required_key_types = { for t in var.require_keys : t => true }
+  missing_keys = [
+    for r in local.records : "${r.type} ${r.fqdn} from ${r.source}"
+    if r.explicit_key == null && can(local.required_key_types[r.type])
+  ]
+
   # A wildcard is only valid as the whole leftmost label. Names, prefixes and aliases
   # are checked on their own in the records validation; this checks the names they
   # combine into ("_acme-challenge" under "*" gives "_acme-challenge.*") and the

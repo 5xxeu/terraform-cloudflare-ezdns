@@ -33,7 +33,7 @@ module "dns" {
   records = {
     "app" = {
       # app.example.com
-      A = [{ content = "192.0.2.10" }]
+      A = [{ key = "web", content = "192.0.2.10" }]
 
       # _acme-challenge.app.example.com
       "_acme-challenge.TXT" = [{ key = "acme", content = "token" }]
@@ -49,7 +49,7 @@ module "dns" {
 
 ```text
   # module.dns.module.v5.cloudflare_dns_record.record["_acme-challenge.app TXT acme"] will be created
-  # module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"] will be created
+  # module.dns.module.v5.cloudflare_dns_record.record["app A web"] will be created
   # module.dns.module.v5.cloudflare_dns_record.record["www CNAME"] will be created
 
 Plan: 3 to add, 0 to change, 0 to destroy.
@@ -59,12 +59,12 @@ Each record is an instance of `module.dns.module.v5.cloudflare_dns_record.record
 
 | Record | Key in the state |
 |:-------|:-----------------|
-| `app.example.com A 192.0.2.10` | `app A 192.0.2.10` |
+| `app.example.com A 192.0.2.10` | `app A web` |
 | `_acme-challenge.app.example.com TXT "token"` | `_acme-challenge.app TXT acme` |
 | `www.example.com CNAME app.example.com` | `www CNAME` |
 
 - **Names**: `"app"` is the name within the zone (`"@"` for the apex). A prefix before the type (`"_acme-challenge.TXT"`) is added to the name.
-- **Addresses**: a record is addressed by its content, so adding or removing records in a list leaves the others alone. A changed value is a new record (the old one is deleted, the new one created, in no fixed order). With `key`, the key takes the place of the value in the address: a new value is an update in place, without a gap, and the value can come from another resource, known only after apply:
+- **Addresses**: a record without `key` is addressed by its value (`_acme-challenge.app TXT ee977806d728` without `key = "acme"`), so adding or removing records in a list leaves the others alone, but a changed value is a new record (the old one is deleted, the new one created, in no fixed order). With `key`, the key takes the place of the value in the address: a new value is an update in place, without a gap, and the value can come from another resource, known only after apply:
 
   ```hcl
   "app" = {
@@ -74,7 +74,7 @@ Each record is an instance of `module.dns.module.v5.cloudflare_dns_record.record
   }
   ```
 
-  Give a `key` to every record whose value changes: addresses of servers, tokens, DKIM keys.
+  Give a `key` to every record whose value changes: addresses of servers, tokens, DKIM keys. With `require_keys = ["A", "AAAA", "TXT"]`, a record of these types without a `key` fails at `plan`.
 - **Aliases**: `ALIASES` create CNAMEs that point to the name of the block.
 
 Everything else (all record types, defaults, import of existing records, validation) builds on this; see the [full example](#full-example) and the sections below.
@@ -107,7 +107,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
      records = {
        "@" = {
-         A       = [{ content = "192.0.2.10", proxied = true }]
+         A       = [{ key = "web", content = "192.0.2.10", proxied = true }]
          ALIASES = [{ content = "www", proxied = true }]
        }
      }
@@ -574,7 +574,11 @@ Use a `key` whenever the value of a record is expected to change, or is not know
 - values from other resources (`content = aws_instance.web.public_ip`)
 - `MX` records that differ only in priority, `CAA` records that differ only in flags
 
-Without a `key`, a changed value is a new record: the old one is deleted and the new one created.
+Without a `key`, a changed value is a new record: the old one is deleted and the new one created. To make sure no such record is missed, list the types that need a `key` in `require_keys`: a record of these types without a `key` fails at `plan`, with where it is defined:
+
+```hcl
+require_keys = ["A", "AAAA", "TXT"]
+```
 
 **Values computed by other resources need a `key`.** `for_each` keys must be known at `plan`, so a record whose value comes from another resource (`content = aws_instance.web.public_ip`) fails with "The "for_each" value depends on resource attributes that cannot be determined until apply" unless it has a `key`:
 
@@ -703,6 +707,7 @@ The `records` input (and the records of `record_groups`) is validated before any
 - A `CNAME` or alias cannot point to its own name (case, a trailing dot, `@` and the short form do not matter)
 - `CAA` records require `tag`: `issue`, `issuewild` or `iodef`
 - `key` must be a non-empty string without whitespace
+- With `require_keys` (record types, e.g. `["A", "AAAA", "TXT"]`), every record of these types must have a `key`. `CNAME` and `ALIASES` cannot be listed: their records are keyed by name, so a new target is an update in place anyway
 - Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) show a warning, since the module ignores them; they will fail from 3.0
 - Two different SPF records on one name, two DMARC records on a `_dmarc` name, and a null `MX` next to other `MX` records on one name (RFC 7505) show a warning: Cloudflare accepts them, but mail receivers do not, see [Troubleshooting](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/troubleshooting.md#a-name-with-a-null-mx-has-other-mx-records)
 - With [`owned_names`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#the-part-of-the-zone-a-module-call-owns), every record must be in the part of the zone that the module call owns
@@ -740,7 +745,7 @@ records["app"]["A"][0].priority
 
 ## Inputs
 
-Both wrappers take `zone_id`, `zone_name` (optional, looked up from `zone_id` when omitted; when set, it must be the name of that zone, see [Requirements](#requirements)), `records`, [`record_groups`](#records-in-several-files), the [defaults](#defaults-comments-and-tags), `minimum_ttl`, `allowed_cname_conflicts` (see [Validation](#validation)) and [`owned_names`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#the-part-of-the-zone-a-module-call-owns); the v5 wrapper also takes `import_existing`, `report_unmanaged`, `unmanaged_ignore` and `unmanaged_policy`. The [`compile`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records) submodule takes the inputs of the v4 wrapper without `zone_id`, with `zone_name` required, and the [`idna`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#internationalized-names) submodule the inputs of the root module, with names in Unicode.
+Both wrappers take `zone_id`, `zone_name` (optional, looked up from `zone_id` when omitted; when set, it must be the name of that zone, see [Requirements](#requirements)), `records`, [`record_groups`](#records-in-several-files), the [defaults](#defaults-comments-and-tags), `minimum_ttl`, `require_keys` (see [When to Use `key`](#when-to-use-key)), `allowed_cname_conflicts` (see [Validation](#validation)) and [`owned_names`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#the-part-of-the-zone-a-module-call-owns); the v5 wrapper also takes `import_existing`, `report_unmanaged`, `unmanaged_ignore` and `unmanaged_policy`. The [`compile`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing-your-records) submodule takes the inputs of the v4 wrapper without `zone_id`, with `zone_name` required, and the [`idna`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#internationalized-names) submodule the inputs of the root module, with names in Unicode.
 
 The type of `records` is shown as `any`: Terraform silently drops unknown attributes when it converts a value to an object type, so the module accepts the value as is, rejects unknown attributes, and then converts it to the typed structure described in [Record Object Schema](#record-object-schema). The full reference of inputs, outputs, requirements and resources is generated from the code with [terraform-docs](https://terraform-docs.io): [`modules/dns/v4`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/modules/dns/v4), [`modules/dns/v5`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/modules/dns/v5), [`modules/dns/compile`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/modules/dns/compile), [`modules/dns/idna`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/modules/dns/idna).
 

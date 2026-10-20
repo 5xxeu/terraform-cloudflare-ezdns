@@ -16,6 +16,7 @@ module "v5" {
   allowed_cname_conflicts = var.allowed_cname_conflicts
   minimum_ttl             = var.minimum_ttl
   owned_names             = var.owned_names
+  require_keys            = var.require_keys
   unmanaged_ignore        = var.unmanaged_ignore
   unmanaged_policy        = var.unmanaged_policy
 }
