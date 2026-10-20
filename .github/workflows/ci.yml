@@ -141,7 +141,7 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = pull_request ]; then
             merge_base=$(git merge-base HEAD "$BASE_SHA")
-            if git diff --quiet "$merge_base" HEAD -- main.tf variables.tf outputs.tf versions.tf ':(glob)modules/**/*.tf' tests/bench/ scripts/bench.py; then
+            if git diff --quiet "$merge_base" HEAD -- ':(top,glob)*.tf' ':(glob)modules/**/*.tf' tests/bench/ scripts/bench.py; then
               echo "no core changes"
               echo "run=false" >> "$GITHUB_OUTPUT"
               exit 0

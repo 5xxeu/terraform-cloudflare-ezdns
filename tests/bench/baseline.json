@@ -1,4 +1,28 @@
 {
-  "note": "Fill measurements from the first CI run on GitHub ubuntu-latest with Terraform 1.16.4.",
-  "workloads": {}
+  "terraform_version": "1.16.4",
+  "platform": "GitHub ubuntu-latest",
+  "workloads": {
+    "plain": {
+      "vars": {
+        "hosts": 500
+      },
+      "seconds": 8.113737493000002,
+      "memory_mib": 174.72265625
+    },
+    "groups": {
+      "vars": {
+        "hosts": 500,
+        "groups": 10
+      },
+      "seconds": 22.999572421000003,
+      "memory_mib": 312.9609375
+    },
+    "import": {
+      "vars": {
+        "hosts": 1000
+      },
+      "seconds": 9.442371030000004,
+      "memory_mib": 244.17578125
+    }
+  }
 }
