@@ -71,6 +71,7 @@ module "records" {
   allowed_cname_conflicts = var.allowed_cname_conflicts
   minimum_ttl             = var.minimum_ttl == "auto" ? 30 : tonumber(var.minimum_ttl)
   owned_names             = var.owned_names
+  require_keys            = var.require_keys
 }
 
 # Numbers in text values are written in their canonical form ("0123" -> "123",

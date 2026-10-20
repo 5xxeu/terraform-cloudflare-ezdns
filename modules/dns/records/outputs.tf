@@ -18,6 +18,11 @@ output "flat_records" {
   }
 
   precondition {
+    condition     = length(local.missing_keys) == 0
+    error_message = "require_keys lists the types of these records, so each of them needs a key (e.g. key = \"web\"): with a key, a new value is an update in place, without one the record is deleted and created again:\n${join("\n", local.missing_keys)}"
+  }
+
+  precondition {
     condition     = length(local.misplaced_wildcards) == 0
     error_message = "A wildcard must be the whole leftmost label of a name (\"*\", \"*.app\"); these names put it elsewhere:\n${join("\n", local.misplaced_wildcards)}"
   }

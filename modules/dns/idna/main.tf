@@ -156,6 +156,7 @@ module "v5" {
   default_tags            = var.default_tags
   allowed_cname_conflicts = [for n in var.allowed_cname_conflicts : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]
   minimum_ttl             = var.minimum_ttl
+  require_keys            = var.require_keys
   owned_names = var.owned_names == null ? null : {
     include = [for n in var.owned_names.include : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]
     exclude = [for n in var.owned_names.exclude : can(regex("[^[:ascii:]]", n)) ? provider::idna::to_ascii(n) : n]

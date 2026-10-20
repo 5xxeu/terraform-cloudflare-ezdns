@@ -613,3 +613,27 @@ run "list_record_groups" {
 
   expect_failures = [var.record_groups]
 }
+
+run "require_keys_passed_to_the_core" {
+  command = plan
+
+  variables {
+    require_keys = ["A"]
+    records      = { "app" = { A = [{ content = "192.0.2.9", key = "web" }] } }
+  }
+
+  assert {
+    condition     = length(cloudflare_record.record) == 1 && cloudflare_record.record["app A web"].content == "192.0.2.9"
+    error_message = "Records with a key are planned with require_keys"
+  }
+}
+
+run "require_keys_in_the_wrapper" {
+  command = plan
+
+  variables {
+    require_keys = ["CNAME"]
+  }
+
+  expect_failures = [var.require_keys]
+}

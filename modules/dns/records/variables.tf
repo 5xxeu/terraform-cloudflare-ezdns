@@ -59,6 +59,18 @@ variable "minimum_ttl" {
   }
 }
 
+variable "require_keys" {
+  description = "Record types whose records must have a key (CNAME records, ALIASES included, are keyed by name and cannot be listed)"
+  type        = list(string)
+  default     = []
+  nullable    = false
+
+  validation {
+    condition     = length(setsubtract(var.require_keys, ["A", "AAAA", "CAA", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"])) == 0
+    error_message = "require_keys must list record types in upper case, other than CNAME and ALIASES."
+  }
+}
+
 variable "allowed_cname_conflicts" {
   description = "Names where a CNAME may share its name with other records, for existing zones that have such names (Cloudflare accepts them for records that are not proxied). Compared fully qualified and case-insensitively; a second CNAME on a name still fails"
   type        = list(string)

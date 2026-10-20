@@ -350,3 +350,15 @@ variable "minimum_ttl" {
     error_message = "minimum_ttl must be 60, 30 for zones on the Cloudflare Enterprise plan, or \"auto\" to take it from the plan of the zone."
   }
 }
+
+variable "require_keys" {
+  description = "Record types whose records must have a key, e.g. [\"A\", \"AAAA\", \"TXT\"]: a record of these types without a key fails at plan. Without a key, a record is addressed by its value, so a new value deletes the record and creates a new one. CNAME and ALIASES are keyed by name, so they cannot be listed"
+  type        = list(string)
+  default     = []
+  nullable    = false
+
+  validation {
+    condition     = length(setsubtract(var.require_keys, ["A", "AAAA", "CAA", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"])) == 0
+    error_message = "require_keys must list record types in upper case, other than CNAME and ALIASES (their records are keyed by name, so a new value is an update in place without a key):\n${join("\n", [for t in var.require_keys : jsonencode(t) if !contains(["A", "AAAA", "CAA", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"], t)])}"
+  }
+}
