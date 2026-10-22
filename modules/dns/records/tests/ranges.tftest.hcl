@@ -357,6 +357,16 @@ run "svc_ipv4hint_not_ipv4" {
   expect_failures = [var.records]
 }
 
+run "svc_ipv4hint_leading_zeros" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", ipv4hint = "192.0.2.1,010.1.1.1" } }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
 run "svc_ipv6hint_not_ipv6" {
   command = plan
 

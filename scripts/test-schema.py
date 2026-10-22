@@ -44,6 +44,8 @@ INVALID = {
     "proxied as text": 'records: { app: { A: [{ content: 192.0.2.10, proxied: "yes" }] } }',
     "proxied TXT": 'records: { app: { TXT: [{ content: x, proxied: true }] } }',
     "IPv6 in A": 'records: { app: { A: [{ content: "2001:db8::1" }] } }',
+    "IPv4 leading zeros": 'records: { app: { A: [{ content: "192.000.002.001" }] } }',
+    "IPv4 octal-looking octet": 'records: { app: { A: [{ content: "010.1.1.1" }] } }',
     "invalid IPv4": 'records: { app: { A: [{ content: 192.168.1.300 }] } }',
     "IPv4 in AAAA": 'records: { app: { AAAA: [{ content: 192.0.2.1 }] } }',
     "empty TXT content": 'records: { app: { TXT: [{ content: "" }] } }',

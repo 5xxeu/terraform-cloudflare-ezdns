@@ -510,7 +510,7 @@ variable "records" {
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
                   if lookup(data, field, null) == null ? false : !alltrue([
-                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && can(regex("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$", address)) : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
                   ])
                 ],
               )
@@ -519,7 +519,7 @@ variable "records" {
         ]
       ]
     ])) == 0
-    error_message = "HTTPS and SVCB service parameters must be valid: alpn a comma-separated list of protocol IDs (h2,h3), mandatory a list of other parameters that are set, each once, ipv4hint and ipv6hint comma-separated addresses, ech padded base64, and value only without them:\n${join("\n", flatten([
+    error_message = "HTTPS and SVCB service parameters must be valid: alpn a comma-separated list of protocol IDs (h2,h3), mandatory a list of other parameters that are set, each once, ipv4hint and ipv6hint comma-separated addresses (IPv4 without leading zeros in octets), ech padded base64, and value only without them:\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
@@ -541,7 +541,7 @@ variable "records" {
                 [
                   for field in ["ipv4hint", "ipv6hint"] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}.data.${field}: ${jsonencode(lookup(data, field, null))}"
                   if lookup(data, field, null) == null ? false : !alltrue([
-                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && !strcontains(address, ":") : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
+                    for address in split(",", lookup(data, field, null)) : field == "ipv4hint" ? can(cidrhost("${address}/32", 0)) && can(regex("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$", address)) : can(cidrhost("${address}/128", 0)) && strcontains(address, ":")
                   ])
                 ],
               )
@@ -684,7 +684,7 @@ variable "records" {
             for idx, rec in recs : [
               for value in [coalesce(rec.content, "x")] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
               if !(
-                kind == "A" ? can(cidrhost("${value}/32", 0)) && !strcontains(value, ":") :
+                kind == "A" ? can(cidrhost("${value}/32", 0)) && can(regex("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$", value)) :
                 kind == "AAAA" ? can(cidrhost("${value}/128", 0)) && strcontains(value, ":") :
                 contains(["CNAME", "MX", "NS", "PTR"], kind) ? (
                   value == "@"
@@ -703,14 +703,14 @@ variable "records" {
         ]
       ]
     ])) == 0
-    error_message = "A records need an IPv4 address and AAAA records an IPv6 address; CNAME, MX, NS and PTR records need a DNS name (labels of letters, digits, '_' and '-' up to 63 characters, at most 253 in total, not an IP address; \"@\" for the zone apex, \".\" for a null MX); TXT values are limited to 2048 characters:\n${join("\n", flatten([
+    error_message = "A records need an IPv4 address without leading zeros in octets and AAAA records an IPv6 address; CNAME, MX, NS and PTR records need a DNS name (labels of letters, digits, '_' and '-' up to 63 characters, at most 253 in total, not an IP address; \"@\" for the zone apex, \".\" for a null MX); TXT values are limited to 2048 characters:\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : [
               for value in [coalesce(rec.content, "x")] : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${kind == "TXT" ? "${length(value)} characters" : jsonencode(rec.content)}"
               if !(
-                kind == "A" ? can(cidrhost("${value}/32", 0)) && !strcontains(value, ":") :
+                kind == "A" ? can(cidrhost("${value}/32", 0)) && can(regex("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$", value)) :
                 kind == "AAAA" ? can(cidrhost("${value}/128", 0)) && strcontains(value, ":") :
                 contains(["CNAME", "MX", "NS", "PTR"], kind) ? (
                   value == "@"

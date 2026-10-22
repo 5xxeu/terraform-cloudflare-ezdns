@@ -58,3 +58,5 @@ These attributes do not apply to the type of their record and are ignored
 flags are for CAA). Remove them: from 3.0 they will fail the plan:
 records["app"]["A"][0].priority
 ```
+
+A records and the `ipv4hint` of HTTPS and SVCB records require decimal IPv4 octets without leading zeros. See [Upgrading and Migration](upgrading.md#to-220-ipv4-without-leading-zeros) when correcting an existing value.

@@ -25,3 +25,6 @@ tools/tests/terraform/records.ezdns.yaml
 
 # Left by an interrupted run of scripts/test-docs-examples.py
 .docs-example-*/
+
+# Temporary converter integration tests
+.converter-test-*/

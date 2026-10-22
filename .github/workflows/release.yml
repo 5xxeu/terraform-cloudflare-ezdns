@@ -68,6 +68,9 @@ jobs:
           done
           echo "No end-to-end result for ${GITHUB_SHA} after 35 minutes"; exit 1
 
+      - name: Check release version references
+        run: python3 scripts/check-versions.py --tag "$GITHUB_REF_NAME"
+
       - name: Release notes from the changelog
         run: |
           awk -v v="${GITHUB_REF_NAME#v}" '

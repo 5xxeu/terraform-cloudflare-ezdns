@@ -1,0 +1,461 @@
+{
+  "result": [
+    {
+      "id": "00000001",
+      "name": "a.example.com",
+      "type": "A",
+      "proxied": false,
+      "content": "192.0.2.1"
+    },
+    {
+      "id": "00000002",
+      "name": "a.example.com",
+      "type": "A",
+      "proxied": false,
+      "content": "192.0.2.1"
+    },
+    {
+      "id": "00000003",
+      "name": "aaaa.example.com",
+      "type": "AAAA",
+      "proxied": false,
+      "content": "::ffff:c000:201"
+    },
+    {
+      "id": "00000004",
+      "name": "aaaa.example.com",
+      "type": "AAAA",
+      "proxied": false,
+      "content": "::ffff:192.0.2.1"
+    },
+    {
+      "id": "00000005",
+      "name": "cname.example.com",
+      "type": "CNAME",
+      "proxied": false,
+      "content": "@"
+    },
+    {
+      "id": "00000006",
+      "name": "cname.example.com",
+      "type": "CNAME",
+      "proxied": false,
+      "content": "Example.COM."
+    },
+    {
+      "id": "00000007",
+      "name": "mx.example.com",
+      "type": "MX",
+      "proxied": false,
+      "content": "Mx.Example.NET.",
+      "priority": 10
+    },
+    {
+      "id": "00000008",
+      "name": "mx.example.com",
+      "type": "MX",
+      "proxied": false,
+      "content": "mx.example.net",
+      "priority": 10
+    },
+    {
+      "id": "00000009",
+      "name": "ns.example.com",
+      "type": "NS",
+      "proxied": false,
+      "content": "NS.Example.NET."
+    },
+    {
+      "id": "0000000a",
+      "name": "ns.example.com",
+      "type": "NS",
+      "proxied": false,
+      "content": "ns.example.net"
+    },
+    {
+      "id": "0000000b",
+      "name": "ptr.example.com",
+      "type": "PTR",
+      "proxied": false,
+      "content": "Ptr.Example.NET."
+    },
+    {
+      "id": "0000000c",
+      "name": "ptr.example.com",
+      "type": "PTR",
+      "proxied": false,
+      "content": "ptr.example.net"
+    },
+    {
+      "id": "0000000d",
+      "name": "txt.example.com",
+      "type": "TXT",
+      "proxied": false,
+      "content": "hello \"world\" \\ tail"
+    },
+    {
+      "id": "0000000e",
+      "name": "txt.example.com",
+      "type": "TXT",
+      "proxied": false,
+      "content": "\"hello \" \"\\\"world\\\" \\\\ tail\""
+    },
+    {
+      "id": "0000000f",
+      "name": "openpgpkey.example.com",
+      "type": "OPENPGPKEY",
+      "proxied": false,
+      "content": "mQINBGE"
+    },
+    {
+      "id": "00000010",
+      "name": "openpgpkey.example.com",
+      "type": "OPENPGPKEY",
+      "proxied": false,
+      "content": "mQINBGE"
+    },
+    {
+      "id": "00000011",
+      "name": "caa.example.com",
+      "type": "CAA",
+      "proxied": false,
+      "data": {
+        "tag": "issue",
+        "value": " CA.Example.NET. ; accounturi=Exact",
+        "flags": 0
+      }
+    },
+    {
+      "id": "00000012",
+      "name": "caa.example.com",
+      "type": "CAA",
+      "proxied": false,
+      "data": {
+        "tag": "issue",
+        "value": "ca.example.net; accounturi=Exact"
+      }
+    },
+    {
+      "id": "00000013",
+      "name": "srv.example.com",
+      "type": "SRV",
+      "proxied": false,
+      "data": {
+        "priority": "10.0",
+        "weight": "5.00",
+        "port": "5060",
+        "target": "Sip.Example.NET."
+      }
+    },
+    {
+      "id": "00000014",
+      "name": "srv.example.com",
+      "type": "SRV",
+      "proxied": false,
+      "data": {
+        "priority": "10",
+        "weight": "5",
+        "port": "5060.0",
+        "target": "sip.example.net"
+      }
+    },
+    {
+      "id": "00000015",
+      "name": "uri.example.com",
+      "type": "URI",
+      "proxied": false,
+      "priority": 10,
+      "data": {
+        "weight": "0.0",
+        "target": "https://example.net/Case"
+      }
+    },
+    {
+      "id": "00000016",
+      "name": "uri.example.com",
+      "type": "URI",
+      "proxied": false,
+      "priority": 10,
+      "data": {
+        "weight": "0",
+        "target": "https://example.net/Case"
+      }
+    },
+    {
+      "id": "00000017",
+      "name": "https.example.com",
+      "type": "HTTPS",
+      "proxied": false,
+      "data": {
+        "priority": "1.0",
+        "target": "Svc.Example.NET.",
+        "value": "alpn=\"h2\""
+      }
+    },
+    {
+      "id": "00000018",
+      "name": "https.example.com",
+      "type": "HTTPS",
+      "proxied": false,
+      "data": {
+        "priority": "1",
+        "target": "svc.example.net",
+        "value": "alpn=\"h2\""
+      }
+    },
+    {
+      "id": "00000019",
+      "name": "svcb.example.com",
+      "type": "SVCB",
+      "proxied": false,
+      "data": {
+        "priority": "1.0",
+        "target": "Svc.Example.NET."
+      }
+    },
+    {
+      "id": "0000001a",
+      "name": "svcb.example.com",
+      "type": "SVCB",
+      "proxied": false,
+      "data": {
+        "priority": "1",
+        "target": "svc.example.net"
+      }
+    },
+    {
+      "id": "0000001b",
+      "name": "tlsa.example.com",
+      "type": "TLSA",
+      "proxied": false,
+      "data": {
+        "usage": "3.0",
+        "selector": "1",
+        "matching_type": "1",
+        "certificate": "ABCDEF"
+      }
+    },
+    {
+      "id": "0000001c",
+      "name": "tlsa.example.com",
+      "type": "TLSA",
+      "proxied": false,
+      "data": {
+        "usage": "3",
+        "selector": "1.0",
+        "matching_type": "1.0",
+        "certificate": "abcdef"
+      }
+    },
+    {
+      "id": "0000001d",
+      "name": "smimea.example.com",
+      "type": "SMIMEA",
+      "proxied": false,
+      "data": {
+        "usage": "3.0",
+        "selector": "1",
+        "matching_type": "1",
+        "certificate": "ABCDEF"
+      }
+    },
+    {
+      "id": "0000001e",
+      "name": "smimea.example.com",
+      "type": "SMIMEA",
+      "proxied": false,
+      "data": {
+        "usage": "3",
+        "selector": "1.0",
+        "matching_type": "1.0",
+        "certificate": "abcdef"
+      }
+    },
+    {
+      "id": "0000001f",
+      "name": "sshfp.example.com",
+      "type": "SSHFP",
+      "proxied": false,
+      "data": {
+        "algorithm": "4.0",
+        "type": "2",
+        "fingerprint": "ABCDEF"
+      }
+    },
+    {
+      "id": "00000020",
+      "name": "sshfp.example.com",
+      "type": "SSHFP",
+      "proxied": false,
+      "data": {
+        "algorithm": "4",
+        "type": "2.0",
+        "fingerprint": "abcdef"
+      }
+    },
+    {
+      "id": "00000021",
+      "name": "ds.example.com",
+      "type": "DS",
+      "proxied": false,
+      "data": {
+        "key_tag": "2371",
+        "algorithm": "13",
+        "digest_type": "2",
+        "digest": "ABCDEF"
+      }
+    },
+    {
+      "id": "00000022",
+      "name": "ds.example.com",
+      "type": "DS",
+      "proxied": false,
+      "data": {
+        "key_tag": "2371.0",
+        "algorithm": "13.0",
+        "digest_type": "2.0",
+        "digest": "abcdef"
+      }
+    },
+    {
+      "id": "00000023",
+      "name": "dnskey.example.com",
+      "type": "DNSKEY",
+      "proxied": false,
+      "data": {
+        "flags": "257.0",
+        "protocol": "3",
+        "algorithm": "13",
+        "public_key": "AbCd"
+      }
+    },
+    {
+      "id": "00000024",
+      "name": "dnskey.example.com",
+      "type": "DNSKEY",
+      "proxied": false,
+      "data": {
+        "flags": "257",
+        "protocol": "3.0",
+        "algorithm": "13.0",
+        "public_key": "AbCd"
+      }
+    },
+    {
+      "id": "00000025",
+      "name": "cert.example.com",
+      "type": "CERT",
+      "proxied": false,
+      "data": {
+        "type": "1.0",
+        "key_tag": "1",
+        "algorithm": "8",
+        "certificate": "AbCd"
+      }
+    },
+    {
+      "id": "00000026",
+      "name": "cert.example.com",
+      "type": "CERT",
+      "proxied": false,
+      "data": {
+        "type": "1",
+        "key_tag": "1.0",
+        "algorithm": "8.0",
+        "certificate": "AbCd"
+      }
+    },
+    {
+      "id": "00000027",
+      "name": "naptr.example.com",
+      "type": "NAPTR",
+      "proxied": false,
+      "data": {
+        "order": "100.0",
+        "preference": "10",
+        "flags": "U",
+        "service": "E2U+sip",
+        "regex": "",
+        "replacement": "Sip.Example.NET."
+      }
+    },
+    {
+      "id": "00000028",
+      "name": "naptr.example.com",
+      "type": "NAPTR",
+      "proxied": false,
+      "data": {
+        "order": "100",
+        "preference": "10.0",
+        "flags": "U",
+        "service": "E2U+sip",
+        "regex": "",
+        "replacement": "sip.example.net"
+      }
+    },
+    {
+      "id": "00000029",
+      "name": "loc.example.com",
+      "type": "LOC",
+      "proxied": false,
+      "data": {
+        "lat_degrees": "59.0",
+        "lat_minutes": "26",
+        "lat_seconds": "14.5",
+        "lat_direction": "N",
+        "long_degrees": "24",
+        "long_minutes": "44",
+        "long_seconds": "43",
+        "long_direction": "E"
+      }
+    },
+    {
+      "id": "0000002a",
+      "name": "loc.example.com",
+      "type": "LOC",
+      "proxied": false,
+      "data": {
+        "lat_degrees": "59",
+        "lat_minutes": "26.0",
+        "lat_seconds": "14.50",
+        "lat_direction": "N",
+        "long_degrees": "24.0",
+        "long_minutes": "44.0",
+        "long_seconds": "43.0",
+        "long_direction": "E"
+      }
+    },
+    {
+      "id": "0000002b",
+      "name": "mx.example.com",
+      "type": "MX",
+      "proxied": false,
+      "content": "Mx.Example.NET.",
+      "priority": 20
+    },
+    {
+      "id": "0000002c",
+      "name": "uri.example.com",
+      "type": "URI",
+      "proxied": false,
+      "priority": 20,
+      "data": {
+        "weight": "0.0",
+        "target": "https://example.net/Case"
+      }
+    },
+    {
+      "id": "0000002d",
+      "name": "caa.example.com",
+      "type": "CAA",
+      "proxied": false,
+      "data": {
+        "tag": "issue",
+        "value": "ca.example.net",
+        "flags": 128
+      }
+    }
+  ],
+  "expected_count": 24,
+  "expected_copies": 21
+}

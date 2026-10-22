@@ -18,6 +18,14 @@ All notable changes to this project are documented in this file. The format is b
 
 - `README.md` and `SECURITY.md` say that the release workflow gates the GitHub Release and the archives, while the Terraform Registry picks up a pushed version tag on its own
 
+- The zone converter detects equivalent values across supported record types using the core module's comparisons, while keeping the original YAML values and the manual choice for different proxy settings
+
+- CI and release checks compare published version references, including Registry version comments in the v5, YAML and import examples, with the latest CHANGELOG entry
+
+### Changed
+
+- A records and the `ipv4hint` of HTTPS and SVCB records reject IPv4 octets with leading zeros. This is stricter validation; see `docs/upgrading.md` for input and state migration before upgrading
+
 ## [2.19.0] - 2026-10-25
 
 ### Added
