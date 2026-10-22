@@ -31,7 +31,7 @@ Out of scope: bugs of the Cloudflare provider, the Cloudflare API and Terraform 
 
 ## Verifying Releases
 
-Each release archive has a checksum in `SHA256SUMS` and signed build provenance, see [Local Copy](docs/sources.md#local-copy). From 2.10.4, the release workflow builds the archives and the GitHub release only after CI passed for the tagged commit, and from 2.16.0 only after the end-to-end test passed for it too and the archives were checked (`scripts/check-archives.sh`: the files of the module, no tests, both archives validate). The tag itself, used by Git sources, exists as soon as it is pushed:
+Each release archive has a checksum in `SHA256SUMS` and signed build provenance, see [Local Copy](docs/sources.md#local-copy). From 2.10.4, the release workflow builds the archives and the GitHub release only after CI passed for the tagged commit, and from 2.16.0 only after the end-to-end test passed for it too and the archives were checked (`scripts/check-archives.sh`: the files of the module, no tests, both archives validate). The tag itself, used by Git sources, exists as soon as it is pushed, and the Terraform Registry picks up a pushed version tag independently of this workflow: these checks gate only the GitHub Release and the archives, so a version tag is pushed only after CI and the end-to-end test passed on its commit. To verify an archive:
 
 ```sh
 gh attestation verify terraform-cloudflare-ezdns-<version>.tar.gz \

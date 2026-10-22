@@ -160,8 +160,8 @@ def schema():
         ),
         "NS": record({"content": hostname("Name server hostname", "@")}, ["content"], "NS record"),
         "PTR": record({"content": hostname("Hostname", "@")}, ["content"], "PTR record"),
-        "TXT": record({"content": {"description": "Text value", "type": "string", "maxLength": 2048}}, ["content"], "TXT record"),
-        "OPENPGPKEY": record({"content": {"description": "Public key", "type": "string"}}, ["content"], "OPENPGPKEY record (provider v5 only)"),
+        "TXT": record({"content": {"description": "Text value", "type": "string", "minLength": 1, "maxLength": 2048}}, ["content"], "TXT record"),
+        "OPENPGPKEY": record({"content": {"description": "Public key", "type": "string", "minLength": 1}}, ["content"], "OPENPGPKEY record (provider v5 only)"),
         "MX": {
             **record(
                 {"content": hostname("Mail server hostname, . for a null MX (RFC 7505)", "@", "."), "priority": {"description": "Priority, lower is preferred (0 for a null MX)", "type": "integer", "minimum": 0, "maximum": 65535}},
@@ -173,7 +173,7 @@ def schema():
         },
         "CAA": record(
             {
-                "content": {"description": "Value, e.g. letsencrypt.org", "type": "string"},
+                "content": {"description": "Value, e.g. letsencrypt.org", "type": "string", "minLength": 1},
                 "tag": {"description": "Property", "enum": ["issue", "issuewild", "iodef"]},
                 "flags": {"description": "Flags (default: 0)", "type": "integer", "minimum": 0, "maximum": 255},
             },

@@ -768,6 +768,7 @@
         "content": {
           "description": "Text value",
           "type": "string",
+          "minLength": 1,
           "maxLength": 2048
         }
       }
@@ -841,7 +842,8 @@
         },
         "content": {
           "description": "Public key",
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -1035,7 +1037,8 @@
         },
         "content": {
           "description": "Value, e.g. letsencrypt.org",
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "tag": {
           "description": "Property",
