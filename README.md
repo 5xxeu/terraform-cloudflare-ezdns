@@ -177,7 +177,7 @@ When the zone already has records, adopt them instead of creating them again: se
 What the module guarantees (tested in CI, and against a real zone before each release):
 
 - Within 2.x, record keys and therefore the addresses in the state stay the same (see [Stability](#stability)). A record with a `key` keeps its address when its value changes.
-- The checks listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan`; what they do not cover is left to the Cloudflare API, which fails at `apply`.
+- The errors listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan`; the warnings listed there (two SPF records on one name, attributes the module ignores) do not stop it. What the checks do not cover is left to the Cloudflare API, which fails at `apply`.
 - The module creates, changes and deletes only the records in its state. Records of other tools are never deleted, also with `report_unmanaged`.
 - With `import_existing`, a configured record is adopted only when exactly one record of the zone matches it; several matches stop the plan.
 - With `owned_names`, a configured record outside the owned part of the zone fails at `plan`.
@@ -189,7 +189,7 @@ Best-effort checks, which help a review but do not replace it:
 
 Limits of Terraform and the Cloudflare API:
 
-- Without a `key`, the value is part of the address: a new value deletes the old record and creates a new one, in no fixed order. A name rewritten in another form (`www` to `www.example.com`) gets a new address too (see [Record Keys](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/record-model.md#record-keys)).
+- Without a `key`, the value is part of the address (except for `CNAME` records and aliases, whose address is their name): a new value deletes the old record and creates a new one, in no fixed order. A name rewritten in another form (`www` to `www.example.com`) gets a new address too (see [Record Keys](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/record-model.md#record-keys)).
 - Lifecycle rules (`prevent_destroy`, `create_before_destroy`) cannot be set on the records inside a module.
 
 Reviewing the plan, and applying the plan that was reviewed (`terraform apply tfplan`), stays with the user.

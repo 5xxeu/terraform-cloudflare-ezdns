@@ -845,6 +845,31 @@ run "hand_added_record_next_to_a_new_record_is_presumed_old" {
   }
 }
 
+# The counts are per name and type: a changed record and a new one of the same name
+# and type leave room for two old values, so a hand-added record is taken as one too
+run "hand_added_record_next_to_a_changed_and_a_new_record_is_presumed_old" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "app", content = "192.0.2.2" }, { key = "app2", content = "192.0.2.3" }] } }
+    existing_records = [
+      { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-hand", name = "app.example.com", type = "A", content = "192.0.2.9" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = length(output.unmanaged_records) == 0
+    error_message = "The old value and the hand-added record are both taken as old values"
+  }
+
+  assert {
+    condition     = toset([for r in output.presumed_previous_records : r.id]) == toset(["id-app", "id-hand"])
+    error_message = "Both records are listed as presumed previous records"
+  }
+}
+
 run "hand_added_record_is_reported_once_the_new_record_exists" {
   command = plan
 
