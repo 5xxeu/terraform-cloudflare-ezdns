@@ -822,6 +822,77 @@ run "old_values_only_of_the_same_name_and_type" {
   }
 }
 
+# Known limit of the report (best-effort, docs/unmanaged-records.md): a record added by
+# hand on the name and type of a new record cannot be told from an old value, so it is
+# reported only from the plan after the one that creates the new record
+run "hand_added_record_next_to_a_new_record_is_presumed_old" {
+  command = plan
+
+  variables {
+    records          = { "app" = { A = [{ key = "app", content = "192.0.2.2" }] } }
+    existing_records = [{ id = "id-hand", name = "app.example.com", type = "A", content = "192.0.2.9" }]
+    import_existing  = false
+  }
+
+  assert {
+    condition     = length(output.unmanaged_records) == 0
+    error_message = "A hand-added record next to a new record is taken as its old value"
+  }
+
+  assert {
+    condition     = [for r in output.presumed_previous_records : r.id] == ["id-hand"]
+    error_message = "The hand-added record is listed as a presumed previous record"
+  }
+}
+
+# The counts are per name and type: a changed record and a new one of the same name
+# and type leave room for two old values, so a hand-added record is taken as one too
+run "hand_added_record_next_to_a_changed_and_a_new_record_is_presumed_old" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "app", content = "192.0.2.2" }, { key = "app2", content = "192.0.2.3" }] } }
+    existing_records = [
+      { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.1" },
+      { id = "id-hand", name = "app.example.com", type = "A", content = "192.0.2.9" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = length(output.unmanaged_records) == 0
+    error_message = "The old value and the hand-added record are both taken as old values"
+  }
+
+  assert {
+    condition     = toset([for r in output.presumed_previous_records : r.id]) == toset(["id-app", "id-hand"])
+    error_message = "Both records are listed as presumed previous records"
+  }
+}
+
+run "hand_added_record_is_reported_once_the_new_record_exists" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "app", content = "192.0.2.2" }] } }
+    existing_records = [
+      { id = "id-app", name = "app.example.com", type = "A", content = "192.0.2.2" },
+      { id = "id-hand", name = "app.example.com", type = "A", content = "192.0.2.9" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = [for r in output.unmanaged_records : r.id] == ["id-hand"]
+    error_message = "Once the new record exists, the hand-added record is unmanaged"
+  }
+
+  assert {
+    condition     = length(output.presumed_previous_records) == 0
+    error_message = "Nothing is presumed old when every configured record has a match"
+  }
+}
+
 # SRV keeps its priority in data (compared with the data); existing records have no
 # top-level priority for it, so it must not make the record unmanaged
 run "unmanaged_records_srv_priority_in_data" {

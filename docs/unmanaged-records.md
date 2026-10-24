@@ -70,7 +70,25 @@ unmanaged_ignore = [
 ]
 ```
 
-With `unmanaged_policy = "error"`, the report stops the plan instead of showing a warning, with the same list and the line `unmanaged_policy is "error", so the plan stops.` Use it in CI for a zone (or the [part of a zone](#the-part-of-the-zone-a-module-call-owns)) that only this configuration may change: a record added by hand in the dashboard then fails the next plan until it is added to the configuration or deleted.
+With `unmanaged_policy = "error"`, the report stops the plan instead of showing a warning, with the same list and the line `unmanaged_policy is "error", so the plan stops.` Use it in CI for a zone (or the [part of a zone](#the-part-of-the-zone-a-module-call-owns)) that only this configuration may change: a record added by hand in the dashboard then fails the plan until it is added to the configuration or deleted. The report is a best-effort check, not a lock: a record added on the name and type of a record that the same plan creates fails only the plan after that one (see [What the Report Sees](#what-the-report-sees)).
+
+## What the Report Sees
+
+The module reads the zone, not the Terraform state, so it cannot tell an old value of a record in the state from a record that someone else added on the same name and type. Where the two look the same, it takes the old value, so that changing a value does not fail the plan: on a name and type, the records of the zone that no configured record matches are taken as old values when there are no more of them than configured records that match nothing (records that the plan creates, or whose value or priority it changes). What follows from it:
+
+| Situation | Result |
+|:----------|:-------|
+| The configured value of a record changes | The old value is not listed (it is in `presumed_previous_records`) |
+| A record is added by hand on a name and type where the plan creates or changes no record | Listed |
+| A record is added by hand on the name and type of a record that the plan creates | Not listed on that plan (taken as the old value of the new record); listed from the plan after the apply |
+| A record is added by hand on the name and type of a record whose value or priority the plan changes | Listed, together with the old value of the changed record, unless the plan also creates a record of that name and type: then both are taken as old values |
+| A value of a configured record is changed in the dashboard | Not listed: the record is in the state, and the plan changes it back (or keeps it, with `ignore_changes`) |
+| Copies of a record (the same name, type and value, and for `MX` and `URI` the same priority) | The configured record that matches them is listed as ambiguous; with `import_existing` or `unmanaged_policy = "error"` they stop the plan |
+| Records of other Terraform states or tools (external-dns, cert-manager) | Listed, unless `owned_names` or `unmanaged_ignore` leaves them out. On the name and type of a record that this plan creates, they are taken as its old value, like a record added by hand. `owned_names` separates names, not the records of one name |
+| Records outside `owned_names` or matched by `unmanaged_ignore` | Never listed as unmanaged or presumed old; copies that a configured record matches are still listed as ambiguous (see above) |
+| Records that Cloudflare does not return as DNS records (the zone's own name servers) | Never listed |
+
+`presumed_previous_records` shows what was left out as an old value (type, name and ID), so a review of the plan can check it. An exact report would need the IDs of the records in the state, which a module cannot read.
 
 ## The Part of the Zone a Module Call Owns
 
