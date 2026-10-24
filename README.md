@@ -177,10 +177,10 @@ When the zone already has records, adopt them instead of creating them again: se
 What the module guarantees (tested in CI, and against a real zone before each release):
 
 - Within 2.x, record keys and therefore the addresses in the state stay the same (see [Stability](#stability)). A record with a `key` keeps its address when its value changes.
-- The errors listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan`; the warnings listed there (two SPF records on one name, attributes the module ignores) do not stop it. What the checks do not cover is left to the Cloudflare API, which fails at `apply`.
+- The errors listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan` when the values they check are known then (Terraform checks a value known only after apply, such as a TTL computed by another resource, at `apply`); the warnings listed there (two SPF records on one name, attributes the module ignores) do not stop it. What the checks do not cover is left to the Cloudflare API, which fails at `apply`.
 - The module creates, changes and deletes only the records in its state. Records of other tools are never deleted, also with `report_unmanaged`.
 - With `import_existing`, a configured record is adopted only when exactly one record of the zone matches it; several matches stop the plan.
-- With `owned_names`, a configured record outside the owned part of the zone fails at `plan`.
+- With `owned_names`, a configured record outside the owned part of the zone fails at `plan` (at `apply` when its name or the zone name is known only then).
 
 Best-effort checks, which help a review but do not replace it:
 
