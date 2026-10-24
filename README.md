@@ -2,7 +2,15 @@
 
 [![Release](https://img.shields.io/github/v/release/5xxeu/terraform-cloudflare-ezdns)](https://github.com/5xxeu/terraform-cloudflare-ezdns/releases/latest) [![Terraform Registry](https://img.shields.io/terraform/module/dt/5xxeu/ezdns/cloudflare?label=terraform%20registry&logo=terraform)](https://registry.terraform.io/modules/5xxeu/ezdns/cloudflare/latest) [![CI](https://github.com/5xxeu/terraform-cloudflare-ezdns/actions/workflows/ci.yml/badge.svg)](https://github.com/5xxeu/terraform-cloudflare-ezdns/actions/workflows/ci.yml) [![End-to-end](https://github.com/5xxeu/terraform-cloudflare-ezdns/actions/workflows/e2e.yml/badge.svg)](https://github.com/5xxeu/terraform-cloudflare-ezdns/actions/workflows/e2e.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/LICENSE)
 
-A flexible Terraform module to manage Cloudflare DNS records using a structured object-based approach. Instead of defining multiple record resources, you can define your entire DNS zone (or sub-sections of it) in a single hierarchical map.
+Predictable Cloudflare DNS management with Terraform. The zone (or a part of it) is one map of names and record types instead of a resource per record, and the module adds what plain resources leave to review:
+
+- **Stable state addresses**: a record with a `key` keeps its address when its value changes, and keys do not change within 2.x.
+- **Checks before apply**: mistakes in names, types, values and conflicting records fail at `plan`, before the Cloudflare API.
+- **Import of an existing zone**: records that are already in the zone are adopted instead of created again.
+- **Checks of dangerous changes**: a script for CI stops plans that delete or replace records or turn off the proxy.
+- **Tested upgrades**: the upgrade from the previous release and from provider v4 to v5 run against a real zone before each release; `moved` blocks for renamed records are written from a plan.
+
+What is guaranteed and what is a best-effort check is listed in [Guarantees and Limits](#guarantees-and-limits).
 
 ## How It Works in 30 Seconds
 
@@ -164,12 +172,34 @@ When the zone already has records, adopt them instead of creating them again: se
 - ✍️ **Editor Support for YAML**: A JSON Schema for records kept in YAML, for completion and highlighting of mistakes before `plan`.
 - 🧪 **Tested End to End**: Every record type, updates, import and the v4 to v5 migration are tested against a real Cloudflare zone.
 
+## Guarantees and Limits
+
+What the module guarantees (tested in CI, and against a real zone before each release):
+
+- Within 2.x, record keys and therefore the addresses in the state stay the same (see [Stability](#stability)). A record with a `key` keeps its address when its value changes.
+- The checks listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan`; what they do not cover is left to the Cloudflare API, which fails at `apply`.
+- The module creates, changes and deletes only the records in its state. Records of other tools are never deleted, also with `report_unmanaged`.
+- With `import_existing`, a configured record is adopted only when exactly one record of the zone matches it; several matches stop the plan.
+- With `owned_names`, a configured record outside the owned part of the zone fails at `plan`.
+
+Best-effort checks, which help a review but do not replace it:
+
+- [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#what-the-report-sees) reads the zone, not the state, so a record added next to a record that the plan creates is reported one plan later.
+- [`tools/plan-guard.py`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) reads the plan, not the zone or the order of the apply; when it cannot rule out an exposed origin, it fails rather than passes.
+
+Limits of Terraform and the Cloudflare API:
+
+- Without a `key`, the value is part of the address: a new value deletes the old record and creates a new one, in no fixed order. A name rewritten in another form (`www` to `www.example.com`) gets a new address too (see [Record Keys](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/record-model.md#record-keys)).
+- Lifecycle rules (`prevent_destroy`, `create_before_destroy`) cannot be set on the records inside a module.
+
+Reviewing the plan, and applying the plan that was reviewed (`terraform apply tfplan`), stays with the user.
+
 ## When Not to Use It
 
 The module fits zones whose records are written down and change through review. Something else fits better when:
 
 - **Records come from other systems at run time** (service discovery, Kubernetes ingresses, an inventory): a controller such as external-dns (it can work [next to the module](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#next-to-external-dns)), or `cloudflare_dns_record` with `for_each` over that data. The module needs the records at `plan`, and every value computed by another resource needs a `key` (see [Record Keys](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/record-model.md#record-keys)).
-- **The zone must match the configuration exactly**, with records that are not in it deleted: the module manages only its own records and leaves the rest of the zone alone; [import](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records) only adopts records that are in the configuration, and [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration) lists the other records without deleting them. With `unmanaged_policy = "error"`, such records stop the plan, so CI can enforce a zone without them, but deleting them stays a manual step.
+- **The zone must match the configuration exactly**, with records that are not in it deleted: the module manages only its own records and leaves the rest of the zone alone; [import](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/importing.md#importing-existing-records) only adopts records that are in the configuration, and [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#records-not-in-the-configuration) lists the other records without deleting them. With `unmanaged_policy = "error"`, such records stop the plan, so CI can keep a zone free of them (a best-effort check, see [What the Report Sees](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#what-the-report-sees)), but deleting them stays a manual step.
 - **Records need lifecycle rules** (`prevent_destroy`, `create_before_destroy`): Terraform does not let a configuration set them on the resources inside a module. Values changed outside Terraform are covered by [`ignore_changes`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/record-model.md#values-changed-outside-terraform) on the record. A [check of the saved plan](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) stops deletions and replacements in CI instead, also when a whole module call is removed.
 - **Records need a type or field the module does not support**: see [the recipe](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#a-record-type-or-field-the-module-does-not-support) for managing them next to the module call; when that is most of the zone, plain resources are simpler.
 

@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- The README starts with what the module adds over plain resources and has a Guarantees and Limits section: what is guaranteed, what is a best-effort check (`report_unmanaged`, `tools/plan-guard.py`) and what Terraform and the Cloudflare API do not allow. `docs/unmanaged-records.md` lists what the report sees in common situations, and no longer promises that `unmanaged_policy = "error"` fails the next plan for every record added by hand: a record added on the name and type of a record that the same plan creates is reported one plan later (a mocked test covers it)
+
 - The README keeps how the module works, a quick start, the requirements, the sources and when not to use it; the reference moved to `docs`: the record model (`docs/record-model.md`), validation (`docs/validation.md`), inputs and outputs (`docs/reference.md`), records in YAML and in several files (`docs/yaml.md`), the local copy and the Git source (`docs/sources.md`), and the full example (`docs/examples.md`). The structure of the repository is in `CONTRIBUTING.md`. Links to the moved README sections need the new pages; the error for unknown or missing `data` fields points to `docs/record-model.md`
 
 ## [2.18.0] - 2026-10-20
