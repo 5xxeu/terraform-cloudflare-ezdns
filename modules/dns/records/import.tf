@@ -230,7 +230,7 @@ locals {
       type = local.flat_records[key].type
       name = local.flat_records[key].fqdn
       ids  = ids
-    } if length(ids) > 1 && local.reported[ids[0]]
+    } if length(ids) > 1 ? local.reported[ids[0]] : false
   }
   # Only records in owned_names are reported, and none that unmanaged_ignore expects
   reported = {
