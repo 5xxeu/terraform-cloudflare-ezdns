@@ -52,13 +52,14 @@ time terraform -chdir=tests/bench/groups plan -var hosts=1000
 
 Measured on 2026-10-18 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (11,100 records) take about 37 seconds, 500 hosts about 16 seconds, 250 hosts about 8 seconds. Up to 2.15.0 the time was quadratic: 17, 55 and 203 seconds.
 
-`scripts/bench.py` runs one plan per workload, after a quiet init, with fixed CI sizes: plain with 500 hosts, groups with 500 hosts and 10 groups, and import with 1,000 hosts. It records the Terraform version, variables, wall time and peak memory of the plan process, then compares time and memory with `tests/bench/baseline.json`. Either measurement more than 2x the baseline fails the check. Missing workloads or different sizes warn and skip comparison; a different Terraform version warns. There is no measurement history.
+`scripts/bench.py` runs three plans per workload (`--runs N`), after a quiet init, with fixed CI sizes: plain with 500 hosts, groups with 500 hosts and 10 groups, and import with 1,000 hosts. It records the Terraform version, variables, the number of runs and the median wall time and median peak memory of the plan process (each metric separately, so one slow run on a busy runner does not fail the check), then compares time and memory with `tests/bench/baseline.json`. Either measurement more than 2x the baseline fails the check. Missing workloads or different sizes warn and skip comparison; a different Terraform version warns. There is no measurement history.
 
 ```sh
 python3 scripts/bench.py
 python3 scripts/bench.py --json results.json
 python3 scripts/bench.py --summary summary.md
 python3 scripts/bench.py --only plain   # repeat --only to select several workloads
+python3 scripts/bench.py --runs 1       # one plan per workload, faster
 python3 scripts/bench.py --baseline results.json --factor 2
 python3 scripts/bench.py --update
 ```
@@ -134,8 +135,8 @@ Pass the same inputs as to the module call that manages the zone (`record_groups
 
 `tests/e2e/run.sh` runs against a real Cloudflare zone. Under a label of the run (e.g. `e2e-1234.example.com`), it:
 
-1. Creates records of every type through the root module, some of them in `record_groups` with a TTL default of the group, and checks that a second `plan` shows no changes (no drift in the provider).
-2. Changes values: a record without a `key` is replaced, a record with a `key` is updated in place. With `report_unmanaged` and `unmanaged_policy = "error"` (limited to the label with `owned_names`, since the zone has records of other runs) the plan of the change passes; a record created through the API under the label is then reported, and stops the plan with `"error"`. Records with `ignore_changes` keep values changed through the API.
+1. Before the records exist, adds an `A` record through the API on the name of `A` records that the plan creates: the report takes it as an old value and the plan passes with `unmanaged_policy = "error"`, while `tools/plan-guard.py --unmanaged` lists it (the record is deleted again). Then creates records of every type through the root module, some of them in `record_groups` with a TTL default of the group, and checks that a second `plan` shows no changes (no drift in the provider).
+2. Changes values: a record without a `key` is replaced, a record with a `key` is updated in place. With `report_unmanaged` and `unmanaged_policy = "error"` (limited to the label with `owned_names`, since the zone has records of other runs) the plan of the change passes; `plan-guard --unmanaged` passes on that plan, as the old values are in the state. A record created through the API under the label is then reported, stops the plan with `"error"`, and is listed by `plan-guard --unmanaged`, with none of the records of the module. Records with `ignore_changes` keep values changed through the API.
 3. Adopts the same records into an empty state with `import_existing` and checks that all of them are imported, none created, and each one under the ID of the record created in step 1.
 4. Creates records with the v4 wrapper and opens the state with the v5 wrapper: the records must be moved, not recreated, and keep their keys and Cloudflare IDs.
 5. Creates records with names, a prefix of a record type and a `CNAME` target in Unicode through the `idna` submodule, and checks that they are stored in Punycode without drift.

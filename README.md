@@ -184,7 +184,7 @@ What the module guarantees (tested in CI, and against a real zone before each re
 
 Best-effort checks, which help a review but do not replace it:
 
-- [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#what-the-report-sees) reads the zone, not the state, so a record added next to a record that the plan creates is reported one plan later.
+- [`report_unmanaged`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/unmanaged-records.md#what-the-report-sees) reads the zone, not the state, so a record added next to a record that the plan creates is reported one plan later; `tools/plan-guard.py --unmanaged` compares the report with the state in a saved plan and fails on it in the same plan.
 - [`tools/plan-guard.py`](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/plan-guard.md#checking-plans-before-apply) reads the plan, not the zone or the order of the apply; when it cannot rule out an exposed origin, it fails rather than passes.
 
 Limits of Terraform and the Cloudflare API:

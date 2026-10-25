@@ -6,23 +6,26 @@
       "vars": {
         "hosts": 500
       },
-      "seconds": 8.113737493000002,
-      "memory_mib": 174.72265625
+      "runs": 3,
+      "seconds": 7.759874995000004,
+      "memory_mib": 179.34765625
     },
     "groups": {
       "vars": {
         "hosts": 500,
         "groups": 10
       },
-      "seconds": 22.999572421000003,
-      "memory_mib": 312.9609375
+      "runs": 3,
+      "seconds": 22.957727261000002,
+      "memory_mib": 313.59765625
     },
     "import": {
       "vars": {
         "hosts": 1000
       },
-      "seconds": 9.442371030000004,
-      "memory_mib": 244.17578125
+      "runs": 3,
+      "seconds": 9.35602227299998,
+      "memory_mib": 228.7109375
     }
   }
 }

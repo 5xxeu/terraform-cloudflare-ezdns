@@ -684,5 +684,77 @@ class MainTest(unittest.TestCase):
         self.assertEqual(self.exit_code(p), 1)
 
 
+def with_report(p, state_ids=(), unmanaged=(), presumed=()):
+    """A plan with a prior state of records with these IDs (one in a child module) and the
+    report outputs of the module passed through."""
+    resources = [{"address": BASE.format(i), "mode": "managed", "type": "cloudflare_dns_record", "values": {"id": i}}
+                 for i in state_ids]
+    p["prior_state"] = {"values": {"root_module": {"child_modules": [
+        {"resources": resources[:1], "child_modules": [{"resources": resources[1:]}]}]}}}
+    p["planned_values"]["outputs"] = {
+        "unmanaged_records": {"sensitive": True, "value": [{"id": i, "name": "app.example.com", "type": "A"} for i in unmanaged]},
+        "presumed_previous_records": {"sensitive": False, "value": [{"id": i, "name": "app.example.com", "type": "A"} for i in presumed]},
+    }
+    return p
+
+
+REPORT = ["--unmanaged", "unmanaged_records", "--unmanaged", "presumed_previous_records"]
+APP = {"name": "app", "type": "A", "content": "192.0.2.1", "proxied": False}
+
+
+class UnmanagedTest(unittest.TestCase):
+    def test_presumed_old_value_in_the_state_passes(self):
+        # The old value of a record whose value changes is in the state
+        p = with_report(plan(record(BASE.format("app"), ["update"], {**APP, "id": "id-old"}, {**APP, "content": "192.0.2.2"})),
+                        state_ids=["id-old"], presumed=["id-old"])
+        self.assertEqual(run(p, *REPORT), [])
+
+    def test_record_added_by_hand_next_to_a_new_record_fails(self):
+        # The module takes it as the old value of the new record; the state does not hold it
+        p = with_report(plan(record(BASE.format("app"), ["create"], None, APP)), presumed=["id-hand"])
+        problems = run(p, *REPORT)
+        self.assertIn("1 records that the state does not hold", problems[0])
+        self.assertEqual(problems[1], "  A app.example.com (id-hand)")
+
+    def test_old_value_listed_next_to_a_record_added_by_hand(self):
+        # The module lists both; only the one outside the state fails
+        p = with_report(plan(record(BASE.format("app"), ["update"], {**APP, "id": "id-old"}, {**APP, "content": "192.0.2.2"})),
+                        state_ids=["id-old"], unmanaged=["id-old", "id-hand"])
+        self.assertEqual(run(p, *REPORT)[1:], ["  A app.example.com (id-hand)"])
+
+    def test_imported_record_passes(self):
+        change = record(BASE.format("app"), ["no-op"], None, {**APP, "id": "id-new"})
+        change["change"]["importing"] = {"id": "zone/id-new"}
+        self.assertEqual(run(with_report(plan(change), unmanaged=["id-new"]), *REPORT), [])
+
+    def test_deleted_record_passes_and_forgotten_record_fails(self):
+        p = with_report(plan(
+            record(BASE.format("gone"), ["delete"], {**APP, "id": "id-gone"}, None),
+            record(BASE.format("kept"), ["forget"], {**APP, "id": "id-kept"}, None),
+        ), state_ids=["id-gone", "id-kept"], unmanaged=["id-gone", "id-kept"])
+        self.assertEqual(run(p, "--max-deletes", "1", *REPORT)[1:], ["  A app.example.com (id-kept)"])
+
+    def test_record_forgotten_and_imported_again_passes_in_any_order(self):
+        forget = record(BASE.format("old"), ["forget"], {**APP, "id": "id-app"}, None)
+        imported = record(BASE.format("new"), ["update"], {**APP, "id": "id-app"}, {**APP, "content": "192.0.2.2"})
+        imported["change"]["importing"] = {"id": "zone/id-app"}
+        for changes in ((forget, imported), (imported, forget)):
+            p = with_report(plan(*changes), state_ids=["id-app"], presumed=["id-app"])
+            self.assertEqual(run(p, *REPORT), [])
+
+    def test_output_known_only_after_apply_fails(self):
+        p = with_report(plan())
+        p["planned_values"]["outputs"]["unmanaged_records"] = {"sensitive": True}
+        self.assertIn("cannot be checked: unmanaged_records", run(p, *REPORT)[0])
+
+    def test_missing_or_wrong_output_is_exit_code_2(self):
+        for outputs in ({}, {"unmanaged_records": {"sensitive": True, "value": "x"}}):
+            p = plan()
+            p["planned_values"]["outputs"] = outputs
+            with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
+                run(p, "--unmanaged", "unmanaged_records")
+            self.assertEqual(e.exception.code, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

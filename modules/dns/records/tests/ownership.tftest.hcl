@@ -186,3 +186,40 @@ run "presumed_previous_records_respect_reporting_rules" {
     error_message = "Presumed previous records follow unmanaged_ignore and owned_names reporting rules"
   }
 }
+
+# Copies of a configured record on an ignored name are left out of the report like
+# unmanaged records; the import still needs an unambiguous match
+run "ignore_hides_copies_from_the_report" {
+  command = plan
+
+  variables {
+    records          = { "_acme-challenge" = { TXT = [{ key = "acme", content = "token" }] } }
+    unmanaged_ignore = [{ name_regex = "^_acme-challenge\\.", types = ["TXT"] }]
+    import_existing  = false
+    existing_records = [
+      { id = "id-acme-1", name = "_acme-challenge.example.com", type = "TXT", content = "token" },
+      { id = "id-acme-2", name = "_acme-challenge.example.com", type = "TXT", content = "token" },
+    ]
+  }
+
+  assert {
+    condition     = length(output.ambiguous_matches) == 0 && length(output.unmanaged_records) == 0
+    error_message = "unmanaged_ignore must leave copies of a configured record out of the report"
+  }
+}
+
+run "ignore_keeps_ambiguous_import" {
+  command = plan
+
+  variables {
+    records          = { "_acme-challenge" = { TXT = [{ key = "acme", content = "token" }] } }
+    unmanaged_ignore = [{ name_regex = "^_acme-challenge\\.", types = ["TXT"] }]
+    import_existing  = true
+    existing_records = [
+      { id = "id-acme-1", name = "_acme-challenge.example.com", type = "TXT", content = "token" },
+      { id = "id-acme-2", name = "_acme-challenge.example.com", type = "TXT", content = "token" },
+    ]
+  }
+
+  expect_failures = [output.import_record_ids]
+}

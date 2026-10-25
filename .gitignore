@@ -14,6 +14,7 @@ tests/e2e/upgrade/source_override.tf
 tests/e2e/**/tfplan
 tests/e2e/*.log
 tests/e2e/ids*
+tests/e2e/tfplan.json
 
 # Local notes
 .todo

@@ -47,7 +47,7 @@ cleanup() {
     fi
     if [ "$cleaned" = 1 ]; then
         rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/upgrade/source_override.tf"
-        rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids*
+        rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids* "${E2E_DIR}/tfplan.json"
     else
         echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
         [ "$rc" != 0 ] || rc=1
@@ -119,6 +119,37 @@ echo "Label: ${LABEL}"
 
 for dir in v5 import v4 v4to5 idna; do tf "$dir" init -no-color >/dev/null; done
 
+api="https://api.cloudflare.com/client/v4/zones/${E2E_ZONE_ID}/dns_records"
+guard="$(git rev-parse --show-toplevel)/tools/plan-guard.py"
+# plan-guard --unmanaged on the saved plan of a configuration: sets guard_rc to its exit
+# code and listed to the IDs it lists, sorted (names are public, so only IDs). The
+# other checks are turned off (the plans delete records on purpose), so the exit code
+# is that of --unmanaged
+guard_unmanaged() {
+    guard_rc=0
+    tf "$1" show -json tfplan >"${E2E_DIR}/tfplan.json"
+    python3 "$guard" "${E2E_DIR}/tfplan.json" --allow '*' --allow-proxy-disable \
+        --unmanaged unmanaged_records --unmanaged presumed_previous_records \
+        >/dev/null 2>"${E2E_DIR}/guard.log" || guard_rc=$?
+    listed=$(grep -oE '\([0-9a-f]{32}\)$' "${E2E_DIR}/guard.log" | tr -d '()' | sort | tr '\n' ' ' | sed 's/ $//' || true)
+}
+
+# Before the records exist, a record added by hand on the name and type of records that
+# the plan creates is taken as an old value by the report (the module cannot see the
+# state), so unmanaged_policy = "error" lets the plan through; plan-guard --unmanaged
+# compares with the state and lists it
+hand_id=$(curl -fsS -X POST -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "$api" \
+    -d "$(jq -n --arg name "${LABEL}.${E2E_ZONE_NAME}" '{type: "A", name: $name, content: "192.0.2.99", ttl: 300, comment: "ezdns-e2e"}')" | jq -r .result.id)
+if [ -z "$hand_id" ] || [ "$hand_id" = null ]; then fail "could not create the record added by hand"; fi
+tf v5 plan -no-color -out=tfplan -var report_unmanaged=true -var unmanaged_policy=error >"${E2E_DIR}/plan.log" 2>&1 ||
+    fail "first plan with a record added by hand: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
+guard_unmanaged v5
+if [ "$guard_rc" != 1 ] || [ "$listed" != "$hand_id" ]; then
+    fail "plan-guard --unmanaged: expected exit 1 and ${hand_id}, got ${guard_rc} '${listed}'"
+fi
+curl -fsS -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${api}/${hand_id}" >/dev/null || fail "could not delete the record added by hand"
+pass "plan-guard --unmanaged lists a record added by hand next to new records, which the report takes as an old value"
+
 # Scenario 1: create all record types, then check there is no drift
 tf v5 apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "apply: $(tail -40 "${E2E_DIR}/apply.log")"
 count=$(tf v5 state list | grep -c 'cloudflare_dns_record.record\[')
@@ -142,6 +173,9 @@ tf v5 plan -no-color -out=tfplan -var a_value=192.0.2.20 -var txt_value=rotation
 reported=$(tf v5 show -json tfplan | jq -r '.planned_values.outputs.unmanaged_records.value | length')
 [ "$reported" = 0 ] || fail "report_unmanaged lists ${reported} records of the module while their values change"
 pass "unmanaged_policy = error: no record of the module reported while values change"
+guard_unmanaged v5
+[ "$guard_rc" = 0 ] || fail "plan-guard --unmanaged fails while values change (exit ${guard_rc}): ${listed}"
+pass "plan-guard --unmanaged: the old values of changed records are in the state"
 
 # Changing a value without a key replaces the record, with a key updates it in place
 summary=$(plan_summary v5 -var a_value=192.0.2.20 -var txt_value=rotation=2)
@@ -155,7 +189,6 @@ record_ids v5 >"${E2E_DIR}/ids-v5.txt"
 # of the records of the module. Only records of this run are compared, since the zone
 # has records of other tools. The stray record is deleted by sweep.sh (same comment
 # and label)
-api="https://api.cloudflare.com/client/v4/zones/${E2E_ZONE_ID}/dns_records"
 stray_id=$(curl -fsS -X POST -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "$api" \
     -d "$(jq -n --arg name "stray.${LABEL}.${E2E_ZONE_NAME}" '{type: "TXT", name: $name, content: "\"ezdns stray\"", ttl: 300, comment: "ezdns-e2e"}')" | jq -r .result.id)
 if [ -z "$stray_id" ] || [ "$stray_id" = null ]; then fail "could not create the stray record"; fi
@@ -165,6 +198,18 @@ reported=$(tf v5 show -json tfplan | jq -r --arg label "$LABEL" '[.planned_value
 [ "$reported" = "$stray_id" ] || fail "report_unmanaged: expected only ${stray_id} of this run, got '${reported}'"
 grep -q "records that the configuration does not describe" "${E2E_DIR}/plan.log" || fail "report_unmanaged: no plan warning"
 pass "report_unmanaged lists the stray record and none of the module"
+# The whole zone is reported here (records of other runs and tools too): the stray
+# record must be listed, the records of the module not
+guard_unmanaged v5
+listed=" ${listed} "
+if [ "$guard_rc" != 1 ] || [[ "$listed" != *" ${stray_id} "* ]]; then
+    fail "plan-guard --unmanaged: ${stray_id} not listed (exit ${guard_rc})"
+fi
+# The record keys have spaces: the ID is the last field
+while read -r id; do
+    [[ "$listed" != *" ${id} "* ]] || fail "plan-guard --unmanaged lists ${id}, a record of the module"
+done < <(awk '{print $NF}' "${E2E_DIR}/ids-v5.txt")
+pass "plan-guard --unmanaged lists the stray record and none of the module"
 rc=0
 tf v5 plan -no-color -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true -var unmanaged_policy=error >"${E2E_DIR}/plan.log" 2>&1 || rc=$?
 [ "$rc" != 0 ] || fail "unmanaged_policy = error: the plan passes with a stray record under the label"

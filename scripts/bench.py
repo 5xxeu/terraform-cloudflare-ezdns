@@ -11,6 +11,7 @@ import math
 import os
 import pathlib
 import platform
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -23,9 +24,12 @@ WORKLOADS = {
     "import": {"hosts": 1000},
 }
 FACTOR = 2.0
+RUNS = 3
 
 
-def measure(name, variables):
+def measure(name, variables, runs):
+    """Median time and median peak memory of several plans, so one slow run on a busy
+    runner does not fail the check."""
     command = ["terraform", f"-chdir={ROOT / 'tests/bench' / name}"]
     init = subprocess.run(
         command + ["init", "-input=false", "-no-color"],
@@ -34,6 +38,16 @@ def measure(name, variables):
     if init.returncode:
         raise RuntimeError(f"{name}: terraform init failed\n{init.stdout}")
 
+    samples = [plan(name, command, variables) for _ in range(runs)]
+    return {
+        "vars": variables,
+        "runs": runs,
+        "seconds": statistics.median(seconds for seconds, _ in samples),
+        "memory_mib": statistics.median(memory for _, memory in samples),
+    }
+
+
+def plan(name, command, variables):
     with tempfile.TemporaryFile(mode="w+") as output:
         started = time.monotonic()
         child = subprocess.Popen(
@@ -50,7 +64,7 @@ def measure(name, variables):
             raise RuntimeError(f"{name}: terraform plan failed\n{output.read()}")
 
     divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-    return {"vars": variables, "seconds": seconds, "memory_mib": usage.ru_maxrss / divisor}
+    return seconds, usage.ru_maxrss / divisor
 
 
 def write_results(path, results):
@@ -65,9 +79,12 @@ def main():
     parser.add_argument("--summary", type=pathlib.Path, help="append a Markdown summary")
     parser.add_argument("--update", action="store_true", help="update the baseline with this run's results")
     parser.add_argument("--only", action="append", choices=WORKLOADS, help="workload to run (repeatable)")
+    parser.add_argument("--runs", type=int, default=RUNS, help="plans per workload, compared by the median (default: 3)")
     args = parser.parse_args()
     if not math.isfinite(args.factor) or args.factor <= 0:
         parser.error("--factor must be finite and positive")
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
 
     messages = []
 
@@ -95,7 +112,7 @@ def main():
             if args.only and name not in args.only:
                 continue
             print(f"Running {name}...", flush=True)
-            current = measure(name, variables)
+            current = measure(name, variables, args.runs)
             results["workloads"][name] = current
             previous = baseline["workloads"].get(name)
             if previous is None or previous.get("vars") != variables:
