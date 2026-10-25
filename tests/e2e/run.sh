@@ -122,11 +122,14 @@ for dir in v5 import v4 v4to5 idna; do tf "$dir" init -no-color >/dev/null; done
 api="https://api.cloudflare.com/client/v4/zones/${E2E_ZONE_ID}/dns_records"
 guard="$(git rev-parse --show-toplevel)/tools/plan-guard.py"
 # plan-guard --unmanaged on the saved plan of a configuration: sets guard_rc to its exit
-# code and listed to the IDs it lists, sorted (names are public, so only IDs)
+# code and listed to the IDs it lists, sorted (names are public, so only IDs). The
+# other checks are turned off (the plans delete records on purpose), so the exit code
+# is that of --unmanaged
 guard_unmanaged() {
     guard_rc=0
     tf "$1" show -json tfplan >"${E2E_DIR}/tfplan.json"
-    python3 "$guard" "${E2E_DIR}/tfplan.json" --unmanaged unmanaged_records --unmanaged presumed_previous_records \
+    python3 "$guard" "${E2E_DIR}/tfplan.json" --allow '*' --allow-proxy-disable \
+        --unmanaged unmanaged_records --unmanaged presumed_previous_records \
         >/dev/null 2>"${E2E_DIR}/guard.log" || guard_rc=$?
     listed=$(grep -oE '\([0-9a-f]{32}\)$' "${E2E_DIR}/guard.log" | tr -d '()' | sort | tr '\n' ' ' | sed 's/ $//' || true)
 }
