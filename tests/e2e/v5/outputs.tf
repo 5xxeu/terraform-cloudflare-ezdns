@@ -8,3 +8,8 @@ output "record_names" {
   description = "Names of the managed records, to compare the wrappers"
   value       = module.dns.record_names
 }
+
+output "presumed_previous_records" {
+  description = "Records taken as the old values of changed records, for plan-guard --unmanaged"
+  value       = module.dns.presumed_previous_records
+}
