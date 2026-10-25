@@ -93,7 +93,7 @@ records:
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.18.0"
+  version = "2.19.0"
 
   zone_id      = var.zone_id
   zone_name    = "example.com"

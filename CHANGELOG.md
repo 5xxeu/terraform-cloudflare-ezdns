@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-25
+
 ### Added
 
 - `tools/plan-guard.py --unmanaged OUTPUT`: an exact check of the records of the zone by Cloudflare IDs. The records in the passed-through `unmanaged_records` and `presumed_previous_records` outputs whose IDs are not in the state of the saved plan and are not imported by it fail the plan, so a record added by hand next to a record that the plan creates fails on the same plan, and the old value of a changed record never does (see `docs/plan-guard.md`)
@@ -571,7 +573,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.18.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.19.0...HEAD
+[2.19.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...v2.17.0
 [2.16.4]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.3...v2.16.4
