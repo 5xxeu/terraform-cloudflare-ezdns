@@ -6,7 +6,8 @@ records that are already in the state: a lost YAML file, a renamed key or a remo
 module call deletes records, and the configuration is still valid. This script reads the
 JSON form of a saved plan and fails when the plan deletes or replaces records, turns off
 the Cloudflare proxy, or leaves a required record set (such as the MX records of the
-zone) empty, unless the change is allowed explicitly.
+zone) empty, unless the change is allowed explicitly. With --unmanaged, it also fails
+on records of the zone that the module reports and that the state does not hold.
 
     terraform plan -out=tfplan
     terraform show -json tfplan > tfplan.json
@@ -57,6 +58,10 @@ def parse_args(argv):
                         help="only count records of this zone for --require; needed when the plan has records of several zones")
     parser.add_argument("--module", metavar="ADDRESS",
                         help="only check records of this module call and the modules in it (e.g. module.dns)")
+    parser.add_argument("--unmanaged", action="append", default=[], metavar="OUTPUT",
+                        help="root module output with records of the zone (unmanaged_records and presumed_previous_records "
+                             "of the module, passed through); fail on those whose IDs are not in the state and not imported "
+                             "by the plan; repeat for more")
     args = parser.parse_args(argv)
     if args.require and not args.zone:
         parser.error("--require needs --zone")
@@ -206,6 +211,59 @@ def published(before, after, after_unknown, zone):
         and not after_unknown.get("type") and not after_unknown.get("content") \
         and str(before.get("type", "")).upper() == str(after.get("type", "")).upper() \
         and before.get("content") == after.get("content")
+
+
+def managed_ids(plan):
+    """IDs of the DNS records that the state holds after the apply: the records of the
+    prior state (also the ones the plan deletes, which are gone after it) and the ones
+    the plan imports, without the ones a removed block forgets (they stay in the zone)."""
+    ids = set()
+    modules = [(plan.get("prior_state") or {}).get("values", {}).get("root_module") or {}]
+    while modules:
+        module = modules.pop()
+        modules += module.get("child_modules") or []
+        for r in module.get("resources") or []:
+            if r.get("mode") == "managed" and r.get("type") in RECORD_TYPES and (r.get("values") or {}).get("id"):
+                ids.add(r["values"]["id"])
+    for rc in plan.get("resource_changes", []):
+        if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
+            continue
+        change = rc.get("change", {})
+        if change.get("actions", [])[:1] == ["forget"]:
+            ids.discard((change.get("before") or {}).get("id"))
+        importing = change.get("importing") or {}
+        if importing.get("id"):
+            # cloudflare_dns_record and cloudflare_record import <zone_id>/<record_id>
+            ids.add(str(importing["id"]).split("/")[-1])
+    return ids
+
+
+def unmanaged(plan, outputs):
+    """Problems for the records in root module outputs (lists of records with id, name and
+    type) whose IDs the state does not hold after the apply."""
+    planned = plan.get("planned_values", {}).get("outputs") or {}
+    managed = managed_ids(plan)
+    problems, unknown, listed = [], [], {}
+    for name in outputs:
+        if name not in planned:
+            fail(f"--unmanaged {name}: the plan has no root module output {name}; pass the output of the module "
+                 f"through, e.g. output \"{name}\" {{ value = module.dns.{name} }}")
+        if "value" not in planned[name]:
+            unknown.append(name)
+            continue
+        records = planned[name]["value"]
+        if not isinstance(records, list) or not all(isinstance(r, dict) and r.get("id") for r in records):
+            fail(f"--unmanaged {name}: the output is not a list of records with an id")
+        for r in records:
+            if r["id"] not in managed:
+                listed[r["id"]] = f"  {r.get('type')} {r.get('name')} ({r['id']})"
+    if unknown:
+        problems.append(f"These outputs are known only after apply, so the records of the zone cannot be checked: {', '.join(unknown)}")
+    if listed:
+        problems.append(f"The zone has {len(listed)} records that the state does not hold and the plan does not import "
+                        "(add them to the configuration and import them, or delete them):")
+        problems += sorted(listed.values())
+    return problems
 
 
 def check(plan, args):
@@ -454,6 +512,8 @@ def check(plan, args):
         count = after_sets.get(key, 0)
         if count < minimum:
             problems.append(f"{key[1]} records of {key[0]}: {count} after the apply, at least {minimum} required")
+    if args.unmanaged:
+        problems += unmanaged(plan, args.unmanaged)
     return problems
 
 

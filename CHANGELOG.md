@@ -4,9 +4,17 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `tools/plan-guard.py --unmanaged OUTPUT`: an exact check of the records of the zone by Cloudflare IDs. The records in the passed-through `unmanaged_records` and `presumed_previous_records` outputs whose IDs are not in the state of the saved plan and are not imported by it fail the plan, so a record added by hand next to a record that the plan creates fails on the same plan, and the old value of a changed record never does (see `docs/plan-guard.md`)
+
+### Fixed
+
+- `unmanaged_ignore` also leaves copies of a configured record out of the report: copies on an ignored name and type no longer stop the plan with `unmanaged_policy = "error"` or show in the warning. With `import_existing`, copies still stop the plan, since the import needs one match
+
 ### Internal
 
-- Core changes run plain, groups and import benchmarks in CI, blocking time or peak memory regressions over 2x a stored runner baseline
+- Core changes run plain, groups and import benchmarks in CI, blocking time or peak memory regressions over 2x a stored runner baseline; each workload is the median of three plans
 
 - End-to-end tests check upgrades from the previous release without recreating records or changing their Cloudflare IDs; mocked tests cover record identity across groups
 

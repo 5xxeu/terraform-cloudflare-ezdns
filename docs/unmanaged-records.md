@@ -85,10 +85,10 @@ The module reads the zone, not the Terraform state, so it cannot tell an old val
 | A value of a configured record is changed in the dashboard | Not listed: the record is in the state, and the plan changes it back (or keeps it, with `ignore_changes`) |
 | Copies of a record (the same name, type and value, and for `MX` and `URI` the same priority) | The configured record that matches them is listed as ambiguous; with `import_existing` or `unmanaged_policy = "error"` they stop the plan |
 | Records of other Terraform states or tools (external-dns, cert-manager) | Listed, unless `owned_names` or `unmanaged_ignore` leaves them out. On the name and type of a record that this plan creates, they are taken as its old value, like a record added by hand. `owned_names` separates names, not the records of one name |
-| Records outside `owned_names` or matched by `unmanaged_ignore` | Never listed as unmanaged or presumed old; copies that a configured record matches are still listed as ambiguous (see above) |
+| Records outside `owned_names` or matched by `unmanaged_ignore` | Never listed as unmanaged, presumed old or ambiguous (copies of a configured record on an ignored name and type do not stop the plan with `unmanaged_policy = "error"`); with `import_existing`, copies still stop the plan, since the import needs one match |
 | Records that Cloudflare does not return as DNS records (the zone's own name servers) | Never listed |
 
-`presumed_previous_records` shows what was left out as an old value (type, name and ID), so a review of the plan can check it. An exact report would need the IDs of the records in the state, which a module cannot read.
+`presumed_previous_records` shows what was left out as an old value (type, name and ID), so a review of the plan can check it. An exact report needs the IDs of the records in the state, which a module cannot read, but a saved plan has them: [`tools/plan-guard.py --unmanaged`](plan-guard.md) compares both outputs with the state and the imports of the plan, so a record added by hand next to a new record fails on the same plan, and an old value of a changed record never does.
 
 ## The Part of the Zone a Module Call Owns
 

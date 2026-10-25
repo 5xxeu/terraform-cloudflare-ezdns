@@ -223,13 +223,14 @@ locals {
 
   # Configured records that several existing records match (copies of one record) for
   # the report: type, name and IDs only, since record keys may contain origin
-  # addresses
+  # addresses. The copies share a name and type, so unmanaged_ignore leaves them out
+  # like unmanaged records (the import still needs an unambiguous match)
   report_ambiguous = {
     for key, ids in local.report_matches : key => {
       type = local.flat_records[key].type
       name = local.flat_records[key].fqdn
       ids  = ids
-    } if length(ids) > 1
+    } if length(ids) > 1 && local.reported[ids[0]]
   }
   # Only records in owned_names are reported, and none that unmanaged_ignore expects
   reported = {

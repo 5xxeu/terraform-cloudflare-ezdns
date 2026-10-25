@@ -52,13 +52,14 @@ time terraform -chdir=tests/bench/groups plan -var hosts=1000
 
 Measured on 2026-10-18 with Terraform 1.16.4 on an Apple M2 Pro: 1,000 hosts (11,100 records) take about 37 seconds, 500 hosts about 16 seconds, 250 hosts about 8 seconds. Up to 2.15.0 the time was quadratic: 17, 55 and 203 seconds.
 
-`scripts/bench.py` runs one plan per workload, after a quiet init, with fixed CI sizes: plain with 500 hosts, groups with 500 hosts and 10 groups, and import with 1,000 hosts. It records the Terraform version, variables, wall time and peak memory of the plan process, then compares time and memory with `tests/bench/baseline.json`. Either measurement more than 2x the baseline fails the check. Missing workloads or different sizes warn and skip comparison; a different Terraform version warns. There is no measurement history.
+`scripts/bench.py` runs three plans per workload (`--runs N`), after a quiet init, with fixed CI sizes: plain with 500 hosts, groups with 500 hosts and 10 groups, and import with 1,000 hosts. It records the Terraform version, variables, the number of runs and the median wall time and median peak memory of the plan process (each metric separately, so one slow run on a busy runner does not fail the check), then compares time and memory with `tests/bench/baseline.json`. Either measurement more than 2x the baseline fails the check. Missing workloads or different sizes warn and skip comparison; a different Terraform version warns. There is no measurement history.
 
 ```sh
 python3 scripts/bench.py
 python3 scripts/bench.py --json results.json
 python3 scripts/bench.py --summary summary.md
 python3 scripts/bench.py --only plain   # repeat --only to select several workloads
+python3 scripts/bench.py --runs 1       # one plan per workload, faster
 python3 scripts/bench.py --baseline results.json --factor 2
 python3 scripts/bench.py --update
 ```
