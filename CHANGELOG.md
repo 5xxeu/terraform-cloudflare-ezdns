@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 - Core changes run plain, groups and import benchmarks in CI, blocking time or peak memory regressions over 2x a stored runner baseline; each workload is the median of three plans
 
+- End-to-end tests run `plan-guard --unmanaged`: a record added by hand next to new records is listed, old values of changed records are not, the stray record is
+
 - End-to-end tests check upgrades from the previous release without recreating records or changing their Cloudflare IDs; mocked tests cover record identity across groups
 
 ### Changed
