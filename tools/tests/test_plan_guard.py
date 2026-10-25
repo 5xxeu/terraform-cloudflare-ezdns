@@ -734,6 +734,14 @@ class UnmanagedTest(unittest.TestCase):
         ), state_ids=["id-gone", "id-kept"], unmanaged=["id-gone", "id-kept"])
         self.assertEqual(run(p, "--max-deletes", "1", *REPORT)[1:], ["  A app.example.com (id-kept)"])
 
+    def test_record_forgotten_and_imported_again_passes_in_any_order(self):
+        forget = record(BASE.format("old"), ["forget"], {**APP, "id": "id-app"}, None)
+        imported = record(BASE.format("new"), ["update"], {**APP, "id": "id-app"}, {**APP, "content": "192.0.2.2"})
+        imported["change"]["importing"] = {"id": "zone/id-app"}
+        for changes in ((forget, imported), (imported, forget)):
+            p = with_report(plan(*changes), state_ids=["id-app"], presumed=["id-app"])
+            self.assertEqual(run(p, *REPORT), [])
+
     def test_output_known_only_after_apply_fails(self):
         p = with_report(plan())
         p["planned_values"]["outputs"]["unmanaged_records"] = {"sensitive": True}

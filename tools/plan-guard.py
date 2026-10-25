@@ -225,17 +225,20 @@ def managed_ids(plan):
         for r in module.get("resources") or []:
             if r.get("mode") == "managed" and r.get("type") in RECORD_TYPES and (r.get("values") or {}).get("id"):
                 ids.add(r["values"]["id"])
+    # Collected apart, so the order of the changes does not matter: a record forgotten at
+    # one address and imported at another stays in the state
+    forgotten, imported = set(), set()
     for rc in plan.get("resource_changes", []):
         if rc.get("mode") != "managed" or rc.get("type") not in RECORD_TYPES:
             continue
         change = rc.get("change", {})
         if change.get("actions", [])[:1] == ["forget"]:
-            ids.discard((change.get("before") or {}).get("id"))
+            forgotten.add((change.get("before") or {}).get("id"))
         importing = change.get("importing") or {}
         if importing.get("id"):
             # cloudflare_dns_record and cloudflare_record import <zone_id>/<record_id>
-            ids.add(str(importing["id"]).split("/")[-1])
-    return ids
+            imported.add(str(importing["id"]).split("/")[-1])
+    return (ids - forgotten) | imported
 
 
 def unmanaged(plan, outputs):
