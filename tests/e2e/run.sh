@@ -144,7 +144,9 @@ if [ -z "$hand_id" ] || [ "$hand_id" = null ]; then fail "could not create the r
 tf v5 plan -no-color -out=tfplan -var report_unmanaged=true -var unmanaged_policy=error >"${E2E_DIR}/plan.log" 2>&1 ||
     fail "first plan with a record added by hand: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
 guard_unmanaged v5
-[ "$guard_rc" = 1 ] && [ "$listed" = "$hand_id" ] || fail "plan-guard --unmanaged: expected exit 1 and ${hand_id}, got ${guard_rc} '${listed}'"
+if [ "$guard_rc" != 1 ] || [ "$listed" != "$hand_id" ]; then
+    fail "plan-guard --unmanaged: expected exit 1 and ${hand_id}, got ${guard_rc} '${listed}'"
+fi
 curl -fsS -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${api}/${hand_id}" >/dev/null || fail "could not delete the record added by hand"
 pass "plan-guard --unmanaged lists a record added by hand next to new records, which the report takes as an old value"
 
@@ -200,7 +202,9 @@ pass "report_unmanaged lists the stray record and none of the module"
 # record must be listed, the records of the module not
 guard_unmanaged v5
 listed=" ${listed} "
-[ "$guard_rc" = 1 ] && [[ "$listed" == *" ${stray_id} "* ]] || fail "plan-guard --unmanaged: ${stray_id} not listed (exit ${guard_rc})"
+if [ "$guard_rc" != 1 ] || [[ "$listed" != *" ${stray_id} "* ]]; then
+    fail "plan-guard --unmanaged: ${stray_id} not listed (exit ${guard_rc})"
+fi
 # The record keys have spaces: the ID is the last field
 while read -r id; do
     [[ "$listed" != *" ${id} "* ]] || fail "plan-guard --unmanaged lists ${id}, a record of the module"
