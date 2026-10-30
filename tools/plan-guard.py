@@ -345,13 +345,17 @@ def check(plan, args):
         if before.get("proxied") is True and (actions in (["delete"], ["delete", "create"]) or (after and (
                 moved(before, after, after_unknown, zone_of(before)) or after_unknown.get("proxied") or after.get("proxied") is not True))):
             deleted_proxied.append((before, own))
-        for side in (before, after, kept or {}):
-            if side.get("proxied") is True and hidden_value(side):
+        # A proxy status known only after apply may turn out proxied: the value counts as
+        # hidden, so a new unproxied record with it (or any, with --strict-proxy) fails
+        maybe_proxied = after.get("proxied") is True or bool(after_unknown.get("proxied"))
+        for side, proxied in ((before, before.get("proxied") is True), (after, maybe_proxied),
+                              (kept or {}, (kept or {}).get("proxied") is True)):
+            if proxied and hidden_value(side):
                 hidden[hidden_value(side)] = hidden.get(hidden_value(side), False) or own
-        if after.get("proxied") is True and after_unknown.get("content"):
+        if maybe_proxied and after_unknown.get("content"):
             for kind in value_kinds(after, after_unknown):
                 hidden_unknown[kind] = hidden_unknown.get(kind, False) or own
-        elif after.get("proxied") is True and after_unknown.get("type"):
+        elif maybe_proxied and after_unknown.get("type"):
             # The type is known only after apply: the value hides an address or a name
             for value in {hidden_value({**after, "type": t}) for t in ("A", "CNAME")} - {None}:
                 hidden[value] = hidden.get(value, False) or own
@@ -411,6 +415,11 @@ def check(plan, args):
                 unknown_proxy.append(address)
             elif after.get("proxied") is not True:
                 proxy_off.append(address)
+        # A record that can be proxied and whose proxy status is known only after apply
+        # (a new one too) either hides its value or publishes it
+        elif after_unknown.get("proxied") and actions != ["delete"] \
+                and (after_unknown.get("type") or str(after.get("type", "")).upper() in ("A", "AAAA", "CNAME")):
+            unknown_proxy.append(address)
 
     # Any type that can point at the origin counts: a proxied CNAME replaced by an
     # unproxied A on the same name publishes the address just the same. A record that
@@ -485,7 +494,7 @@ def check(plan, args):
                         "ipv4hint or ipv6hint (--allow-proxy-disable or --allow allows it):")
         problems += [f"  {a}" for a in hint_leaks]
     if unknown_proxy and not args.allow_proxy_disable:
-        problems.append("Whether these proxied records stay proxied is not known until apply:")
+        problems.append("The proxy status of these records is not known until apply:")
         problems += [f"  {a}" for a in unknown_proxy]
     if strict and not args.allow_proxy_disable:
         problems.append("--strict-proxy: the plan has proxied records, and these unproxied records are new or "

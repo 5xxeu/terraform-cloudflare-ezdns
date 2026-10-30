@@ -456,6 +456,28 @@ class PlanGuardTest(unittest.TestCase):
         direct = {**WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False, "ttl": 300}
         self.assertEqual(run(plan(web, record(BASE.format("other A 192.0.2.8"), ["update"], direct, {**direct, "ttl": 600})), "--strict-proxy"), [])
 
+    def test_new_record_with_an_unknown_proxy_status(self):
+        # A new record whose proxy status is known only after apply fails itself, and it
+        # may hide its value: an unproxied record with the value publishes the origin,
+        # and --strict-proxy reviews any new unproxied record next to it
+        maybe = record(BASE.format("web A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "proxied": None}, {"proxied": True})
+        same = record(BASE.format("other A 192.0.2.1"), ["create"], None, {**WEB, "zone_id": "z", "name": "other", "proxied": False})
+        other = record(BASE.format("other A 192.0.2.8"), ["create"], None, {
+            **WEB, "zone_id": "z", "name": "other", "content": "192.0.2.8", "proxied": False})
+        problems = run(plan(maybe, same))
+        self.assertEqual(problems[problems.index(next(p for p in problems if "not known until apply" in p)) + 1],
+                         "  " + BASE.format("web A 192.0.2.1"))
+        self.assertIn("turns off the proxy", problems[0])
+        allow = ("--allow", BASE.format("web *"))
+        self.assertIn("turns off the proxy", run(plan(maybe, same), *allow)[0])
+        self.assertEqual(run(plan(maybe, other), *allow), [])
+        self.assertIn("--strict-proxy", run(plan(maybe, other), "--strict-proxy", *allow)[0])
+        # Also an update of an unproxied record; a type that cannot be proxied is not checked
+        direct = {**WEB, "zone_id": "z", "proxied": False}
+        self.assertTrue(run(plan(record(BASE.format("web A 192.0.2.1"), ["update"], direct, {**direct, "proxied": None}, {"proxied": True}))))
+        mx = {**MX, "zone_id": "z"}
+        self.assertEqual(run(plan(record(BASE.format("@ MX mx.example.com"), ["create"], None, {**mx, "proxied": None}, {"proxied": True}))), [])
+
     def test_hint_with_a_hidden_address_fails(self):
         # The address of a proxied record in ipv4hint or ipv6hint publishes the origin, in
         # the data of provider 5.x (an object) and 4.x (a list of one)

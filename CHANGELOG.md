@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/plan-guard.py`: an `A`, `AAAA` or `CNAME` record whose proxy status is known only after apply fails the plan also when it is new or was not proxied, and its value counts as hidden by the proxy: a new unproxied record with the same value fails, and `--strict-proxy` checks the new unproxied records next to it. Before, such a record passed, and so did an unproxied record with its address, also with `--strict-proxy`
+
 ## [2.19.0] - 2026-10-25
 
 ### Added
