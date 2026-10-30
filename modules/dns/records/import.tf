@@ -79,7 +79,8 @@ locals {
     ]
   }
 
-  # The data of the configured records in the form of the existing ones above
+  # The data of the configured records in the form of the existing ones above (v5/import.tf
+  # leaves out their null fields, so a field set to null is left out here too)
   configured_data = {
     for key, rec in local.flat_records : key => {
       for field, value in rec.data : field => (
@@ -87,7 +88,7 @@ locals {
         (contains(local.case_insensitive_fields, field) && !(field == "target" && rec.type == "URI")) || (field == "certificate" && contains(["TLSA", "SMIMEA"], rec.type)) ? lower(trimsuffix(value, ".")) :
         rec.type == "CAA" && field == "value" && contains(local.caa_issuer_tags, lookup(rec.data, "tag", "")) ? format("%s%s", lower(trimsuffix(trimspace(split(";", value)[0]), ".")), substr(value, length(split(";", value)[0]), -1)) :
         value
-      )
+      ) if value != null
     } if rec.data != null
   }
 

@@ -926,3 +926,18 @@ run "unmanaged_records_mx_priority_unknown" {
     error_message = "An existing record without a known priority is described"
   }
 }
+
+# A data field set to null is left out of the comparison, as if it were not written
+run "import_data_field_null" {
+  command = plan
+
+  variables {
+    records          = { "@" = { HTTPS = [{ key = "web", data = { priority = 1, target = ".", value = null } }] } }
+    existing_records = [{ id = "id-https", name = "example.com", type = "HTTPS", data = { priority = "1", target = "." } }]
+  }
+
+  assert {
+    condition     = output.import_record_ids == { "@ HTTPS web" = "id-https" }
+    error_message = "A null data field must not stop the import of the matching record"
+  }
+}
