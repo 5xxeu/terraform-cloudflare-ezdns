@@ -164,6 +164,30 @@ run "grouped_record_number_text" {
   expect_failures = [check.records_text_values_are_strings]
 }
 
+run "grouped_empty_containers" {
+  command = plan
+
+  variables {
+    records       = {}
+    record_groups = { web = { records = { "app" = [], "db" = { A = {} }, "www" = { A = [{ content = "192.0.2.1" }] } } } }
+  }
+
+  assert {
+    condition     = keys(cloudflare_dns_record.record) == ["www A 192.0.2.1"]
+    error_message = "Empty containers of either kind in a group must be names and types without records"
+  }
+}
+
+run "grouped_record_without_a_list" {
+  command = plan
+
+  variables {
+    record_groups = { web = { records = { "app" = { A = { content = "192.0.2.1" } } } } }
+  }
+
+  expect_failures = [var.record_groups]
+}
+
 run "unused_attributes" {
   command = plan
 

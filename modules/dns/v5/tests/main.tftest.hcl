@@ -197,6 +197,46 @@ run "record_is_not_an_object" {
   expect_failures = [var.records]
 }
 
+# An empty list or map in place of the types of a name or of a list of records is no
+# records, like an empty one of the right kind
+run "empty_containers" {
+  command = plan
+
+  variables {
+    records = {
+      "app" = []
+      "db"  = { A = {} }
+      "www" = { A = [{ content = "192.0.2.1" }] }
+    }
+  }
+
+  assert {
+    condition     = keys(cloudflare_dns_record.record) == ["www A 192.0.2.1"]
+    error_message = "Empty containers of either kind must be names and types without records"
+  }
+}
+
+run "types_not_a_map" {
+  command = plan
+
+  variables {
+    records = { "app" = "192.0.2.1" }
+  }
+
+  expect_failures = [var.records]
+}
+
+# A record written without its list is not taken for a list of its attribute values
+run "record_without_a_list" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = { content = "192.0.2.1" } } }
+  }
+
+  expect_failures = [var.records]
+}
+
 run "names_in_lower_case_and_allowed_cname_conflicts" {
   command = plan
 

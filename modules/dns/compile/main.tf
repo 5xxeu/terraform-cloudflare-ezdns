@@ -43,11 +43,12 @@ locals {
   group_names          = { for e in local.group_entries : e.name => e... }
   record_group_entries = merge({ for name in keys(var.records) : name => [] }, local.group_names)
 
+  # An empty list in place of the types of a name (app = []) is a name without records
   all_records = merge(
     {
       for name, types in var.records : name => merge(
         { for type, list in types : type => concat([for record in list : record], [for e in local.record_group_entries[name] : e.record if e.type == type]) },
-        { for type in distinct([for e in local.record_group_entries[name] : e.type if !contains(keys(types), e.type)]) : type => [for e in local.record_group_entries[name] : e.record if e.type == type] },
+        { for type in distinct([for e in local.record_group_entries[name] : e.type if !contains(try(keys(types), []), e.type)]) : type => [for e in local.record_group_entries[name] : e.record if e.type == type] },
       )
     },
     {
