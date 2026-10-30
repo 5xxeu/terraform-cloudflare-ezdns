@@ -52,6 +52,10 @@ jobs:
       - run: terraform init -backend=false
       - run: terraform validate
       - run: terraform test
+      # terraform test cannot expect a failure in a called module: these checks are planned
+      - name: Input checks with values known after apply
+        if: matrix.dir == 'modules/dns/compile'
+        run: python3 ../../../scripts/test-plan-checks.py
 
   docs:
     name: Docs
