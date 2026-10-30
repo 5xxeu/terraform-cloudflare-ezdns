@@ -25,8 +25,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # A tag is released only from a commit that passed CI. The latest run counts, so a
-      # re-run after a flaky failure is enough (latest by id: a queued run has no
+      # The GitHub Release and archives require a commit that passed CI. The latest
+      # run counts, so a re-run after a flaky failure is enough (latest by id: a queued run has no
       # started_at yet). The tag usually follows the merge right away, while CI on main
       # still runs, so this waits for it
       - name: Wait for CI of the tagged commit
@@ -99,8 +99,8 @@ jobs:
         with:
           terraform_wrapper: false
 
-      # Before anything is published: the files a configuration needs, no tests, no v4
-      # wrapper in the v5 archive, and both archives validate as modules
+      # Before the GitHub Release and archives are published: the module files, no
+      # tests, no v4 wrapper in the v5 archive, and both archives validate as modules
       - name: Check the archives
         run: ./scripts/check-archives.sh "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
 
@@ -116,7 +116,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest=false \
+          prerelease=false
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease=true; fi
+          gh release create "$GITHUB_REF_NAME" --prerelease="$prerelease" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest=false \
             "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
             "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
 

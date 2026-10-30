@@ -18,6 +18,7 @@ tests/e2e/tfplan.json
 
 # Local notes
 .todo
+.todo-archive
 
 # Written by the Tools job of CI from tools/tests/fixtures/zone.json
 tools/tests/terraform/records.ezdns.yaml

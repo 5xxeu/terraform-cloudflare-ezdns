@@ -198,11 +198,11 @@ jobs:
           python3 ../../zone-to-ezdns.py ../fixtures/zone.json --zone example.com > records.ezdns.yaml || [ $? -eq 1 ]
           terraform init -backend=false >/dev/null
           terraform test -verbose | tee test.log
-          ! grep -q "Warning" test.log
+          if grep -q "Warning" test.log; then exit 1; fi
           # and with keys from the Cloudflare IDs
           python3 ../../zone-to-ezdns.py ../fixtures/zone.json --zone example.com --stable-keys > records.ezdns.yaml || [ $? -eq 1 ]
           terraform test -verbose | tee test.log
-          ! grep -q "Warning" test.log
+          if grep -q "Warning" test.log; then exit 1; fi
       # Every whole module call in the README and docs plans without errors or warnings
       - name: Examples of the README and docs
         run: python3 scripts/test-docs-examples.py
