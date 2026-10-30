@@ -83,6 +83,10 @@ INVALID = {
     "negative URI priority": 'records: { _ftp._tcp: { URI: [{ priority: -1, data: { weight: 1, target: "ftp://x/" } }] } }',
 }
 
+# Documents of INVALID that the schema rejects also in editors that do not check "format"
+WITHOUT_FORMAT = ["IPv4 leading zeros", "IPv4 octal-looking octet"]
+format_free = Draft7Validator(validator.schema)
+
 # Documents that only the module can reject: the checks compare records with each other
 # or with other inputs, which a schema of single values cannot do
 TERRAFORM_ONLY = {
@@ -192,6 +196,12 @@ for name, document in {**INVALID, **SCHEMA_ONLY}.items():
         print(f"FAIL: {name} should be invalid")
     else:
         print(f"ok - rejected: {name}")
+for name in WITHOUT_FORMAT:
+    if format_free.is_valid(yaml.safe_load(INVALID[name])):
+        failures += 1
+        print(f"FAIL: {name} should be invalid without the format check")
+    else:
+        print(f"ok - rejected without the format check: {name}")
 
 if "--terraform" in sys.argv:
     results = terraform_results({**VALID, **INVALID, **TERRAFORM_ONLY})

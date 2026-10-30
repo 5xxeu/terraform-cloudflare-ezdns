@@ -151,7 +151,7 @@ def schema():
         }
 
     types = {
-        "A": record({**proxied, "content": {"description": "IPv4 address", "type": "string", "format": "ipv4"}}, ["content"], "A record"),
+        "A": record({**proxied, "content": {"description": "IPv4 address", "type": "string", "format": "ipv4", "pattern": r"^(0|[1-9][0-9]{0,2})(\.(0|[1-9][0-9]{0,2})){3}$"}}, ["content"], "A record"),
         "AAAA": record({**proxied, "content": {"description": "IPv6 address", "type": "string", "format": "ipv6"}}, ["content"], "AAAA record"),
         "CNAME": record({**proxied, "content": hostname("Target hostname, @ for the zone apex", "@")}, ["content"], "CNAME record"),
         "ALIASES": record(
