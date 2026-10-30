@@ -178,6 +178,19 @@ run "computed_zone_id" {
 
 # records: [] or record_groups: [] in YAML is a list: it must stop the plan, not pass
 # the validations as no records and delete them
+run "empty_containers" {
+  command = plan
+
+  variables {
+    records = { "bücher" = [], "größe" = { A = {} }, "www" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = keys(module.v5.records) == ["www A 192.0.2.1"]
+    error_message = "Empty containers of either kind must be names and types without records"
+  }
+}
+
 run "list_records" {
   command = plan
 

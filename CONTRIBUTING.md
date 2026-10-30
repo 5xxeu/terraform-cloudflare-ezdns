@@ -53,6 +53,7 @@ python3 scripts/test-docs-examples.py   # every module call in the README and do
                                         # and the tables of their records match (--write updates them)
 python3 scripts/check-versions.py       # current version references, including example comments
 python3 scripts/test-zone-converter.py  # equivalent zone values through compile, both key modes
+python3 scripts/test-plan-checks.py     # input checks fail at plan also with values known after apply
 python3 scripts/check-links.py          # links between the Markdown files
 tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 

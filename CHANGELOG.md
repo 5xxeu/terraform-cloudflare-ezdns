@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - `import_existing`: a `data` field set to `null` (for example `value = null` of an HTTPS or SVCB record from an object with optional fields) no longer stops the import of the existing record; the field is left out of the comparison, as if it were not written
+- `records` with an empty list in place of the types of a name (`app = []`, `app: []` in YAML) failed with "Invalid function argument"; like an empty map, it is now a name without records, as it already was in `record_groups`. A name or a list of records of another kind (a string, `null`, a record written without its list) fails with the path of the value (`records["app"]["A"] must be a list of records`) instead of a general message or an error about the attribute values
+- `record_groups`: an unknown record attribute is reported at plan also when another value of the group is known only after apply (a TTL from another resource); the check was put off until apply
 
 ## [2.20.0] - 2026-10-30
 
