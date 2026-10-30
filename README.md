@@ -33,7 +33,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.19.0"
+  version = "2.20.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -108,7 +108,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "2.19.0"
+     version = "2.20.0"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -237,7 +237,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.19.0"
+  version = "2.20.0"
   # ...
 }
 ```
@@ -261,7 +261,7 @@ Records can be written directly in `records` or kept in a YAML file passed throu
 
 The module follows [Semantic Versioning](https://semver.org/): within 2.x, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys have not changed since 2.0. Each release passes the tests on Terraform 1.8 and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge; from 2.16.0 the release workflow publishes the GitHub Release and archives only after CI and the end-to-end test passed on the tagged commit. The Terraform Registry picks up pushed version tags independently of this workflow.
 
-Pin `version` exactly (or to a minor version, `~> 2.19.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
+Pin `version` exactly (or to a minor version, `~> 2.20.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
 
 ## License
 MIT
