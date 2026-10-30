@@ -237,7 +237,8 @@
         "content": {
           "description": "IPv4 address",
           "type": "string",
-          "format": "ipv4"
+          "format": "ipv4",
+          "pattern": "^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$"
         }
       }
     },
