@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file. The format is b
 - `records` with an empty list in place of the types of a name (`app = []`, `app: []` in YAML) failed with "Invalid function argument"; like an empty map, it is now a name without records, as it already was in `record_groups`. A name or a list of records of another kind (a string, `null`, a record written without its list) fails with the path of the value (`records["app"]["A"] must be a list of records`) instead of a general message or an error about the attribute values
 - `record_groups`: an unknown record attribute is reported at plan also when another value of the group is known only after apply (a TTL from another resource); the check was put off until apply
 
+### Internal
+
+- CI checkouts keep no credentials (`persist-credentials: false`), like the release and end-to-end workflows: the benchmarks and other jobs run the code of the pull request
+
 ## [2.20.0] - 2026-10-30
 
 ### Fixed
