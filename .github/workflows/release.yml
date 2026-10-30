@@ -25,6 +25,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # The checks of the repository first: a tag without its CHANGELOG entry or with
+      # stale version references fails at once, not after the waits for CI and the
+      # end-to-end test below
+      - name: Check release version references
+        run: python3 scripts/check-versions.py --tag "$GITHUB_REF_NAME"
+
+      - name: Release notes from the changelog
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md >notes.md
+          test -s notes.md || { echo "No CHANGELOG entry for ${GITHUB_REF_NAME}"; exit 1; }
+
       # The GitHub Release and archives require a commit that passed CI. The latest
       # run counts, so a re-run after a flaky failure is enough (latest by id: a queued run has no
       # started_at yet). The tag usually follows the merge right away, while CI on main
@@ -67,18 +82,6 @@ jobs:
             sleep 30
           done
           echo "No end-to-end result for ${GITHUB_SHA} after 35 minutes"; exit 1
-
-      - name: Check release version references
-        run: python3 scripts/check-versions.py --tag "$GITHUB_REF_NAME"
-
-      - name: Release notes from the changelog
-        run: |
-          awk -v v="${GITHUB_REF_NAME#v}" '
-            index($0, "## [" v "]") == 1 { found = 1; next }
-            found && /^## \[/ { exit }
-            found { print }
-          ' CHANGELOG.md >notes.md
-          test -s notes.md || { echo "No CHANGELOG entry for ${GITHUB_REF_NAME}"; exit 1; }
 
       # The module files only, for a local copy in the configurations that use it:
       # the full module, and a provider v5 one without the v4 wrapper and its
