@@ -1311,3 +1311,59 @@ run "null_mx_alone" {
     error_message = "A null MX alone and ordinary MX records do not warn"
   }
 }
+
+run "ipv4_leading_zero_first" {
+  command = plan
+  variables {
+    records = { "app" = { A = [{ content = "010.1.1.1" }] } }
+  }
+  expect_failures = [var.records]
+}
+
+run "ipv4_leading_zero_second" {
+  command = plan
+  variables {
+    records = { "app" = { A = [{ content = "192.00.2.1" }] } }
+  }
+  expect_failures = [var.records]
+}
+
+run "ipv4_leading_zero_third" {
+  command = plan
+  variables {
+    records = { "app" = { A = [{ content = "192.0.002.1" }] } }
+  }
+  expect_failures = [var.records]
+}
+
+run "ipv4_leading_zero_fourth" {
+  command = plan
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.01", key = "explicit" }] } }
+  }
+  expect_failures = [var.records]
+}
+
+run "ipv4_leading_zero_several" {
+  command = plan
+  variables {
+    records = { "app" = { A = [{ content = "192.000.002.001" }] } }
+  }
+  expect_failures = [var.records]
+}
+
+run "ipv4_canonical_octets_keep_keys" {
+  command = plan
+  variables {
+    records = { "app" = { A = [
+      { content = "0.0.0.0" }, { content = "10.1.1.1" },
+      { content = "192.0.2.1" }, { content = "255.255.255.255" },
+    ] } }
+  }
+  assert {
+    condition = toset(keys(output.flat_records)) == toset([
+      "app A 0.0.0.0", "app A 10.1.1.1", "app A 192.0.2.1", "app A 255.255.255.255"
+    ])
+    error_message = "Canonical IPv4 values keep their existing state keys"
+  }
+}

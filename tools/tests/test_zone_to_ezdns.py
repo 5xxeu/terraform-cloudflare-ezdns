@@ -232,5 +232,67 @@ class YamlTest(unittest.TestCase):
         self.assertEqual(names[0], '"@"')
 
 
+class NormalizationTest(unittest.TestCase):
+    def test_all_supported_types_through_converter(self):
+        fixture = json.loads((HERE / 'fixtures/equivalent-zone.json').read_text())
+        self.assertEqual({r['type'] for r in fixture['result']}, set(z.CONTENT_TYPES) | set(z.DATA_FIELDS) | {'CAA'})
+        for stable in (False, True):
+            with self.subTest(stable=stable):
+                records, notes = z.convert(fixture['result'], 'example.com', 3600, stable)
+                self.assertEqual(sum(len(recs) for types in records.values() for recs in types.values()), fixture['expected_count'])
+                self.assertEqual(len(notes), fixture['expected_copies'])
+                self.assertTrue(all('written once' in n for n in notes))
+                # Values and ordinary module keys still use the first copy's spelling.
+                self.assertEqual(records['cname']['CNAME'][0]['content'], '@')
+                self.assertEqual(records['aaaa']['AAAA'][0]['content'], '::ffff:c000:201')
+                self.assertEqual(records['txt']['TXT'][0]['content'], 'hello "world" \\ tail')
+                self.assertEqual([r['priority'] for r in records['mx']['MX']], [10, 20])
+                if not stable:
+                    self.assertEqual([r['key'] for r in records['mx']['MX']], ['priority-10', 'priority-20'])
+
+    def test_exact_values_do_not_collapse(self):
+        cases = [
+            ('TXT', {'content': 'Hello'}, {'content': 'hello'}),
+            ('TXT', {'content': r'"\065"'}, {'content': 'A'}),
+            ('TXT', {'content': r'"\065"'}, {'content': '"A"'}),
+            ('TXT', {'content': 'prefix" "suffix'}, {'content': 'prefixsuffix'}),
+            ('OPENPGPKEY', {'content': 'AbCd'}, {'content': 'abcd'}),
+            ('DNSKEY', {'data': {'public_key': 'AbCd'}}, {'data': {'public_key': 'abcd'}}),
+            ('CERT', {'data': {'certificate': 'AbCd'}}, {'data': {'certificate': 'abcd'}}),
+            ('URI', {'data': {'target': 'https://example.net/Case'}}, {'data': {'target': 'https://example.net/case'}}),
+            ('CAA', {'tag': 'issue', 'content': 'ca.example; account=ABC'}, {'tag': 'issue', 'content': 'ca.example; account=abc'}),
+            ('CAA', {'tag': 'iodef', 'content': 'mailto:ABC@example.net'}, {'tag': 'iodef', 'content': 'mailto:abc@example.net'}),
+            ('NAPTR', {'data': {'flags': 'S'}}, {'data': {'flags': 's'}}),
+        ]
+        for kind, left, right in cases:
+            with self.subTest(kind=kind, left=left):
+                self.assertNotEqual(z.identity(kind, left), z.identity(kind, right))
+
+    def test_equivalent_proxy_variants_still_require_manual_choice(self):
+        for stable in (False, True):
+            raw = [dict(id='a', name='web.example.com', type='AAAA', content='2001:db8::1', proxied=True),
+                   dict(id='b', name='web.example.com', type='AAAA', content='2001:0DB8:0:0:0:0:0:1', proxied=False)]
+            records, notes = z.convert(raw, 'example.com', 3600, stable)
+            self.assertEqual(len(records['web']['AAAA']), 2)
+            self.assertTrue(any('differ only in proxied' in n for n in notes))
+            self.assertFalse(any('written once' in n for n in notes))
+
+    def test_txt_whitespace_chunks_escapes_and_opaque_values(self):
+        pairs = [('hello', '"he"\t"llo"'), ('a"b\\c', r'"a\"b\\c"'), ('', '""')]
+        for left, right in pairs:
+            self.assertEqual(z.identity('TXT', {'content': left}), z.identity('TXT', {'content': right}))
+        for opaque in ['"unfinished', '"a" trailing', '"a"\n"b"', r'"\065"']:
+            result = z.identity('TXT', {'content': opaque})
+            self.assertEqual(result['content'], {'opaque': True, 'value': opaque})
+
+    def test_caa_default_flags_and_numeric_precision(self):
+        self.assertEqual(z.identity('CAA', {'tag': 'issue', 'content': 'CA.EXAMPLE.'}),
+                         z.identity('CAA', {'tag': 'issue', 'content': 'ca.example', 'flags': 0}))
+        for left, right in [('0.0', '0'), ('-0.0', '0'), ('1e3', '1000'), ('14.500', '14.5'),
+                            ('12345678901234567890123456789.1', '12345678901234567890123456789.10')]:
+            self.assertEqual(z.identity('LOC', {'data': {'altitude': left}}),
+                             z.identity('LOC', {'data': {'altitude': right}}))
+
+
 if __name__ == "__main__":
     unittest.main()

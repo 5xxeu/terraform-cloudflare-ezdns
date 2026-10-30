@@ -37,6 +37,29 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
+## To 2.20: IPv4 Without Leading Zeros
+
+A records and the `ipv4hint` of HTTPS and SVCB records now require four decimal
+octets without leading zeros. Change values such as `192.000.002.001` to `192.0.2.1`
+before upgrading. This tightens validation: a
+configuration accepted by earlier releases can now fail at plan.
+
+An explicit `key` keeps its Terraform address. Without one, changing the spelling
+changes the address: add a `moved` block from the old address to the new one, then
+check that the plan updates the existing record without creating or destroying it.
+For example:
+
+```hcl
+moved {
+  from = module.dns.module.v5.cloudflare_dns_record.record["app A 192.000.002.001"]
+  to   = module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.1"]
+}
+```
+
+Adjust the module address to your configuration; with provider v4 the resource is
+`module.dns.module.v4.cloudflare_record.record`. Record key generation itself is
+unchanged; canonical inputs keep their existing addresses.
+
 ## To 2.17: plan-guard Rejects Incomplete Plans
 
 > **CI steps that check targeted plans:** add `--allow-incomplete` to the `plan-guard.py` command.

@@ -31,10 +31,12 @@ skipped or are copies of each other (the YAML is written anyway), 2 for bad inpu
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import pathlib
 import re
 import sys
+from decimal import Decimal, InvalidOperation
 
 # Fields of the structured records, as the module takes them in data (other fields that
 # the API returns, such as name, proto and service of SRV records, are left out)
@@ -205,7 +207,7 @@ def convert(records, zone, default_ttl, stable_keys=False):
             # record is the origin address
             copies = {}
             for rec in recs:
-                copies.setdefault(json.dumps(identity(rtype, rec), sort_keys=True), []).append(rec)
+                copies.setdefault(json.dumps(identity(rtype, rec, zone), sort_keys=True), []).append(rec)
             for same in copies.values():
                 # Copies that differ in the proxy are not written once: deleting the proxied
                 # one would publish the origin, so the choice is left to a person
@@ -228,13 +230,18 @@ def convert(records, zone, default_ttl, stable_keys=False):
                     else:
                         notes.append(f"{rtype} record of {name} has no Cloudflare ID: written without a stable key")
 
-            # Records that the module would give the same key: MX and URI records that
-            # differ only in priority and CAA records that differ only in flags get a key
-            # each (records with a stable key have one already)
+            # MX/URI with equivalent values but different priorities, and CAA with
+            # different flags, need explicit keys even when their raw spelling differs:
+            # the core also checks normalized identities without the priority.
+            # Records with a stable key have one already.
             groups = {}
             for rec in recs:
                 if "key" not in rec:
-                    groups.setdefault(module_key(rtype, rec), []).append(rec)
+                    value = identity(rtype, rec, zone)
+                    value.pop("priority", None)
+                    if rtype == "CAA":
+                        value["data"].pop("flags", None)
+                    groups.setdefault(json.dumps(value, sort_keys=True), []).append(rec)
             keyed = []
             for key, same in groups.items():
                 if len(same) > 1 and rtype in ("MX", "URI", "CAA"):
@@ -260,9 +267,82 @@ def convert(records, zone, default_ttl, stable_keys=False):
     return out, notes
 
 
-def identity(rtype, rec):
-    """The fields that make a DNS record (not its TTL, comment, tags or proxy)."""
-    return {k: rec[k] for k in ("content", "priority", "tag", "flags", "data") if k in rec}
+# These fields mirror modules/dns/records/import.tf. Keep comparisons separate from
+# module_key(): 2.x state keys and the values written to YAML retain their spelling.
+NUMERIC_FIELDS = {
+    "SRV": ["priority", "weight", "port"], "URI": ["weight"],
+    "HTTPS": ["priority"], "SVCB": ["priority"],
+    "TLSA": ["usage", "selector", "matching_type"],
+    "SMIMEA": ["usage", "selector", "matching_type"],
+    "SSHFP": ["algorithm", "type"], "DS": ["key_tag", "algorithm", "digest_type"],
+    "DNSKEY": ["flags", "protocol", "algorithm"], "CERT": ["type", "key_tag", "algorithm"],
+    "NAPTR": ["order", "preference"], "CAA": ["flags"],
+    "LOC": [f for f in DATA_FIELDS["LOC"] if f not in ("lat_direction", "long_direction")],
+}
+TXT_CHUNK = r'"((?:[^"\\]|\\["\\])*)"'
+TXT_ZONE_FILE = re.compile(TXT_CHUNK + r'(?:[ \t]+' + TXT_CHUNK + r')*')
+
+
+def identity(rtype, rec, zone=""):
+    """The core's comparison value, including priority and CAA's default flags.
+
+    Opaque TXT escapes, URI targets, base64 and CAA parameters stay exact.
+    Nothing here changes the record that is written or its Terraform state key.
+    """
+    def hostname(value):
+        return re.sub(r"\.$", "", value).lower()
+
+    def number(value):
+        try:
+            parsed = Decimal(value)
+            if not parsed.is_finite():
+                return value
+            if parsed == 0:
+                return "0"
+            value = format(parsed, "f")
+            return value.rstrip("0").rstrip(".") if "." in value else value
+        except InvalidOperation:
+            return value
+
+    result = {}
+    if rtype == "CAA":
+        data = {"value": rec["content"], "tag": rec["tag"], "flags": text(rec.get("flags", 0))}
+    else:
+        data = rec.get("data")
+    if data is not None:
+        normalized = {}
+        for field, value in data.items():
+            if rtype == "LOC" and field == "lat_direction" and value == "false":
+                value = "N"
+            elif field in NUMERIC_FIELDS.get(rtype, []):
+                value = number(value)
+            elif (field in ("target", "replacement", "digest", "fingerprint") and not (field == "target" and rtype == "URI")) or (field == "certificate" and rtype in ("TLSA", "SMIMEA")):
+                value = hostname(value)
+            elif rtype == "CAA" and field == "value" and data["tag"] in ("issue", "issuewild"):
+                issuer, separator, parameters = value.partition(";")
+                value = hostname(issuer.strip()) + separator + parameters
+            normalized[field] = value
+        result["data"] = normalized
+    else:
+        value = rec["content"]
+        if rtype == "TXT":
+            if TXT_ZONE_FILE.fullmatch(value):
+                chunks = [m.group(1) for m in re.finditer(TXT_CHUNK, value)]
+                value = {"opaque": False, "value": re.sub(r'\\(["\\])', r'\1', "".join(chunks))}
+            else:
+                value = {"opaque": value.startswith('"'), "value": value}
+        elif rtype == "AAAA":
+            try:
+                address = ipaddress.IPv6Address(value)
+                value = "::ffff:" + str(address.ipv4_mapped) if address.ipv4_mapped else str(address)
+            except ValueError:
+                value = hostname(value)
+        elif rtype != "OPENPGPKEY":
+            value = hostname(zone if value == "@" and rtype in ("CNAME", "MX", "NS", "PTR") else value)
+        result["content"] = value
+    if rtype in ("MX", "URI") and "priority" in rec:
+        result["priority"] = rec["priority"]
+    return result
 
 
 def module_key(rtype, rec):
