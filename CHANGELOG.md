@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-30
+
 ### Fixed
 
 - `tools/plan-guard.py`: an `A`, `AAAA` or `CNAME` record whose proxy status is known only after apply fails the plan also when it is new or was not proxied, and its value counts as hidden by the proxy: a new unproxied record with the same value fails, and `--strict-proxy` checks the new unproxied records next to it. Before, such a record passed, and so did an unproxied record with its address, also with `--strict-proxy`
@@ -14,7 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - Release tags with a prerelease suffix are marked as prereleases on GitHub
 
-- Registry version comments in the v5, YAML and import examples use 2.19.0
+- Registry version comments in the v5, YAML and import examples follow the current release (they showed 2.12.2)
 
 - `README.md` and `SECURITY.md` say that the release workflow gates the GitHub Release and the archives, while the Terraform Registry picks up a pushed version tag on its own
 
@@ -595,7 +597,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.19.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.20.0...HEAD
+[2.20.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.16.4...v2.17.0
