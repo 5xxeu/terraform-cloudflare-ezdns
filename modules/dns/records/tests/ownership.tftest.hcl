@@ -39,6 +39,24 @@ run "owned_subtree" {
     condition     = toset([for r in output.unmanaged_records : r.id]) == toset(["id-stray", "id-ownership"])
     error_message = "Only records in included names and below them, outside excluded names, are reported; myapps is not below apps"
   }
+
+  assert {
+    condition     = [for r in output.matched_records : r.id] == ["id-apps"]
+    error_message = "Matched records in owned_names are listed"
+  }
+}
+
+run "matched_records_respect_reporting_rules" {
+  command = plan
+
+  variables {
+    unmanaged_ignore = [{ name_regex = "^apps[.]example[.]com$", types = ["A"] }]
+  }
+
+  assert {
+    condition     = length(output.matched_records) == 0
+    error_message = "Matched records that unmanaged_ignore expects are not listed"
+  }
 }
 
 run "owned_names_fully_qualified_and_case_insensitive" {

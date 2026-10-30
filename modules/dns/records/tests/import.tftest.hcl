@@ -631,8 +631,39 @@ run "unmanaged_records" {
   }
 
   assert {
+    condition     = [for r in output.matched_records : r.id] == ["id-app", "id-dup-1", "id-dup-2"]
+    error_message = "The records that configured records match, also copies, are matched records"
+  }
+
+  assert {
     condition     = length(output.import_record_ids) == 0 && length(output.import_duplicates) == 0
     error_message = "Without import_existing nothing is imported, and ambiguous matches do not stop the plan"
+  }
+}
+
+# A copy of a configured record in another form of its value (quoted TXT, a target in
+# another case) is a match: it is left out of unmanaged_records and listed in
+# matched_records, where plan-guard --unmanaged compares it with the state
+run "matched_records_in_another_form" {
+  command = plan
+
+  variables {
+    records = { "app" = { TXT = [{ content = "v=spf1 -all" }] }, "www" = { CNAME = [{ content = "target.example.net" }] } }
+    existing_records = [
+      { id = "id-txt", name = "app.example.com", type = "TXT", content = "\"v=spf1 -all\"" },
+      { id = "id-cname", name = "www.example.com", type = "CNAME", content = "Target.Example.net" },
+    ]
+    import_existing = false
+  }
+
+  assert {
+    condition     = length(output.unmanaged_records) == 0 && [for r in output.matched_records : r.id] == ["id-txt", "id-cname"]
+    error_message = "Records matched in another form of the value are matched records, not unmanaged"
+  }
+
+  assert {
+    condition     = output.matched_records[0] == { id = "id-txt", name = "app.example.com", type = "TXT" }
+    error_message = "Matched records have id, name and type only"
   }
 }
 

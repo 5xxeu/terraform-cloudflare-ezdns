@@ -45,6 +45,11 @@ output "presumed_previous_records" {
   value       = [for r in module.records.presumed_previous_records : r if var.report_unmanaged]
 }
 
+output "matched_records" {
+  description = "Existing records that configured records match (by value, or by name and type with ignore_changes), with id, name and type, left out of unmanaged_records. A record of the zone that the state does not hold may be among them, such as a copy of a configured record or one that the plan creates again; tools/plan-guard.py --unmanaged finds those. Empty unless report_unmanaged is true"
+  value       = [for r in module.records.matched_records : r if var.report_unmanaged]
+}
+
 output "unmanaged_records" {
   description = "Records in the zone that the configuration does not describe (id, name, type, content, priority, data). Empty unless report_unmanaged is true. Sensitive: the content of a proxied record is the origin address that Cloudflare hides"
   value       = [for r in module.records.unmanaged_records : r if var.report_unmanaged]

@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `matched_records` output (v5): IDs, names and types of existing records that configured records match, left out of `unmanaged_records`. `tools/plan-guard.py --unmanaged matched_records` fails on those that the state does not hold and the plan does not import: a copy of a configured record in another form of its value (a TXT with quotes, a target in another case), or a record that the plan creates again next to the existing one. Before, such records passed both the report and plan-guard. Pass the output through and add it to the plan-guard call next to `unmanaged_records` and `presumed_previous_records`
+
 ### Fixed
 
 - `import_existing`: a `data` field set to `null` (for example `value = null` of an HTTPS or SVCB record from an object with optional fields) no longer stops the import of the existing record; the field is left out of the comparison, as if it were not written

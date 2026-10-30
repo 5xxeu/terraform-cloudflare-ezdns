@@ -129,7 +129,7 @@ guard_unmanaged() {
     guard_rc=0
     tf "$1" show -json tfplan >"${E2E_DIR}/tfplan.json"
     python3 "$guard" "${E2E_DIR}/tfplan.json" --allow '*' --allow-proxy-disable \
-        --unmanaged unmanaged_records --unmanaged presumed_previous_records \
+        --unmanaged unmanaged_records --unmanaged presumed_previous_records --unmanaged matched_records \
         >/dev/null 2>"${E2E_DIR}/guard.log" || guard_rc=$?
     listed=$(grep -oE '\([0-9a-f]{32}\)$' "${E2E_DIR}/guard.log" | tr -d '()' | sort | tr '\n' ' ' | sed 's/ $//' || true)
 }

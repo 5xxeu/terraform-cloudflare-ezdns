@@ -13,6 +13,7 @@ override_module {
     import_duplicates         = {}
     ambiguous_matches         = {}
     presumed_previous_records = [{ id = "id-previous", name = "app.example.com", type = "A" }]
+    matched_records           = [{ id = "id-matched", name = "www.example.com", type = "TXT" }]
     unmanaged_records         = [{ id = "id-1", name = "old.example.com", type = "A", content = "192.0.2.9", priority = null, data = null }]
   }
 }
@@ -30,6 +31,11 @@ run "warn_by_default" {
   assert {
     condition     = output.presumed_previous_records == [{ id = "id-previous", name = "app.example.com", type = "A" }]
     error_message = "Presumed previous records are passed through when report_unmanaged is true"
+  }
+
+  assert {
+    condition     = output.matched_records == [{ id = "id-matched", name = "www.example.com", type = "TXT" }]
+    error_message = "Matched records are passed through when report_unmanaged is true"
   }
 
   expect_failures = [check.unmanaged_records]
@@ -55,5 +61,10 @@ run "no_presumed_previous_records_without_report_unmanaged" {
   assert {
     condition     = output.presumed_previous_records == []
     error_message = "Presumed previous records are empty unless report_unmanaged is true"
+  }
+
+  assert {
+    condition     = output.matched_records == []
+    error_message = "Matched records are empty unless report_unmanaged is true"
   }
 }

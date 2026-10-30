@@ -84,6 +84,14 @@ output "presumed_previous_records" {
   ]
 }
 
+output "matched_records" {
+  description = "Existing records that configured records match (by value, or by name and type with ignore_changes), with id, name and type, left out of unmanaged_records. A match by value also takes another form of the value (TXT with or without quotes, a target in another case), so a record of the zone that the state does not hold may be among them"
+  value = [
+    for r in var.existing_records : { id = r.id, name = r.name, type = r.type }
+    if can(local.matched_ids[r.id]) && local.reported[r.id]
+  ]
+}
+
 output "unmanaged_records" {
   description = "existing_records that no configured record matches: records in the zone that the configuration does not describe. Sensitive: the content of a proxied record is the origin address that Cloudflare hides"
   value       = local.unmanaged_records

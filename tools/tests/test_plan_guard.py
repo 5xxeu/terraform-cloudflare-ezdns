@@ -706,7 +706,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual(self.exit_code(p), 1)
 
 
-def with_report(p, state_ids=(), unmanaged=(), presumed=()):
+def with_report(p, state_ids=(), unmanaged=(), presumed=(), matched=()):
     """A plan with a prior state of records with these IDs (one in a child module) and the
     report outputs of the module passed through."""
     resources = [{"address": BASE.format(i), "mode": "managed", "type": "cloudflare_dns_record", "values": {"id": i}}
@@ -716,11 +716,12 @@ def with_report(p, state_ids=(), unmanaged=(), presumed=()):
     p["planned_values"]["outputs"] = {
         "unmanaged_records": {"sensitive": True, "value": [{"id": i, "name": "app.example.com", "type": "A"} for i in unmanaged]},
         "presumed_previous_records": {"sensitive": False, "value": [{"id": i, "name": "app.example.com", "type": "A"} for i in presumed]},
+        "matched_records": {"sensitive": False, "value": [{"id": i, "name": "app.example.com", "type": "A"} for i in matched]},
     }
     return p
 
 
-REPORT = ["--unmanaged", "unmanaged_records", "--unmanaged", "presumed_previous_records"]
+REPORT = ["--unmanaged", "unmanaged_records", "--unmanaged", "presumed_previous_records", "--unmanaged", "matched_records"]
 APP = {"name": "app", "type": "A", "content": "192.0.2.1", "proxied": False}
 
 
@@ -743,6 +744,19 @@ class UnmanagedTest(unittest.TestCase):
         p = with_report(plan(record(BASE.format("app"), ["update"], {**APP, "id": "id-old"}, {**APP, "content": "192.0.2.2"})),
                         state_ids=["id-old"], unmanaged=["id-old", "id-hand"])
         self.assertEqual(run(p, *REPORT)[1:], ["  A app.example.com (id-hand)"])
+
+    def test_copy_of_a_configured_record_fails(self):
+        # The module matches both records to the configuration by value (a copy in another
+        # form of the value, such as a quoted TXT); only the one in the state passes
+        p = with_report(plan(record(BASE.format("app"), ["no-op"], {**APP, "id": "id-app"}, {**APP, "id": "id-app"})),
+                        state_ids=["id-app"], matched=["id-app", "id-copy"])
+        self.assertEqual(run(p, *REPORT)[1:], ["  A app.example.com (id-copy)"])
+
+    def test_matched_record_that_the_plan_creates_again_fails(self):
+        # Without import_existing, a configured record that matches an existing record
+        # outside the state is created next to it
+        p = with_report(plan(record(BASE.format("app"), ["create"], None, APP)), matched=["id-zone"])
+        self.assertEqual(run(p, *REPORT)[1:], ["  A app.example.com (id-zone)"])
 
     def test_imported_record_passes(self):
         change = record(BASE.format("app"), ["no-op"], None, {**APP, "id": "id-new"})

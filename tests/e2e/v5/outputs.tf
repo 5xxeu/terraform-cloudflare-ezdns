@@ -13,3 +13,8 @@ output "presumed_previous_records" {
   description = "Records taken as the old values of changed records, for plan-guard --unmanaged"
   value       = module.dns.presumed_previous_records
 }
+
+output "matched_records" {
+  description = "Records of the zone that configured records match, for plan-guard --unmanaged"
+  value       = module.dns.matched_records
+}
