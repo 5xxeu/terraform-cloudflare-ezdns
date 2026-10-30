@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Internal
 
 - CI checkouts keep no credentials (`persist-credentials: false`), like the release and end-to-end workflows: the benchmarks and other jobs run the code of the pull request
+- Release workflow: the version references and the CHANGELOG entry of the tag are checked first, before the waits for CI and the end-to-end test (up to 65 minutes)
 
 ## [2.20.0] - 2026-10-30
 
