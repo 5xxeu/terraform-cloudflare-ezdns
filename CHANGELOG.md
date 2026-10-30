@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `import_existing`: a `data` field set to `null` (for example `value = null` of an HTTPS or SVCB record from an object with optional fields) no longer stops the import of the existing record; the field is left out of the comparison, as if it were not written
+
 ## [2.20.0] - 2026-10-30
 
 ### Fixed
