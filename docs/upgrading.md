@@ -56,7 +56,8 @@ moved {
 }
 ```
 
-Adjust the module address to your configuration. Record key generation itself is
+Adjust the module address to your configuration; with provider v4 the resource is
+`module.dns.module.v4.cloudflare_record.record`. Record key generation itself is
 unchanged; canonical inputs keep their existing addresses.
 
 ## To 2.17: plan-guard Rejects Incomplete Plans
