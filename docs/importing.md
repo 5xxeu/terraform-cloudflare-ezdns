@@ -50,7 +50,7 @@ zone-to-ezdns: skipped NS example.com (372e67954025e0ba6aaa6d586b9e0b59): read o
 For a zone with a proxied apex and `www`, two MX records on one host, an SPF record with a TTL of 300 and an SRV record, `records.ezdns.yaml` is:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/v2.20.0/schema/records.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/5xxeu/terraform-cloudflare-ezdns/v2.21.0/schema/records.schema.json
 # Records of example.com written by zone-to-ezdns.py (6 records). Review them, then adopt them with
 # import_existing = true and import blocks, and check that the plan creates and deletes nothing.
 records:
