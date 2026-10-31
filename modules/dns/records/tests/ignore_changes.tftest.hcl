@@ -44,6 +44,11 @@ run "live_record_by_name_and_type" {
     condition     = [for r in output.unmanaged_records : r.id] == ["id-other"]
     error_message = "The live records of ignore_changes are managed, not reported"
   }
+
+  assert {
+    condition     = [for r in output.matched_records : r.id] == ["id-acme", "id-spf", "id-dyn"]
+    error_message = "The live records of ignore_changes are matched records"
+  }
 }
 
 run "record_not_created_yet" {

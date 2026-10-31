@@ -59,8 +59,8 @@ def parse_args(argv):
     parser.add_argument("--module", metavar="ADDRESS",
                         help="only check records of this module call and the modules in it (e.g. module.dns)")
     parser.add_argument("--unmanaged", action="append", default=[], metavar="OUTPUT",
-                        help="root module output with records of the zone (unmanaged_records and presumed_previous_records "
-                             "of the module, passed through); fail on those whose IDs are not in the state and not imported "
+                        help="root module output with records of the zone (unmanaged_records, presumed_previous_records "
+                             "and matched_records of the module, passed through); fail on those whose IDs are not in the state and not imported "
                              "by the plan; repeat for more")
     args = parser.parse_args(argv)
     if args.require and not args.zone:

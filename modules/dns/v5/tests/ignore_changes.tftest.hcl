@@ -41,6 +41,7 @@ override_module {
     ambiguous_matches         = {}
     unmanaged_records         = []
     presumed_previous_records = []
+    matched_records           = []
   }
 }
 
@@ -115,6 +116,7 @@ run "private_routing_with_proxied_from_the_zone" {
       ambiguous_matches         = {}
       unmanaged_records         = []
       presumed_previous_records = []
+      matched_records           = []
     }
   }
 
@@ -149,6 +151,7 @@ run "private_routing_with_unproxied_record_in_the_zone" {
       ambiguous_matches         = {}
       unmanaged_records         = []
       presumed_previous_records = []
+      matched_records           = []
     }
   }
 
