@@ -42,7 +42,7 @@ Values that most records share can be set once for the module call, and overridd
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.20.0"
+  version = "2.21.0"
 
   zone_id         = var.zone_id
   zone_name       = "example.com"
