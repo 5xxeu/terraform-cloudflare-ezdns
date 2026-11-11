@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-11-11
+
 ### Added
 
 - `record_metadata` output: the managed records without `content`, `data` and keys (`id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment`, `tags`), for outputs and logs where the origin address of a proxied record must not show. The `records` output stays as it was; its description now says that it is not sensitive
@@ -625,7 +627,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.21.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.22.0...HEAD
+[2.22.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.18.0...v2.19.0
