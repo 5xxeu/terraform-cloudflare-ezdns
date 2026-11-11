@@ -121,6 +121,23 @@ class MovedBlocksTest(unittest.TestCase):
         p = plan(record("a", ["delete"], v4, None, rtype="cloudflare_record"), record("b", ["create"], None, v4, rtype="cloudflare_record"))
         self.assertEqual(run(p)[1].count("moved {"), 1)
 
+    def test_numbers_in_data_match_in_any_form(self):
+        srv = {"zone_id": "z", "name": "_sip._tcp", "type": "SRV",
+               "data": {"priority": 10, "weight": 5, "port": 5060, "target": "sip.example.com"}}
+        for port in [5060.0, "5060.0", "05060"]:
+            with self.subTest(port=port):
+                p = plan(
+                    record("_sip._tcp SRV abc", ["delete"], srv, None),
+                    record("_sip._tcp SRV sip", ["create"], None, {**srv, "data": {**srv["data"], "port": port}}),
+                )
+                self.assertEqual(run(p)[1].count("moved {"), 1)
+        # A huge exponent is compared as written, not expanded
+        huge = {**srv, "data": {**srv["data"], "port": "1e999999999"}}
+        self.assertEqual(run(plan(record("a", ["delete"], huge, None), record("b", ["create"], None, huge)))[1].count("moved {"), 1)
+        # Another number is another record
+        p = plan(record("a", ["delete"], srv, None), record("b", ["create"], None, {**srv, "data": {**srv["data"], "port": 5061}}))
+        self.assertEqual(run(p)[1].count("moved {"), 0)
+
     def test_copies_need_a_choice(self):
         p = plan(
             record("www A 192.0.2.1", ["delete"], A, None),

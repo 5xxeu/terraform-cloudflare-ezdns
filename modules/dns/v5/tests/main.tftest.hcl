@@ -107,6 +107,15 @@ run "comments_and_tags" {
     condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
     error_message = "records has the comment and the tags as configured"
   }
+
+  assert {
+    condition = (
+      [for r in output.record_metadata : "${r.fqdn} ${r.type} ${r.comment}"] == ["app.example.com A Web", "app.example.com AAAA Managed by Terraform"]
+      && alltrue([for r in output.record_metadata : !contains(keys(r), "content") && !contains(keys(r), "data")])
+      && toset(output.record_metadata[0].tags) == toset(["managed-by:terraform", "role:web"])
+    )
+    error_message = "record_metadata has the records in the order of their keys, with comments and tags but without values"
+  }
 }
 
 run "settings" {

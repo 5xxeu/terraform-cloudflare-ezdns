@@ -46,6 +46,29 @@ class ConvertTest(unittest.TestCase):
         ])
         self.assertEqual(notes, [])
 
+    def test_whole_numbers_in_any_form(self):
+        records, _ = z.convert([
+            {"id": "1", "name": "example.com", "type": "MX", "content": "mx.example.com", "priority": 10.0, "proxied": False, "ttl": "300"},
+            {"id": "2", "name": "example.com", "type": "CAA", "data": {"flags": "128", "tag": "issue", "value": "ca.example.net"}, "ttl": 3600},
+        ], "example.com", 3600)
+        self.assertEqual(records["@"]["MX"][0]["priority"], 10)
+        self.assertEqual(records["@"]["MX"][0]["ttl"], 300)
+        self.assertEqual(records["@"]["CAA"][0]["flags"], 128)
+
+    def test_numbers_that_are_not_whole_or_out_of_range_are_errors(self):
+        # Rounding them would write another record than the one in the zone
+        for record in [
+            {"id": "1", "name": "example.com", "type": "MX", "content": "mx.example.com", "priority": 10.9},
+            {"id": "1", "name": "example.com", "type": "URI", "data": {"weight": 1, "target": "https://example.com"}, "priority": 70000},
+            {"id": "1", "name": "example.com", "type": "CAA", "data": {"flags": 128.9, "tag": "issue", "value": "ca.example.net"}},
+            {"id": "1", "name": "example.com", "type": "CAA", "data": {"flags": 256, "tag": "issue", "value": "ca.example.net"}},
+            {"id": "1", "name": "example.com", "type": "TXT", "content": "hello", "ttl": 60.9},
+            {"id": "1", "name": "example.com", "type": "TXT", "content": "hello", "ttl": True},
+            {"id": "1", "name": "example.com", "type": "TXT", "content": "hello", "ttl": "NaN"},
+        ]:
+            with self.subTest(record=record), self.assertRaises(ValueError):
+                z.convert([record], "example.com", 3600)
+
     def test_stable_keys_from_the_cloudflare_id(self):
         records, notes = z.convert(ZONE, "example.com", 3600, stable_keys=True)
         self.assertEqual(records["@"]["A"][0]["key"], "cf-1")

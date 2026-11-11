@@ -147,6 +147,18 @@ def text(value):
     return str(value)
 
 
+def whole(value, what, low, high):
+    """A whole number in [low, high] (10, 10.0 or "10"); anything else, such as 10.9, is
+    a broken input (ValueError), not rounded to another record."""
+    try:
+        parsed = None if isinstance(value, bool) else Decimal(str(value).strip())
+    except InvalidOperation:
+        parsed = None
+    if parsed is None or not parsed.is_finite() or parsed != parsed.to_integral_value() or not low <= parsed <= high:
+        raise ValueError(f"{what} {value!r} is not a whole number from {low} to {high}")
+    return int(parsed)
+
+
 def convert(records, zone, default_ttl, stable_keys=False):
     """Returns ({name: {type: [record, ...]}}, notes); notes lists what needs attention."""
     out, notes = {}, []
@@ -169,7 +181,7 @@ def convert(records, zone, default_ttl, stable_keys=False):
         if rtype == "CAA":
             rec["content"] = text(data.get("value", ""))
             rec["tag"] = text(data.get("tag", ""))
-            flags = int(float(data.get("flags", 0) or 0))
+            flags = whole(data.get("flags", 0) or 0, f"{label}: flags", 0, 255)
             if flags:
                 rec["flags"] = flags
         elif rtype in DATA_FIELDS:
@@ -177,7 +189,7 @@ def convert(records, zone, default_ttl, stable_keys=False):
         else:
             rec["content"] = text(r.get("content", ""))
         if rtype in ("MX", "URI") and r.get("priority") is not None:
-            rec["priority"] = int(float(r["priority"]))
+            rec["priority"] = whole(r["priority"], f"{label}: priority", 0, 65535)
         # Written both ways, so default_proxied or the defaults of a group do not change
         # a record of the zone
         if rtype in PROXIABLE and isinstance(r.get("proxied"), bool):
@@ -185,8 +197,10 @@ def convert(records, zone, default_ttl, stable_keys=False):
         if rtype in PROXIABLE and "proxied" not in r:
             notes.append(f"{label}: the input does not say whether it is proxied, written as not proxied: check it")
         ttl = r.get("ttl")
-        if ttl is not None and not rec.get("proxied") and int(ttl) != default_ttl:
-            rec["ttl"] = int(ttl)
+        if ttl is not None:
+            ttl = whole(ttl, f"{label}: ttl", 1, 2**31 - 1)
+        if ttl is not None and not rec.get("proxied") and ttl != default_ttl:
+            rec["ttl"] = ttl
         if r.get("comment"):
             rec["comment"] = r["comment"]
         if r.get("tags"):

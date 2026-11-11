@@ -31,6 +31,7 @@ import ipaddress
 import json
 import re
 import sys
+from decimal import Decimal, InvalidOperation
 
 RECORD_TYPES = ("cloudflare_dns_record", "cloudflare_record")
 # The actions of a change in a plan (terraform show -json)
@@ -42,6 +43,24 @@ SIMPLE_TYPES = ("A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT")
 # Fields of data that hold hostnames or hex strings, compared in lower case (the target
 # of a URI record is a URI, compared exactly: paths and queries are case-sensitive)
 CASE_INSENSITIVE_FIELDS = ("target", "replacement", "digest", "fingerprint")
+# Fields of data that hold numbers, compared as numbers (5060.0 is 5060), as numeric_fields
+# of the import in the module
+NUMERIC_FIELDS = {
+    "SRV": ("priority", "weight", "port"),
+    "URI": ("weight",),
+    "HTTPS": ("priority",),
+    "SVCB": ("priority",),
+    "TLSA": ("usage", "selector", "matching_type"),
+    "SMIMEA": ("usage", "selector", "matching_type"),
+    "SSHFP": ("algorithm", "type"),
+    "DS": ("key_tag", "algorithm", "digest_type"),
+    "DNSKEY": ("flags", "protocol", "algorithm"),
+    "CERT": ("type", "key_tag", "algorithm"),
+    "NAPTR": ("order", "preference"),
+    "CAA": ("flags",),
+    "LOC": ("lat_degrees", "lat_minutes", "lat_seconds", "long_degrees", "long_minutes", "long_seconds",
+            "altitude", "size", "precision_horz", "precision_vert"),
+}
 # TXT content in the zone file form: quoted chunks with no escapes other than \" and \\
 TXT_ZONE_FILE_FORM = re.compile(r'"(?:[^"\\]|\\["\\])*"(?:[ \t]+"(?:[^"\\]|\\["\\])*")*')
 TXT_CHUNK = re.compile(r'"((?:[^"\\]|\\["\\])*)"')
@@ -91,6 +110,15 @@ def data_of(record, rtype):
 
 def data_field(rtype, field, value, data):
     """A field of data in a normal form, by the rules of the import in the module."""
+    if field in NUMERIC_FIELDS.get(rtype, ()):
+        try:
+            number = Decimal(value.strip())
+        except InvalidOperation:
+            number = None
+        # A finite number of a sane size: "1e999999999" written out would take a gigabyte
+        if number is not None and number.is_finite() and abs(number.adjusted()) < 100:
+            text = format(number.normalize(), "f")
+            return "0" if number == 0 else text
     if (field in CASE_INSENSITIVE_FIELDS and not (field == "target" and rtype == "URI")) \
             or (field == "certificate" and rtype in ("TLSA", "SMIMEA")):
         return value.rstrip(".").lower()

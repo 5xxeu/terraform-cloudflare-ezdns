@@ -231,6 +231,35 @@ run "same_value_with_and_without_a_key" {
   expect_failures = [output.flat_records]
 }
 
+run "key_like_the_value_of_another_record" {
+  command = plan
+
+  variables {
+    records = {
+      "app"             = { A = [{ key = "192.0.2.1", content = "192.0.2.2" }] }
+      "app.example.com" = { A = [{ content = "192.0.2.1" }] }
+    }
+  }
+
+  assert {
+    condition     = length(output.flat_records) == 2
+    error_message = "A key that looks like a value is not the record with that value"
+  }
+}
+
+run "same_key_in_two_types" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ key = "main", content = "192.0.2.1" }], TXT = [{ key = "main", content = "token" }] } }
+  }
+
+  assert {
+    condition     = keys(output.flat_records) == ["app A main", "app TXT main"]
+    error_message = "The same key in two types gives two records"
+  }
+}
+
 run "mx_priorities_under_explicit_keys" {
   command = plan
 
@@ -295,5 +324,28 @@ run "hcl_equals_yaml" {
   assert {
     condition     = output.flat_records == run.yaml.flat_records
     error_message = "The same records in YAML and in HCL must give the same flat records"
+  }
+}
+
+# Service parameters of an HTTPS record moved between value and fields: the same record,
+# so with a key its address stays (without one, the key is a hash of data as written)
+run "https_params_in_value_under_a_key" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ key = "web", data = { priority = 1, target = ".", value = "alpn=\"h2\" port=\"443\"" } }] } }
+  }
+}
+
+run "https_params_as_fields_under_a_key" {
+  command = plan
+
+  variables {
+    records = { "@" = { HTTPS = [{ key = "web", data = { priority = 1, target = ".", alpn = "h2", port = 443 } }] } }
+  }
+
+  assert {
+    condition     = output.flat_records == run.https_params_in_value_under_a_key.flat_records
+    error_message = "Service parameters as fields or in value under one key give the same address and data"
   }
 }
