@@ -107,6 +107,8 @@ Cloudflare supports record tags only on some plans and limits the length of comm
         }
     }
   ```
+  `records` is not sensitive, and a proxied record shows there the origin address that Cloudflare hides: in `content`, in `data` (`ipv4hint` of an HTTPS record) and in the keys of records without an explicit `key`. Where plans or outputs end up in logs, pass on `record_metadata` instead, or wrap the output in `sensitive()`.
+- `record_metadata`: the managed records without their values, as a list in the order of their keys: `id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment` and `tags`. It has no `content`, `data` or keys: what it shows besides names is what the configuration writes in comments and tags
 - `state_migration`: map of the record keys used by 1.x to the current ones, see [Upgrading from v1](upgrading.md#from-v1-to-v2)
 - `import_ids` (v5): import IDs of records that already exist in the zone, see [Importing Existing Records](importing.md#importing-existing-records)
 - `import_duplicates` (v5): records that cannot be imported unambiguously, with the IDs of their matches; while there are any, `plan` stops

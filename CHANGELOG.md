@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `record_metadata` output: the managed records without `content`, `data` and keys (`id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment`, `tags`), for outputs and logs where the origin address of a proxied record must not show. The `records` output stays as it was; its description now says that it is not sensitive
+
+### Fixed
+
+- A record with an explicit `key` that reads like the value of another record of the name (`key = "192.0.2.1"` on an A record next to the A record `192.0.2.1` written with the zone name) no longer fails as a duplicate of it
+- `tools/zone-to-ezdns.py`: a CAA `flags`, an MX or URI `priority` or a `ttl` that is not a whole number in its range (`10.9`, `256` for flags) is an error (exit status 2) instead of being rounded down to another record; whole numbers in any form (`10`, `10.0`, `"10"`) are taken as before
+- `tools/moved-blocks.py` compares the numbers of `data` as numbers (`5060`, `5060.0` and `"05060"` are one port), like the import in the module, so it pairs such records
+
 ## [2.21.0] - 2026-10-31
 
 ### Added

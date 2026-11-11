@@ -8,9 +8,11 @@ locals {
   # name), and values that the import takes for one record (import.tf: hostnames in any
   # case and with or without the trailing dot, TXT text quoted or not, numbers in data
   # as numbers, HTTPS service parameters as fields or in value). Records with an
-  # explicit key are compared by their keys. Long values and data are shown as a hash
+  # explicit key are compared by their keys, marked with "key" (no type is called so):
+  # a key that looks like a value ("A 192.0.2.1") is not the record with that value.
+  # Long values and data are shown as a hash
   by_identity = {
-    for r in local.records : "${r.fqdn} ${r.explicit_key != null ? r.explicit_key : "${r.type} ${(
+    for r in local.records : "${r.fqdn} ${r.explicit_key != null ? "key ${r.explicit_key}" : "${r.type} ${(
       r.data != null || contains(["TXT", "OPENPGPKEY"], r.type) ? substr(sha1(local.configured_value[r.key]), 0, 12) : local.configured_value[r.key]
     )}"}" => r...
   }
