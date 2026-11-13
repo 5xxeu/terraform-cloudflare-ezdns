@@ -34,9 +34,7 @@ jobs:
           - modules/dns/records
           - modules/dns/compile
           - modules/dns/idna
-          - modules/dns/v4
           - modules/dns/v5
-          - examples/v4
           - examples/v5
           - examples/yaml
           - examples/import
@@ -90,7 +88,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { dir: modules/dns/v4, provider: 4.41.0 }
           - { dir: modules/dns/v5, provider: 5.26.0 }
           - { dir: modules/dns/idna, provider: 5.26.0 }
           - { dir: ., provider: 5.26.0 }
@@ -133,7 +130,7 @@ jobs:
           terraform_wrapper: false
       - name: Validate
         run: |
-          for dir in tests/e2e/v5 tests/e2e/import tests/e2e/v4 tests/e2e/v4to5 tests/e2e/idna tests/e2e/upgrade tests/bench/import tests/bench/plain tests/bench/groups; do
+          for dir in tests/e2e/v5 tests/e2e/import tests/e2e/idna tests/e2e/upgrade tests/bench/import tests/bench/plain tests/bench/groups; do
             terraform -chdir="$dir" init -backend=false -input=false >/dev/null
             terraform -chdir="$dir" validate
           done

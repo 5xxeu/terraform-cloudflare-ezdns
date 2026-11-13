@@ -82,7 +82,7 @@ Each record is keyed in the state by its content, in the zone file format `<name
 module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"]
 ```
 
-With the `v5` submodule the address is `module.dns.cloudflare_dns_record.record[...]`, with the `v4` submodule `module.dns.cloudflare_record.record[...]`.
+With the `v5` submodule the address is `module.dns.cloudflare_dns_record.record[...]`.
 
 Since the value is a part of the key, changing it replaces the record. For values that change over time (e.g. DKIM rotation or a server IP), set an explicit `key`, so the record is updated in place:
 
@@ -140,7 +140,7 @@ moved {
 }
 ```
 
-With the `//modules/dns/v5` submodule, the address has no `module.v5`; with the v4 wrapper, the resource is `cloudflare_record.record`.
+With the `//modules/dns/v5` submodule, the address has no `module.v5`.
 
 `tools/moved-blocks.py` writes these blocks from a saved plan: it pairs each record that the plan deletes with the created record that is the same DNS record (zone, fully qualified name, type and value; TTL, proxy status, comment and tags change in place after the move). Copies of one record and values known only after apply are listed as comments to pair by hand (exit status 1):
 
@@ -210,4 +210,4 @@ The attributes are `content` (with `data` for structured records), `ttl`, `proxi
 - **Changing a listed attribute in the configuration has no effect** while the record exists. Remove it from `ignore_changes` to set it: the next plan writes the configured value.
 - **Use a `key`**, as in the example: without one, the record key has the configured value, which is no longer the value of the record.
 - **A zone created in the same apply** has no records to read at `plan`, so the values are known only after apply, as with `import_existing`.
-- **Provider v4** has no lookup of the records of a zone: the v4 wrapper stops the plan for a record with `ignore_changes`. The [`compile` submodule](testing.md#testing-your-records), which reads nothing, returns the configured values.
+- The [`compile` submodule](testing.md#testing-your-records), which reads nothing, returns the configured values.

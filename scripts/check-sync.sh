@@ -20,29 +20,21 @@ if [ "$(outputs modules/dns/v5/outputs.tf)" != "$(outputs outputs.tf)" ]; then
 fi
 
 records() { awk '/^variable "records"/, /^}/' "$1"; }
-# The v4 wrapper has the variables of the v5 wrapper except import_existing,
-# report_unmanaged, unmanaged_ignore and unmanaged_policy (provider v4 has no lookup of
-# existing records)
 without_import() { awk '/^variable "(import_existing|report_unmanaged|unmanaged_ignore|unmanaged_policy)"/ { skip = 1 } !skip { print } skip && /^}/ { skip = 0; getline }' "$1"; }
-if ! without_import modules/dns/v5/variables.tf | diff -u - modules/dns/v4/variables.tf; then
-    echo "The variables of modules/dns/v4 differ from modules/dns/v5 (other than import_existing, report_unmanaged, unmanaged_ignore and unmanaged_policy)" >&2
+# The v5 wrapper and the compile module merge record_groups and check the text values
+# and unused attributes of records the same way: everything from the merge to the end
+# of main.tf, where the checks are, is the same
+text_checks() { grep -E '^  text_data_fields' "$1"; awk '/^# record_groups merged into records/, /^module "records"/' "$1"; awk '/^# Numbers in text values are written/, 0' "$1"; }
+if [ "$(text_checks modules/dns/compile/main.tf)" != "$(text_checks modules/dns/v5/main.tf)" ]; then
+    echo "The merge of record_groups or the checks of records differ between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
     status=1
 fi
-# Both wrappers merge record_groups and check the text values and unused attributes of
-# records the same way: everything from the merge to the end of main.tf, where the
-# checks are, is the same
-text_checks() { grep -E '^  text_data_fields' "$1"; awk '/^# record_groups merged into records/, /^module "records"/' "$1"; awk '/^# Numbers in text values are written/, 0' "$1"; }
-for wrapper in modules/dns/v4 modules/dns/compile; do
-    if [ "$(text_checks "$wrapper/main.tf")" != "$(text_checks modules/dns/v5/main.tf)" ]; then
-        echo "The merge of record_groups or the checks of records differ between $wrapper/main.tf and modules/dns/v5/main.tf" >&2
-        status=1
-    fi
-done
-# The compile module has the variables of the v4 wrapper, with zone_name required and
-# without zone_id
+# The compile module has the variables of the v5 wrapper without the lookup of existing
+# records (import_existing, report_unmanaged, unmanaged_ignore, unmanaged_policy), with
+# zone_name required and without zone_id
 without_zone() { awk '/^variable "(zone_id|zone_name)"/ { skip = 1 } !skip { print } skip && /^}/ { skip = 0; getline }' "$1"; }
-if [ "$(without_zone modules/dns/v4/variables.tf)" != "$(without_zone modules/dns/compile/variables.tf)" ]; then
-    echo "The variables of modules/dns/compile differ from modules/dns/v4 (other than zone_id and zone_name)" >&2
+if [ "$(without_import modules/dns/v5/variables.tf | without_zone -)" != "$(without_zone modules/dns/compile/variables.tf)" ]; then
+    echo "The variables of modules/dns/compile differ from modules/dns/v5 (other than zone_id, zone_name and the lookup of existing records)" >&2
     status=1
 fi
 # The entry points accept records as any and check attribute names themselves; the

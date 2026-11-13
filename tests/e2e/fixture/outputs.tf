@@ -65,19 +65,3 @@ output "group_records" {
     }
   }
 }
-
-output "migration_records" {
-  description = "Records used to check the migration from provider v4 to v5"
-  value = {
-    "m-${local.p}" = {
-      A       = [{ content = "192.0.2.30" }]
-      TXT     = [{ content = "v=spf1 -all" }]
-      MX      = [{ content = "mx.${local.z}", priority = 10 }]
-      CAA     = [{ content = "letsencrypt.org", tag = "issue" }]
-      ALIASES = [{ content = "m-alias-${local.p}" }]
-    }
-    "_sip._tcp.m-${local.p}" = {
-      SRV = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.${local.z}" } }]
-    }
-  }
-}

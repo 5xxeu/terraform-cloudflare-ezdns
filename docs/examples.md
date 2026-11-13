@@ -113,7 +113,7 @@ The module creates these records:
 
 <!-- END_RECORDS -->
 
-More module calls for common setups (mail, websites, CAA, SRV, teams) are in [docs/examples.md](#). Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone) and `v4` (provider v4, for existing configurations).
+More module calls for common setups (mail, websites, CAA, SRV, teams) are in [docs/examples.md](#). Complete runnable configurations are available in [`examples`](https://github.com/5xxeu/terraform-cloudflare-ezdns/tree/main/examples): `v5` (records in HCL), `yaml` (records in a YAML file), `import` (adopting an existing zone).
 
 ## Mail: Google Workspace
 

@@ -13,7 +13,7 @@ Fixes go into the latest release. Older versions do not get backports: upgrade t
 
 Do not open a public issue. Report it privately through [GitHub private vulnerability reporting](https://github.com/5xxeu/terraform-cloudflare-ezdns/security/advisories/new) with:
 
-- the affected version and wrapper (root module, `modules/dns/v4`, `modules/dns/v5`);
+- the affected version and wrapper (root module, `modules/dns/v5`);
 - the configuration that shows the problem (without real tokens or zone IDs);
 - what happens and what you expected.
 

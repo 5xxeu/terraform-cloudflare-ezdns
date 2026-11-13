@@ -21,7 +21,6 @@ body:
       options:
         - Root module
         - modules/dns/v5
-        - modules/dns/v4
     validations:
       required: true
   - type: input
