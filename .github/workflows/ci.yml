@@ -34,6 +34,7 @@ jobs:
           - modules/dns/records
           - modules/dns/compile
           - modules/dns/prepare
+          - modules/dns/checks
           - modules/dns/idna
           - modules/dns/v5
           - examples/v5
@@ -56,7 +57,9 @@ jobs:
       - run: terraform validate
       - run: terraform test
       # terraform test cannot expect a failure in a called module: these checks are planned
-      - name: Input checks with values known after apply
+      # (and applied) through compile, and through the v5 wrapper and the root module with a
+      # mocked provider
+      - name: Input checks with values known after apply and checks over all records
         if: matrix.dir == 'modules/dns/compile'
         run: python3 ../../../scripts/test-plan-checks.py
 

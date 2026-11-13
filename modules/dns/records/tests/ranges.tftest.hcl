@@ -262,7 +262,10 @@ run "svc_params_and_value_are_one_record" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com HTTPS 70dd9dca6e21\" as \"@ HTTPS 2563d6f5901e\" from records[\"@\"][\"HTTPS\"][0] and \"@ HTTPS f084fb2b8920\" from records[\"@\"][\"HTTPS\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "svc_port_as_a_decimal_number" {

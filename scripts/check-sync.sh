@@ -2,7 +2,8 @@
 # Checks that the copies of the module interface are the same: the root module
 # repeats the variables and outputs of the v5 wrapper, and the v5 wrapper and the
 # compile module share the records variable (both pass records and record_groups
-# through modules/dns/prepare, which merges the groups and checks the values).
+# through modules/dns/prepare, which merges the groups and checks the values, and the
+# records of modules/dns/records through modules/dns/checks, which checks them all).
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -25,6 +26,13 @@ without_import() { awk '/^variable "(import_existing|report_unmanaged|unmanaged_
 prepare() { awk '/^module "prepare"/, /^}/' "$1"; }
 if [ -z "$(prepare modules/dns/v5/main.tf)" ] || [ "$(prepare modules/dns/compile/main.tf)" != "$(prepare modules/dns/v5/main.tf)" ]; then
     echo "The call of modules/dns/prepare differs between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
+    status=1
+fi
+# Both pass the records and the diagnostics of modules/dns/records through the same call
+# of modules/dns/checks
+checks() { awk '/^module "checks"/, /^}/' "$1"; }
+if [ -z "$(checks modules/dns/v5/main.tf)" ] || [ "$(checks modules/dns/compile/main.tf)" != "$(checks modules/dns/v5/main.tf)" ]; then
+    echo "The call of modules/dns/checks differs between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
     status=1
 fi
 # The compile module has the variables of the v5 wrapper without the lookup of existing

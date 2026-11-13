@@ -1,6 +1,6 @@
 output "record_names" {
   description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
-  value       = [for key, r in cloudflare_dns_record.record : module.records.flat_records[key].fqdn]
+  value       = [for key, r in cloudflare_dns_record.record : module.checks.flat_records[key].fqdn]
 }
 
 output "records" {
@@ -10,7 +10,7 @@ output "records" {
       id              = r.id
       zone_id         = r.zone_id
       name            = r.name
-      fqdn            = module.records.flat_records[key].fqdn
+      fqdn            = module.checks.flat_records[key].fqdn
       type            = r.type
       content         = r.content
       ttl             = r.ttl
@@ -19,8 +19,8 @@ output "records" {
       data            = local.effective_records[key].data
       comment         = local.effective_records[key].comment
       tags            = local.effective_records[key].tags
-      settings        = module.records.flat_records[key].settings
-      private_routing = module.records.flat_records[key].private_routing
+      settings        = module.checks.flat_records[key].settings
+      private_routing = module.checks.flat_records[key].private_routing
     }
   }
 }
@@ -32,7 +32,7 @@ output "record_metadata" {
       id       = r.id
       zone_id  = r.zone_id
       name     = r.name
-      fqdn     = module.records.flat_records[key].fqdn
+      fqdn     = module.checks.flat_records[key].fqdn
       type     = r.type
       ttl      = r.ttl
       proxied  = r.proxied

@@ -106,7 +106,10 @@ run "same_record_apex_and_zone_name_case" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com TXT 18de4b91f5e3\" as \"@ TXT d2b1e35921ca\" from records[\"@\"][\"TXT\"][0] and \"EXAMPLE.com TXT d2b1e35921ca\" from records[\"EXAMPLE.com\"][\"TXT\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "same_record_prefix_and_base_name" {
@@ -119,7 +122,10 @@ run "same_record_prefix_and_base_name" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"_acme-challenge.app.example.com TXT 7deab982ae4b\" as \"_acme-challenge.APP.example.com TXT ee977806d728\" from records[\"_acme-challenge.APP.example.com\"][\"TXT\"][0] and \"_acme-challenge.app TXT ee977806d728\" from records[\"app\"][\"_acme-challenge.TXT\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "same_record_prefix_under_apex" {
@@ -132,7 +138,10 @@ run "same_record_prefix_under_apex" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"_dmarc.example.com TXT fad06b433893\" as \"_dmarc TXT 21541c4e7044\" from records[\"@\"][\"_dmarc.TXT\"][0] and \"_dmarc.example.com TXT 21541c4e7044\" from records[\"_dmarc.example.com\"][\"TXT\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "same_alias_name_forms" {
@@ -145,7 +154,15 @@ run "same_alias_name_forms" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"www.example.com CNAME example.com\" as \"www CNAME\" from records[\"@\"][\"ALIASES\"][0] and \"WWW.example.com CNAME\" from records[\"WWW.example.com\"][\"CNAME\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
+
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"www.example.com\": CNAME from records[\"@\"][\"ALIASES\"][0], CNAME from records[\"WWW.example.com\"][\"CNAME\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 # A wildcard is only valid as the whole leftmost label

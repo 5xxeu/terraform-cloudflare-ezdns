@@ -27,7 +27,7 @@ check() {
     fi
 }
 
-common="main.tf variables.tf outputs.tf versions.tf modules/dns/v5/main.tf modules/dns/v5/import.tf modules/dns/prepare/main.tf modules/dns/records/main.tf schema/records.schema.json README.md CHANGELOG.md LICENSE VERSION"
+common="main.tf variables.tf outputs.tf versions.tf modules/dns/v5/main.tf modules/dns/v5/import.tf modules/dns/prepare/main.tf modules/dns/records/main.tf modules/dns/checks/main.tf schema/records.schema.json README.md CHANGELOG.md LICENSE VERSION"
 tests='(^|/)tests/|^\.github/|(^|/)\.terraform|\.tftest\.hcl$'
 check full "$1" "$common modules/dns/compile/main.tf modules/dns/idna/main.tf tools/zone-to-ezdns.py tools/plan-guard.py" "$tests"
 

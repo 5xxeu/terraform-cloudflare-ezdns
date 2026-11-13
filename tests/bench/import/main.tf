@@ -1,4 +1,5 @@
-# Plan time of the import and the report of unmanaged records (see docs/testing.md):
+# Plan time of the import and the report of unmanaged records, with the checks of
+# the records (see docs/testing.md):
 # `hosts` hosts with an A, a TXT and an MX record each. The zone has the same records,
 # half of the A records with another value (an update: their old values are not
 # unmanaged), and one stray record per host (unmanaged)
@@ -28,4 +29,23 @@ module "records" {
   records          = local.records
   existing_records = local.existing
   import_existing  = true
+}
+
+# The checks over all records, as in the wrappers
+module "checks" {
+  source = "../../../modules/dns/checks"
+
+  flat_records        = module.records.flat_records
+  duplicates          = module.records.diagnostics.duplicates
+  same_values         = module.records.diagnostics.same_values
+  low_ttls            = module.records.diagnostics.low_ttls
+  missing_keys        = module.records.diagnostics.missing_keys
+  misplaced_wildcards = module.records.diagnostics.misplaced_wildcards
+  long_names          = module.records.diagnostics.long_names
+  self_cnames         = module.records.diagnostics.self_cnames
+  not_owned           = module.records.diagnostics.not_owned
+  cname_conflicts     = module.records.diagnostics.cname_conflicts
+  owned_include       = module.records.diagnostics.owned_include
+  owned_exclude       = module.records.diagnostics.owned_exclude
+  minimum_ttl         = module.records.diagnostics.minimum_ttl
 }

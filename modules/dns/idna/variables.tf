@@ -164,7 +164,7 @@ variable "record_groups" {
       for group, g in var.record_groups : alltrue(concat(
         [
           can(keys(g)) && length(setsubtract(keys(g), ["defaults", "records"])) == 0 && can(keys(g.records)),
-          # Terraform 1.8 evaluates both sides of ||, so g.defaults is read with try
+          # Terraform 1.9 evaluates both sides of ||, so g.defaults is read with try
           try(g.defaults, null) == null || (
             can(keys(g.defaults)) && length(setsubtract(try(keys(g.defaults), []), ["ttl", "proxied", "comment", "tags"])) == 0
             && (try(g.defaults.ttl, null) == null || can(tonumber(g.defaults.ttl)) && !startswith(jsonencode(try(g.defaults.ttl, 0)), "\""))

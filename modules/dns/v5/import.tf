@@ -25,7 +25,7 @@ locals {
   live_lookups = {
     # Keyed by the record key, known at plan; the name may be known only after apply (a
     # zone created in the same apply, without zone_name)
-    for key, rec in module.records.flat_records : key => { type = rec.type, name = rec.fqdn }
+    for key, rec in module.checks.flat_records : key => { type = rec.type, name = rec.fqdn }
     if length(rec.ignore_changes) > 0 && !contains(local.lookup_types, rec.type)
   }
 }

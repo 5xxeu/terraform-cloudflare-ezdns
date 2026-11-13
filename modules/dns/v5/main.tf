@@ -32,6 +32,26 @@ module "records" {
   unmanaged_ignore        = var.unmanaged_ignore
 }
 
+# The checks over all records: the records reach the resources through this module, so
+# a check put off until apply fails before any record is created or changed
+module "checks" {
+  source = "../checks"
+
+  flat_records        = module.records.flat_records
+  duplicates          = module.records.diagnostics.duplicates
+  same_values         = module.records.diagnostics.same_values
+  low_ttls            = module.records.diagnostics.low_ttls
+  missing_keys        = module.records.diagnostics.missing_keys
+  misplaced_wildcards = module.records.diagnostics.misplaced_wildcards
+  long_names          = module.records.diagnostics.long_names
+  self_cnames         = module.records.diagnostics.self_cnames
+  not_owned           = module.records.diagnostics.not_owned
+  cname_conflicts     = module.records.diagnostics.cname_conflicts
+  owned_include       = module.records.diagnostics.owned_include
+  owned_exclude       = module.records.diagnostics.owned_exclude
+  minimum_ttl         = module.records.diagnostics.minimum_ttl
+}
+
 data "cloudflare_zone" "this" {
   count   = var.zone_name == null || var.minimum_ttl == "auto" ? 1 : 0
   zone_id = var.zone_id
@@ -50,7 +70,7 @@ data "cloudflare_zone" "this" {
 # Records with ignore_changes get the listed attributes from the record in the zone
 locals {
   effective_records = {
-    for key, rec in module.records.flat_records : key => (
+    for key, rec in module.checks.flat_records : key => (
       lookup(module.records.live_records, key, null) == null ? rec : merge(rec, {
         # Structured records are sent as data only: the API returns their content too, as
         # text computed from data, and the resource takes one of the two

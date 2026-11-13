@@ -104,7 +104,7 @@ owned_names = {
 - A configured record outside this part fails at `plan`, with the name and where the record is defined. A typo in a name cannot create a record in the part of another team:
 
   ```text
-  Error: Module output value precondition failed
+  Error: Invalid value for variable
 
   These records are outside owned_names (included: apps.example.com; excluded:
   k8s.apps.example.com), the part of the zone that this module call manages:

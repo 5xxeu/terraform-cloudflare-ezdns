@@ -11,6 +11,8 @@ The errors and warnings that come up most often, with the beginning of their tex
 
 ## Errors at Plan
 
+The checks over all records (duplicates, records with the same value, TTLs below `minimum_ttl`, `require_keys`, wildcards, long names, CNAMEs to their own name, `owned_names` and CNAME conflicts) fail as `Error: Invalid value for variable` in `module "checks"` (in 2.x: `Error: Module output value precondition failed`); the text of each message is the same.
+
 ### The "for_each" value depends on resource attributes that cannot be determined until apply
 
 A record takes its value from another resource (`content = aws_instance.web.public_ip`), which is known only after apply, and the value is a part of the record key. Give the record a `key`, which takes the place of the value in the address:

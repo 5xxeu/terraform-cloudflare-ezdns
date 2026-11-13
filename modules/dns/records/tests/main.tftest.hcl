@@ -106,7 +106,15 @@ run "duplicate_records" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"app A 1.2.3.4\" from records[\"app\"][\"A\"][0] and records[\"app\"][\"A\"][1]", "\"www CNAME\" from records[\"app\"][\"ALIASES\"][0] and records[\"www\"][\"CNAME\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
+
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"www.example.com\": CNAME from records[\"app\"][\"ALIASES\"][0], CNAME from records[\"www\"][\"CNAME\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "invalid_key" {
@@ -385,7 +393,10 @@ run "cname_conflict" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"app.example.com\": CNAME from records[\"@\"][\"ALIASES\"][0], A from records[\"app\"][\"A\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "cname_at_apex_with_other_records" {
@@ -525,7 +536,10 @@ run "two_cnames_with_keys" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"app.example.com\": CNAME from records[\"app\"][\"CNAME\"][0], CNAME from records[\"app\"][\"CNAME\"][1]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "cname_conflict_across_name_forms" {
@@ -538,7 +552,10 @@ run "cname_conflict_across_name_forms" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"www.example.com\": CNAME from records[\"www\"][\"CNAME\"][0], TXT from records[\"www.example.com\"][\"TXT\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "cname_at_apex_with_a" {
@@ -554,7 +571,10 @@ run "cname_at_apex_with_a" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"example.com\": A from records[\"@\"][\"A\"][0], CNAME from records[\"@\"][\"CNAME\"][0], AAAA from records[\"example.com\"][\"AAAA\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "cname_at_apex_with_a_allowed" {
@@ -604,7 +624,10 @@ run "duplicate_across_name_forms" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"www.example.com A 192.0.2.1\" as \"www A 192.0.2.1\" from records[\"www\"][\"A\"][0] and \"www.example.com A 192.0.2.1\" from records[\"www.example.com\"][\"A\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "duplicate_apex_by_zone_name" {
@@ -617,7 +640,10 @@ run "duplicate_apex_by_zone_name" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com TXT 18de4b91f5e3\" as \"@ TXT d2b1e35921ca\" from records[\"@\"][\"TXT\"][0] and \"example.com TXT d2b1e35921ca\" from records[\"example.com\"][\"TXT\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "duplicate_hostname_case_and_dot" {
@@ -630,7 +656,10 @@ run "duplicate_hostname_case_and_dot" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com MX mail.example.com\" as \"@ MX mail.example.com\" from records[\"@\"][\"MX\"][0] and \"example.com MX Mail.Example.com.\" from records[\"example.com\"][\"MX\"][0]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 # Values that the import takes for one record are duplicates too
@@ -641,7 +670,10 @@ run "duplicate_txt_quoted_and_literal" {
     records = { "@" = { TXT = [{ content = "v=spf1 -all" }, { content = "\"v=spf1\" \" -all\"" }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com TXT 18de4b91f5e3\" as \"@ TXT d2b1e35921ca\" from records[\"@\"][\"TXT\"][0] and \"@ TXT 8cdc4b6a8b5f\" from records[\"@\"][\"TXT\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "duplicate_caa_issuer_case" {
@@ -651,7 +683,10 @@ run "duplicate_caa_issuer_case" {
     records = { "@" = { CAA = [{ content = "letsencrypt.org", tag = "issue" }, { content = "LetsEncrypt.org", tag = "issue" }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com CAA e3eed0dc6230\" as \"@ CAA issue letsencrypt.org\" from records[\"@\"][\"CAA\"][0] and \"@ CAA issue LetsEncrypt.org\" from records[\"@\"][\"CAA\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "duplicate_data_hostname_and_numbers" {
@@ -668,7 +703,10 @@ run "duplicate_data_hostname_and_numbers" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"_sip._tcp.example.com SRV 9c61601f99e8\" as \"_sip._tcp SRV 9c61601f99e8\" from records[\"_sip._tcp\"][\"SRV\"][0] and \"_sip._tcp SRV eb21ec8b3679\" from records[\"_sip._tcp\"][\"SRV\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "duplicate_at_and_zone_name_as_target" {
@@ -678,7 +716,10 @@ run "duplicate_at_and_zone_name_as_target" {
     records = { "@" = { MX = [{ content = "@", priority = 10 }, { content = "example.com", priority = 10 }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"example.com MX example.com\" as \"@ MX @\" from records[\"@\"][\"MX\"][0] and \"@ MX example.com\" from records[\"@\"][\"MX\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "same_data_other_numbers_not_duplicates" {
@@ -759,7 +800,10 @@ run "cname_conflict_not_listed" {
     allowed_cname_conflicts = ["community"]
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"shop.example.com\": CNAME from records[\"shop\"][\"CNAME\"][0], TXT from records[\"shop\"][\"TXT\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "cname_conflict_empty_list" {
@@ -775,7 +819,10 @@ run "cname_conflict_empty_list" {
     allowed_cname_conflicts = []
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"community.example.com\": CNAME from records[\"community\"][\"CNAME\"][0], MX from records[\"community\"][\"MX\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "two_cnames_on_a_listed_name" {
@@ -794,7 +841,10 @@ run "two_cnames_on_a_listed_name" {
     allowed_cname_conflicts = ["community"]
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.cname_conflicts == ["\"community.example.com\": CNAME from records[\"community\"][\"CNAME\"][0], CNAME from records[\"community\"][\"CNAME\"][1], MX from records[\"community\"][\"MX\"][0]"]
+    error_message = "The names are reported as CNAME conflicts"
+  }
 }
 
 run "allowed_cname_conflicts_invalid_name" {
@@ -866,7 +916,10 @@ run "mx_differing_only_in_priority" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"@ MX mx.example.net\" from records[\"@\"][\"MX\"][0] and records[\"@\"][\"MX\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "mx_differing_only_in_priority_with_keys" {
@@ -982,7 +1035,15 @@ run "ttl_below_60_without_enterprise" {
   variables {
     records = { "app" = { A = [{ content = "192.0.2.1", ttl = 45 }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.low_ttls == ["\"app A 192.0.2.1\" (ttl 45) from records[\"app\"][\"A\"][0]"]
+    error_message = "The TTLs are reported as below minimum_ttl"
+  }
+
+  assert {
+    condition     = output.diagnostics.minimum_ttl == 60
+    error_message = "The message of low_ttls names minimum_ttl"
+  }
 }
 
 run "default_ttl_below_60_without_enterprise" {
@@ -991,7 +1052,15 @@ run "default_ttl_below_60_without_enterprise" {
     default_ttl = 30
     records     = { "app" = { A = [{ content = "192.0.2.1" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.low_ttls == ["default_ttl (30)", "\"app A 192.0.2.1\" (ttl 30) from records[\"app\"][\"A\"][0]"]
+    error_message = "The TTLs are reported as below minimum_ttl"
+  }
+
+  assert {
+    condition     = output.diagnostics.minimum_ttl == 60
+    error_message = "The message of low_ttls names minimum_ttl"
+  }
 }
 
 run "ttl_below_60_on_enterprise" {
@@ -1052,7 +1121,10 @@ run "wildcard_under_a_prefix" {
   variables {
     records = { "*" = { "_acme-challenge.TXT" = [{ content = "token" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.misplaced_wildcards == ["\"_acme-challenge.*\" from records[\"*\"][\"_acme-challenge.TXT\"][0]"]
+    error_message = "The names are reported as names with a misplaced wildcard"
+  }
 }
 
 run "wildcard_in_the_middle_after_combining" {
@@ -1060,7 +1132,10 @@ run "wildcard_in_the_middle_after_combining" {
   variables {
     records = { "*.app" = { "x.A" = [{ content = "192.0.2.1" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.misplaced_wildcards == ["\"x.*.app\" from records[\"*.app\"][\"x.A\"][0]"]
+    error_message = "The names are reported as names with a misplaced wildcard"
+  }
 }
 
 run "wildcard_in_an_inline_alias_target" {
@@ -1068,7 +1143,10 @@ run "wildcard_in_an_inline_alias_target" {
   variables {
     records = { "*.app" = { "cdn.ALIASES" = [{ content = "static" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.misplaced_wildcards == ["\"cdn.*.app\" from records[\"*.app\"][\"cdn.ALIASES\"][0] (alias target)"]
+    error_message = "The names are reported as names with a misplaced wildcard"
+  }
 }
 
 run "self_alias" {
@@ -1076,7 +1154,10 @@ run "self_alias" {
   variables {
     records = { "app" = { ALIASES = [{ content = "app" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.self_cnames == ["\"app CNAME\" from records[\"app\"][\"ALIASES\"][0]"]
+    error_message = "The records are reported as CNAMEs to their own name"
+  }
 }
 
 run "self_cname_fully_qualified" {
@@ -1084,7 +1165,10 @@ run "self_cname_fully_qualified" {
   variables {
     records = { "www" = { CNAME = [{ content = "WWW.example.com." }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.self_cnames == ["\"www CNAME\" from records[\"www\"][\"CNAME\"][0]"]
+    error_message = "The records are reported as CNAMEs to their own name"
+  }
 }
 
 run "self_cname_short" {
@@ -1092,7 +1176,10 @@ run "self_cname_short" {
   variables {
     records = { "www" = { CNAME = [{ content = "www" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.self_cnames == ["\"www CNAME\" from records[\"www\"][\"CNAME\"][0]"]
+    error_message = "The records are reported as CNAMEs to their own name"
+  }
 }
 
 run "self_cname_apex" {
@@ -1100,7 +1187,10 @@ run "self_cname_apex" {
   variables {
     records = { "@" = { CNAME = [{ content = "@" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.self_cnames == ["\"@ CNAME\" from records[\"@\"][\"CNAME\"][0]"]
+    error_message = "The records are reported as CNAMEs to their own name"
+  }
 }
 
 run "cname_to_another_name" {
@@ -1125,7 +1215,15 @@ run "default_ttl_below_minimum_even_if_unused" {
     default_ttl = 30
     records     = { "app" = { A = [{ content = "192.0.2.1", ttl = 300 }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.low_ttls == ["default_ttl (30)"]
+    error_message = "The TTLs are reported as below minimum_ttl"
+  }
+
+  assert {
+    condition     = output.diagnostics.minimum_ttl == 60
+    error_message = "The message of low_ttls names minimum_ttl"
+  }
 }
 
 run "default_ttl_30_on_enterprise" {
@@ -1193,7 +1291,10 @@ run "fqdn_over_253_characters" {
   variables {
     records = { "${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}" = { "${join("", [for i in range(63) : "a"])}.TXT" = [{ content = "x" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.long_names == tolist(["\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.example.com\" (267 characters) from records[\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}\"][\"${join("", [for i in range(63) : "a"])}.TXT\"][0]"])
+    error_message = "The names are reported as longer than 253 characters"
+  }
 }
 
 run "fqdn_of_253_characters" {
@@ -1214,7 +1315,10 @@ run "alias_target_over_253_characters" {
   variables {
     records = { "${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}" = { "${join("", [for i in range(63) : "a"])}.ALIASES" = [{ content = "www" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.long_names == tolist(["\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.example.com\" (267 characters), the target of \"www CNAME\" from records[\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}\"][\"${join("", [for i in range(63) : "a"])}.ALIASES\"][0]"])
+    error_message = "The names are reported as longer than 253 characters"
+  }
 }
 
 # IPv6 addresses are compared in their canonical form: the same address written
@@ -1224,7 +1328,10 @@ run "ipv6_written_in_two_forms" {
   variables {
     records = { "app" = { AAAA = [{ content = "2001:db8::1" }, { content = "2001:0db8:0:0:0:0:0:1" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"app.example.com AAAA 2001:db8::1\" as \"app AAAA 2001:db8::1\" from records[\"app\"][\"AAAA\"][0] and \"app AAAA 2001:0db8:0:0:0:0:0:1\" from records[\"app\"][\"AAAA\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "ipv6_sent_in_canonical_form" {
@@ -1247,7 +1354,10 @@ run "ipv4_mapped_written_in_two_forms" {
   variables {
     records = { "app" = { AAAA = [{ content = "::ffff:192.0.2.1" }, { content = "::ffff:c000:201" }] } }
   }
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"app.example.com AAAA ::ffff:192.0.2.1\" as \"app AAAA ::ffff:192.0.2.1\" from records[\"app\"][\"AAAA\"][0] and \"app AAAA ::ffff:c000:201\" from records[\"app\"][\"AAAA\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 

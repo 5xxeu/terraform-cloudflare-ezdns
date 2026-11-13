@@ -19,22 +19,29 @@ python3 scripts/test-schema.py   # requires jsonschema and pyyaml
 python3 scripts/test-schema.py --terraform   # the same documents through the module: schema and validation must agree
 ```
 
+The checks over all records are tested in two parts: the tests of `modules/dns/records` compare the lists of problems in its `diagnostics` output (the text, the sources and repeated records of each item), and the tests of `modules/dns/checks` expect the validation of each list to fail. `terraform test` cannot expect a failure in a called module, so the errors as a caller sees them (the full messages, and that no record is applied when a check fails at apply) are checked by `scripts/test-plan-checks.py`:
+
+```sh
+python3 scripts/test-plan-checks.py
+TERRAFORM=~/bin/terraform-1.9.0 python3 scripts/test-plan-checks.py
+```
+
 The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/tests`), and the YAML that `zone-to-ezdns.py` writes from a fixture goes through the module in CI.
 
-CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile`, `prepare` and `idna` submodules, the v5 wrapper and the examples (on Terraform 1.9.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request. The Benchmarks check measures the core on pull requests that change it and on pushes to main, and blocks time or peak memory regressions over 2x the stored CI baseline.
+CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile`, `prepare`, `checks` and `idna` submodules, the v5 wrapper and the examples (on Terraform 1.9.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, runs `scripts/test-plan-checks.py` on both Terraform versions (checks with values known only after apply through `compile`, which plans, applies a saved plan and reads the state; the checks over all records through the v5 wrapper and the root module with a mocked provider), checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request. The Benchmarks check measures the core on pull requests that change it and on pushes to main, and blocks time or peak memory regressions over 2x the stored CI baseline.
 
 ## Benchmarks
 
 Plan time grows a little faster than the number of records. Measured on 2026-10-13 with Terraform 1.16.4, the root module and a mocked provider (`terraform test`, `command = plan`) on an Apple M2 Pro: 1,000 records (A, AAAA, CNAME, TXT and MX in equal parts) take about 8 seconds, 5,000 records about 55 seconds. A real plan adds the refresh of every record by the provider.
 
-`tests/bench/plain` measures plain records through the records module, without groups, import or a provider: `hosts` names (default 500) with an A, an AAAA, a TXT and an MX record each, plus `hosts` separate CNAME names. The five types have equal counts:
+`tests/bench/plain` measures plain records through the records module and `modules/dns/checks`, as in the wrappers, without groups, import or a provider: `hosts` names (default 500) with an A, an AAAA, a TXT and an MX record each, plus `hosts` separate CNAME names. The five types have equal counts:
 
 ```sh
 terraform -chdir=tests/bench/plain init
 time terraform -chdir=tests/bench/plain plan
 ```
 
-`import_existing` and `report_unmanaged` compare the configured records with the records of the zone. `tests/bench/import` measures that part on the core module, without a provider: `hosts` hosts (default 1,000) with an A, a TXT and an MX record each, a zone with the same records, half of the A records with another value, and a stray record per host:
+`import_existing` and `report_unmanaged` compare the configured records with the records of the zone. `tests/bench/import` measures that part on the core module and `modules/dns/checks`, without a provider: `hosts` hosts (default 1,000) with an A, a TXT and an MX record each, a zone with the same records, half of the A records with another value, and a stray record per host:
 
 ```sh
 terraform -chdir=tests/bench/import init

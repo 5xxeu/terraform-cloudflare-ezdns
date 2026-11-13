@@ -132,9 +132,9 @@ variable "records" {
   )
 
   # Every validation lists the records that fail it as records["<name>"]["<type>"][<index>].
-  # Validations cannot use locals on Terraform 1.8, so the record type is bound with
-  # `for kind in [...]`, and the list of failures is written twice: in the condition and in
-  # the error message
+  # Validations cannot use locals built from their own input (Terraform reports a cycle),
+  # so the record type is bound with `for kind in [...]`, and the list of failures is
+  # written twice: in the condition and in the error message
   validation {
     condition = length(flatten([
       for base_name, type_map in var.records : [
@@ -734,7 +734,7 @@ variable "records" {
   # Hostnames in data, with the same rule as CNAME, MX, NS and PTR values. "." is the
   # root: no service for SRV (RFC 2782), the owner name for HTTPS and SVCB (RFC 9460),
   # no replacement for NAPTR (RFC 3403). data is passed to Cloudflare as written, so "@"
-  # is not accepted here. A null value becomes "" (invalid): Terraform 1.8 evaluates
+  # is not accepted here. A null value becomes "" (invalid): Terraform 1.9 evaluates
   # both sides of ||
   validation {
     condition = length(flatten([
