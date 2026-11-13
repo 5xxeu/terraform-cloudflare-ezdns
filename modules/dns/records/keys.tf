@@ -21,8 +21,8 @@ locals {
 
       # Key used by module versions 1.x, for state migration
       old_key = (
-        e.kind == "ALIASES" && e.prefix == null ? "ALIASES_${e.base_name}_${e.rec.content}" :
-        e.kind == "ALIASES" ? "ALIASES_INLINE_${e.base_name}_${e.raw_key}_${e.idx}_${e.rec.content}" :
+        e.kind == "ALIASES" && e.prefix == null ? "ALIASES_${e.base_name}_${e.rec.name}" :
+        e.kind == "ALIASES" ? "ALIASES_INLINE_${e.base_name}_${e.raw_key}_${e.idx}_${e.rec.name}" :
         e.raw_key == "CAA" ? "CAA_${e.base_name}_${e.rec.tag}_${e.rec.content}_${e.rec.flags}" :
         "${e.raw_key}_${e.base_name}_${e.idx}"
       )

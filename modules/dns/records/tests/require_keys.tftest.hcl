@@ -8,7 +8,7 @@ variables {
       A                     = [{ content = "192.0.2.1", key = "web" }]
       TXT                   = [{ content = "v=spf1 -all" }]
       "_acme-challenge.TXT" = [{ content = "token", key = "acme" }]
-      ALIASES               = [{ content = "www" }]
+      ALIASES               = [{ name = "www" }]
     }
   }
 }

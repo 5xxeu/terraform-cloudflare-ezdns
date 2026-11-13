@@ -312,7 +312,7 @@ run "hcl_equals_yaml" {
       "app" = {
         A                     = [{ content = "192.0.2.10", ttl = 300, proxied = false }]
         "_acme-challenge.TXT" = [{ content = "yes" }]
-        ALIASES               = [{ content = "www", proxied = true }]
+        ALIASES               = [{ name = "www", proxied = true }]
       }
       "_sip._tcp" = {
         SRV = [{ data = { priority = "10", weight = "5", port = "5060", target = "sip.example.com" } }]

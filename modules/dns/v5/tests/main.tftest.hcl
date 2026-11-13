@@ -17,7 +17,7 @@ variables {
       TXT     = [{ content = "v=spf1 ~all", key = "spf" }]
       MX      = [{ content = "mx.example.com", priority = 5 }]
       CAA     = [{ content = "letsencrypt.org", tag = "issue" }]
-      ALIASES = [{ content = "support" }]
+      ALIASES = [{ name = "support" }]
       DNSKEY  = [{ data = { flags = 257, protocol = 3, algorithm = 13, public_key = "abc" } }]
       NAPTR   = [{ data = { order = 100, preference = 10, flags = "U", service = "E2U+sip", regex = "!^.*0sip:info@example.com!", replacement = "." } }]
     }
@@ -427,7 +427,7 @@ run "zone_name_with_a_trailing_dot" {
 
   variables {
     zone_name = "Example.com."
-    records   = { "app" = { A = [{ content = "192.0.2.1" }], ALIASES = [{ content = "www" }] }, "api.example.com" = { A = [{ content = "192.0.2.2" }] } }
+    records   = { "app" = { A = [{ content = "192.0.2.1" }], ALIASES = [{ name = "www" }] }, "api.example.com" = { A = [{ content = "192.0.2.2" }] } }
   }
 
   assert {

@@ -7,7 +7,7 @@ variables {
   zone_id   = "z"
   zone_name = "example.com"
   records = {
-    "@"   = { A = [{ content = "192.0.2.1" }], ALIASES = [{ content = "www" }] }
+    "@"   = { A = [{ content = "192.0.2.1" }], ALIASES = [{ name = "www" }] }
     "app" = { TXT = [{ content = "v=spf1 -all", key = "spf" }] }
   }
 }

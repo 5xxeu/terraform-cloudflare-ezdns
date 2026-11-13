@@ -12,7 +12,7 @@ variable "records" {
   description = <<-EOT
     DNS records: `records[NAME][TYPE] = [RECORD, ...]`, where NAME is a name within the
     zone (`@` for the apex) and TYPE a record type, optionally with a prefix
-    (`"_acme-challenge.TXT"`). Record attributes: `content`, `ttl`, `proxied`, `priority`,
+    (`"_acme-challenge.TXT"`). Record attributes: `content`, `name` (ALIASES only), `ttl`, `proxied`, `priority`,
     `tag`, `flags`, `data`, `key`, `comment`, `tags`, `settings` (`flatten_cname`,
     `ipv4_only`, `ipv6_only`), `private_routing` and `ignore_changes`. See the README for the details. Unknown attributes fail at plan.
   EOT
@@ -50,7 +50,7 @@ variable "records" {
           for type, list in { for type in try(keys(types), []) : type => types[type] if !can(keys(types[type])) && can([for record in types[type] : true]) } : alltrue([
             for record in list : (
               can(keys(record))
-              && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
+              && length(setsubtract(keys(record), ["content", "name", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
               && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
             )
           ])
@@ -58,7 +58,7 @@ variable "records" {
       ))
     ]), false)
     error_message = try(
-      "Invalid records (allowed attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
+      "Invalid records (allowed attributes: content, name, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
         for name, types in var.records : concat(
           can(keys(types)) || can([for type in types : true]) && try(length(types) == 0, false) ? [] : ["records[\"${name}\"] must be a map of record types to lists of records"],
           [
@@ -69,7 +69,7 @@ variable "records" {
             for type, list in { for type in try(keys(types), []) : type => types[type] if !can(keys(types[type])) && can([for record in types[type] : true]) } : [
               for index, record in list : concat(
                 can(keys(record)) ? [] : ["records[\"${name}\"][\"${type}\"][${index}] must be an object"],
-                [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"]) : "records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
+                [for attribute in setsubtract(try(keys(record), []), ["content", "name", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"]) : "records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
                 [for attribute in setsubtract(try(keys(record.settings), []), ["flatten_cname", "ipv4_only", "ipv6_only"]) : "records[\"${name}\"][\"${type}\"][${index}].settings: unknown attribute \"${attribute}\""]
               )
             ]
@@ -174,7 +174,7 @@ variable "record_groups" {
               for type, list in { for type in try(keys(types), []) : type => types[type] if !can(keys(types[type])) && can([for record in types[type] : true]) } : alltrue([
                 for record in list : (
                   can(keys(record))
-                  && length(setsubtract(keys(record), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
+                  && length(setsubtract(keys(record), ["content", "name", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"])) == 0
                   && (try(record.settings, null) == null || length(setsubtract(try(keys(record.settings), ["?"]), ["flatten_cname", "ipv4_only", "ipv6_only"])) == 0)
                 )
               ])
@@ -184,7 +184,7 @@ variable "record_groups" {
       ))
     ]), false)
     error_message = try(
-      "Invalid record_groups (a group has records and optionally defaults with ttl, proxied, comment and tags; allowed record attributes: content, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
+      "Invalid record_groups (a group has records and optionally defaults with ttl, proxied, comment and tags; allowed record attributes: content, name, ttl, proxied, priority, tag, flags, data, key, comment, tags, settings, private_routing, ignore_changes):\n${join("\n", flatten([
         for group, g in var.record_groups : concat(
           can(keys(g)) ? [] : ["record_groups[\"${group}\"] must be an object with records and optionally defaults"],
           [for attribute in setsubtract(try(keys(g), []), ["defaults", "records"]) : "record_groups[\"${group}\"]: unknown attribute \"${attribute}\""],
@@ -207,7 +207,7 @@ variable "record_groups" {
                   for type, list in { for type in try(keys(types), []) : type => types[type] if !can(keys(types[type])) && can([for record in types[type] : true]) } : [
                     for index, record in list : concat(
                       can(keys(record)) ? [] : ["record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}] must be an object"],
-                      [for attribute in setsubtract(try(keys(record), []), ["content", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
+                      [for attribute in setsubtract(try(keys(record), []), ["content", "name", "ttl", "proxied", "priority", "tag", "flags", "data", "key", "comment", "tags", "settings", "private_routing", "ignore_changes"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}]: unknown attribute \"${attribute}\""],
                       [for attribute in setsubtract(try(keys(record.settings), []), ["flatten_cname", "ipv4_only", "ipv6_only"]) : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].settings: unknown attribute \"${attribute}\""]
                     )
                   ]

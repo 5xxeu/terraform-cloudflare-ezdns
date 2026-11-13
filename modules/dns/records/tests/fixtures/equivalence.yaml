@@ -15,7 +15,7 @@ records:
     _acme-challenge.TXT:
       - content: "yes"
     ALIASES:
-      - { content: www, proxied: true }
+      - { name: www, proxied: true }
   _sip._tcp:
     SRV:
       - data: { priority: 10, weight: 5, port: 5060, target: sip.example.com }

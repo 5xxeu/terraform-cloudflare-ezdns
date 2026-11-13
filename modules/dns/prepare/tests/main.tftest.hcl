@@ -215,6 +215,41 @@ run "unused_attributes_in_record_groups" {
   expect_failures = [var.record_groups]
 }
 
+# ALIASES name the CNAME in name: content (the syntax of 2.x) fails, and so does name
+# on any other type
+run "aliases_content_in_records" {
+  command = plan
+
+  variables {
+    records       = { "app" = { ALIASES = [{ content = "www" }] } }
+    record_groups = {}
+  }
+
+  expect_failures = [var.records]
+}
+
+run "aliases_content_in_record_groups" {
+  command = plan
+
+  variables {
+    records       = {}
+    record_groups = { web = { records = { "app" = { "cdn.ALIASES" = [{ content = "static" }] } } } }
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "name_on_other_types" {
+  command = plan
+
+  variables {
+    records       = { "app" = { A = [{ content = "192.0.2.1", name = "www" }] } }
+    record_groups = {}
+  }
+
+  expect_failures = [var.records]
+}
+
 # Each attribute where it applies, and attributes set to null anywhere: no error. Types
 # that the module does not know are left to the records module
 run "attributes_where_they_apply" {
@@ -230,7 +265,7 @@ run "attributes_where_they_apply" {
         A   = [{ content = "192.0.2.1", tag = null, flags = null }]
         SPF = [{ content = "v=spf1 -all", priority = 10 }]
       }
-      "www" = { ALIASES = [{ content = "w1" }] }
+      "www" = { ALIASES = [{ name = "w1" }] }
     }
     record_groups = { web = { records = { "@" = { CAA = [{ content = "pki.goog", tag = "issue" }] } } } }
   }

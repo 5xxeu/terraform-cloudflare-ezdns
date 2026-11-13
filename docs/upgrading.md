@@ -41,6 +41,10 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 
 Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan; in 2.x they showed a warning. A configuration that plans on the latest 2.x without the warning "These attributes do not apply to the type of their record" is not affected. Otherwise remove the listed attributes, on 2.x or with the upgrade: they had no effect, so the records do not change. No addresses in the state change.
 
+## To 3.0: ALIASES Take name Instead of content
+
+An `ALIASES` record names the CNAME it creates in `name`; `content` on an `ALIASES` record fails the plan with the list of the records to change. Rename the attribute: `ALIASES = [{ content = "www" }]` becomes `ALIASES = [{ name = "www" }]`, and `- content: www` becomes `- name: www` in YAML, also in `record_groups` and for `"<prefix>.ALIASES"`. The JSON Schema (`schema/records.schema.json`) requires `name` for `ALIASES` as well. The CNAME, its key (`www CNAME`) and its target do not change, so no addresses in the state change.
+
 ## To 3.0: records Is Sensitive, name Is the Fully Qualified Name
 
 The `records` output of the root module, the wrappers and `modules/dns/compile` is sensitive: `content` and `data` of a proxied record show the origin address that Cloudflare hides. What changes for a configuration that uses it:

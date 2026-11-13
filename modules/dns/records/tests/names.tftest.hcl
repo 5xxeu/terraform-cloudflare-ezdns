@@ -149,7 +149,7 @@ run "same_alias_name_forms" {
 
   variables {
     records = {
-      "@"               = { ALIASES = [{ content = "www" }] }
+      "@"               = { ALIASES = [{ name = "www" }] }
       "WWW.example.com" = { CNAME = [{ content = "example.com." }] }
     }
   }
@@ -303,7 +303,7 @@ run "aliases_with_root_domain_with_a_trailing_dot" {
 
   variables {
     root_domain = "example.com."
-    records     = { "@" = { ALIASES = [{ content = "www" }] }, "app" = { "cdn.ALIASES" = [{ content = "static" }] } }
+    records     = { "@" = { ALIASES = [{ name = "www" }] }, "app" = { "cdn.ALIASES" = [{ name = "static" }] } }
   }
 
   assert {

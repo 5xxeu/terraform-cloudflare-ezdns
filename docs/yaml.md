@@ -18,7 +18,7 @@ records:
     A:
       - content: "192.0.2.10"
     ALIASES:
-      - content: "www"
+      - name: "www"
   _sip._tcp:
     SRV:
       - data: { priority: 10, weight: 5, port: 5060, target: "sip.example.com" }
@@ -84,7 +84,7 @@ records:
     A:
       - content: "192.0.2.10"
     ALIASES:
-      - content: "www"
+      - name: "www"
   "status":
     CNAME:
       - { content: "status.provider.example.net", proxied: false }

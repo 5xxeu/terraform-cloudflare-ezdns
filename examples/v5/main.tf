@@ -33,7 +33,7 @@ module "dns" {
       ]
       # Result: www.example.com -> CNAME -> example.com
       ALIASES = [
-        { content = "www", proxied = true },
+        { name = "www", proxied = true },
       ]
     }
 
@@ -44,7 +44,7 @@ module "dns" {
       ]
       # Result: support.example.com -> CNAME -> app.example.com
       ALIASES = [
-        { content = "support", ttl = 1800 },
+        { name = "support", ttl = 1800 },
       ]
       # Result: TXT record for _acme-challenge.app.example.com
       "_acme-challenge.TXT" = [
@@ -52,7 +52,7 @@ module "dns" {
       ]
       # Result: static.example.com -> CNAME -> cdn.app.example.com
       "cdn.ALIASES" = [
-        { content = "static" },
+        { name = "static" },
       ]
     }
 

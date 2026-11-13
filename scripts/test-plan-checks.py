@@ -53,6 +53,15 @@ CASES = [
     ('record_groups with an attribute that does not apply to the type',
      'record_groups = { web = { records = { "@" = { A = [{ content = "192.0.2.1", ttl = %s, priority = 10 }] } } } }' % TTL,
      'record_groups["web"].records["@"]["A"][0].priority', False),
+    ('ALIASES with content (2.x syntax, the name is in name)',
+     'records = { "@" = { ALIASES = [{ content = "www" }] } }',
+     'records["@"]["ALIASES"][0].content', False),
+    ('record_groups with ALIASES that have content',
+     'record_groups = { web = { records = { "@" = { "cdn.ALIASES" = [{ content = "static" }] } } } }',
+     'record_groups["web"].records["@"]["cdn.ALIASES"][0].content', False),
+    ('ALIASES with name',
+     'records = { "@" = { ALIASES = [{ name = "www", ttl = %s }] } }' % TTL,
+     None, False),
     # The keys stay known: records and grouped records with a key and a computed content
     ('content known after apply, with a key',
      'records = { "@" = { A = [{ content = %s, key = "c1" }] } }\n'

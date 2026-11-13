@@ -43,7 +43,7 @@ A website behind the Cloudflare proxy, with `www` pointing to the apex:
 ```hcl
 "@" = {
   A       = [{ content = "192.0.2.10", proxied = true }]
-  ALIASES = [{ content = "www", proxied = true }]
+  ALIASES = [{ name = "www", proxied = true }]
 }
 ```
 

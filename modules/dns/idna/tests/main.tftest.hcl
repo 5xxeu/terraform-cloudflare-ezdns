@@ -16,7 +16,7 @@ variables {
       A               = [{ content = "192.0.2.1" }]
       "straße.A"      = [{ content = "192.0.2.2" }]
       MX              = [{ content = "mx.münchen.de", priority = 10 }]
-      ALIASES         = [{ content = "www" }, { content = "größe" }]
+      ALIASES         = [{ name = "www" }, { name = "größe" }]
       "_sip._tcp.SRV" = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.münchen.de" } }]
       "_ftp._tcp.URI" = [
         { priority = 10, data = { weight = 1, target = "https://straße.münchen.de/Pfad?ä=1" } },

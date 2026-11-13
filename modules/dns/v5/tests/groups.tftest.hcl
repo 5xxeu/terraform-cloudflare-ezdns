@@ -203,7 +203,7 @@ run "import_lookup_of_grouped_types" {
     import_existing = true
     record_groups = {
       mail = { records = { "@" = { MX = [{ content = "mx.example.com", priority = 10 }] } } }
-      web  = { records = { "@" = { ALIASES = [{ content = "www" }] } } }
+      web  = { records = { "@" = { ALIASES = [{ name = "www" }] } } }
     }
   }
 

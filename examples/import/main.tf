@@ -12,7 +12,7 @@ module "dns" {
   import_existing = true
 
   records = {
-    "@"   = { A = [{ content = "192.0.2.10", proxied = true }], ALIASES = [{ content = "www" }] }
+    "@"   = { A = [{ content = "192.0.2.10", proxied = true }], ALIASES = [{ name = "www" }] }
     "git" = { A = [{ content = "192.0.2.20" }] }
   }
 }

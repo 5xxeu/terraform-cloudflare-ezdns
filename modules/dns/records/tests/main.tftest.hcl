@@ -4,15 +4,15 @@ variables {
     "@" = {
       A              = [{ content = "30.40.50.61", proxied = true }]
       "_dmarc.TXT"   = [{ content = "v=DMARC1" }]
-      ALIASES        = [{ content = "www" }]
-      "mail.ALIASES" = [{ content = "m2" }]
+      ALIASES        = [{ name = "www" }]
+      "mail.ALIASES" = [{ name = "m2" }]
     }
     "app" = {
       A                       = [{ content = "30.40.50.60" }, { content = "30.40.50.70" }]
       MX                      = [{ content = "mx.example.com", priority = 5 }]
       CAA                     = [{ content = "letsencrypt.org", tag = "issue" }]
       "_acme-challenge.TXT"   = [{ content = "tok" }]
-      "cdn.ALIASES"           = [{ content = "static", ttl = 1800 }]
+      "cdn.ALIASES"           = [{ name = "static", ttl = 1800 }]
       "google._domainkey.TXT" = [{ content = "v=DKIM1; p=abc", key = "dkim" }]
     }
   }
@@ -100,7 +100,7 @@ run "duplicate_records" {
     records = {
       "app" = {
         A       = [{ content = "1.2.3.4" }, { content = "1.2.3.4" }]
-        ALIASES = [{ content = "www" }]
+        ALIASES = [{ name = "www" }]
       }
       "www" = { CNAME = [{ content = "other.example.com" }] }
     }
@@ -389,7 +389,7 @@ run "cname_conflict" {
   variables {
     records = {
       "app" = { A = [{ content = "1.2.3.4" }] }
-      "@"   = { ALIASES = [{ content = "App" }] }
+      "@"   = { ALIASES = [{ name = "App" }] }
     }
   }
 
@@ -497,7 +497,19 @@ run "invalid_alias" {
   command = plan
 
   variables {
-    records = { "app" = { ALIASES = [{ content = "-bad" }] } }
+    records = { "app" = { ALIASES = [{ name = "-bad" }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
+# An ALIASES record needs its name (content is not read by the core module: the
+# wrappers reject it)
+run "alias_without_name" {
+  command = plan
+
+  variables {
+    records = { "app" = { ALIASES = [{ content = "www" }] } }
   }
 
   expect_failures = [var.records]
@@ -949,12 +961,12 @@ run "aliases_under_a_fully_qualified_base_name" {
     records = {
       "app.example.com" = {
         A             = [{ content = "192.0.2.1" }]
-        ALIASES       = [{ content = "support" }]
-        "cdn.ALIASES" = [{ content = "static" }]
+        ALIASES       = [{ name = "support" }]
+        "cdn.ALIASES" = [{ name = "static" }]
         "_dmarc.TXT"  = [{ content = "v=DMARC1; p=none" }]
       }
       "example.com" = {
-        ALIASES = [{ content = "www" }]
+        ALIASES = [{ name = "www" }]
       }
     }
   }
@@ -1105,7 +1117,7 @@ run "wildcard_valid_names" {
   variables {
     records = {
       "*"     = { A = [{ content = "192.0.2.1" }] }
-      "*.app" = { A = [{ content = "192.0.2.2" }], ALIASES = [{ content = "legacy" }] }
+      "*.app" = { A = [{ content = "192.0.2.2" }], ALIASES = [{ name = "legacy" }] }
       "app"   = { "_acme-challenge.TXT" = [{ content = "token" }] }
     }
   }
@@ -1141,7 +1153,7 @@ run "wildcard_in_the_middle_after_combining" {
 run "wildcard_in_an_inline_alias_target" {
   command = plan
   variables {
-    records = { "*.app" = { "cdn.ALIASES" = [{ content = "static" }] } }
+    records = { "*.app" = { "cdn.ALIASES" = [{ name = "static" }] } }
   }
   assert {
     condition     = output.diagnostics.misplaced_wildcards == ["\"cdn.*.app\" from records[\"*.app\"][\"cdn.ALIASES\"][0] (alias target)"]
@@ -1152,7 +1164,7 @@ run "wildcard_in_an_inline_alias_target" {
 run "self_alias" {
   command = plan
   variables {
-    records = { "app" = { ALIASES = [{ content = "app" }] } }
+    records = { "app" = { ALIASES = [{ name = "app" }] } }
   }
   assert {
     condition     = output.diagnostics.self_cnames == ["\"app CNAME\" from records[\"app\"][\"ALIASES\"][0]"]
@@ -1313,7 +1325,7 @@ run "fqdn_of_253_characters" {
 run "alias_target_over_253_characters" {
   command = plan
   variables {
-    records = { "${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}" = { "${join("", [for i in range(63) : "a"])}.ALIASES" = [{ content = "www" }] } }
+    records = { "${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}" = { "${join("", [for i in range(63) : "a"])}.ALIASES" = [{ name = "www" }] } }
   }
   assert {
     condition     = output.diagnostics.long_names == tolist(["\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.example.com\" (267 characters), the target of \"www CNAME\" from records[\"${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}.${join("", [for i in range(63) : "a"])}\"][\"${join("", [for i in range(63) : "a"])}.ALIASES\"][0]"])

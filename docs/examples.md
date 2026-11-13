@@ -44,7 +44,7 @@ module "dns" {
       ]
       # Result: www.example.com -> CNAME -> example.com
       ALIASES = [
-        { content = "www", proxied = true },
+        { name = "www", proxied = true },
       ]
     }
 
@@ -56,7 +56,7 @@ module "dns" {
       # Aliases create CNAMEs pointing to 'app.example.com'
       # Result: support.example.com -> CNAME -> app.example.com
       ALIASES = [
-        { content = "support", ttl = 1800 },
+        { name = "support", ttl = 1800 },
       ]
       TXT = [
         { content = "v=spf1 include:_spf.google.com ~all" },
@@ -76,7 +76,7 @@ module "dns" {
       # Inline aliases point to a prefixed name.
       # Result: static.example.com -> CNAME -> cdn.app.example.com
       "cdn.ALIASES" = [
-        { content = "static" },
+        { name = "static" },
       ]
     }
 
@@ -437,7 +437,7 @@ records:
     A:
       - content: "192.0.2.10"
     ALIASES:
-      - content: "www"
+      - name: "www"
   "api":
     A:
       - content: "192.0.2.11"
@@ -558,7 +558,7 @@ module "dns" {
   records = {
     "@" = {
       A       = [{ key = "web", content = "192.0.2.10", proxied = true }]
-      ALIASES = [{ content = "www", proxied = true }]
+      ALIASES = [{ name = "www", proxied = true }]
     }
   }
 }

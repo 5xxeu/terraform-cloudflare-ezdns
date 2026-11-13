@@ -12,7 +12,7 @@ variables {
       TXT  = [{ content = "v=spf1 -all" }]
       AAAA = [{ content = "2001:db8::1", settings = { ipv6_only = true } }]
     }
-    "@" = { ALIASES = [{ content = "www" }] }
+    "@" = { ALIASES = [{ name = "www" }] }
   }
 }
 

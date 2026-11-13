@@ -7,7 +7,7 @@ variables {
       TXT     = [{ content = "v=spf1 include:_spf.example.net ~all" }]
       MX      = [{ content = "mail.example.com", priority = 10 }]
       CAA     = [{ content = "letsencrypt.org", tag = "issue" }]
-      ALIASES = [{ content = "www" }]
+      ALIASES = [{ name = "www" }]
     }
     "app" = {
       A = [{ content = "30.40.50.60" }, { content = "30.40.50.61" }]

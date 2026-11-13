@@ -11,8 +11,8 @@ output "records" {
       MX            = [{ content = "mx.${local.z}", priority = 10 }]
       CAA           = [{ content = "letsencrypt.org", tag = "issue" }]
       "_dmarc.TXT"  = [{ content = "v=DMARC1; p=none" }]
-      ALIASES       = [{ content = "alias.${local.p}" }]
-      "www.ALIASES" = [{ content = "inline.${local.p}" }]
+      ALIASES       = [{ name = "alias.${local.p}" }]
+      "www.ALIASES" = [{ name = "inline.${local.p}" }]
     }
     "proxied.${local.p}" = { CNAME = [{ content = "example.com", proxied = true }] }
     # "@" as a target is sent as the zone name: no drift, and the import matches it
