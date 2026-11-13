@@ -207,11 +207,11 @@ The module fits zones whose records are written down and change through review. 
 
 | Module | Terraform | Cloudflare provider |
 |--------|-----------|---------------------|
-| Root module | `>= 1.8.0` | `~> 5.26` |
-| `modules/dns/v4` | `>= 1.8.0` | `~> 4.41` |
-| `modules/dns/v5` | `>= 1.8.0` | `~> 5.26` |
-| `modules/dns/idna` | `>= 1.8.0` | `~> 5.26`, and [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) `~> 0.1` |
-| `modules/dns/compile` | `>= 1.8.0` | none |
+| Root module | `>= 1.9.0` | `~> 5.26` |
+| `modules/dns/v4` | `>= 1.9.0` | `~> 4.41` |
+| `modules/dns/v5` | `>= 1.9.0` | `~> 5.26` |
+| `modules/dns/idna` | `>= 1.9.0` | `~> 5.26`, and [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) `~> 0.1` |
+| `modules/dns/compile` | `>= 1.9.0` | none |
 
 The API token of the provider needs these permissions for the zone (Cloudflare dashboard, My Profile, API Tokens, Create Token, Custom token):
 

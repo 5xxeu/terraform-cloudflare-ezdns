@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Terraform 1.9.0 or later is required (was 1.8.0): `required_version` of the root module, the wrappers, the submodules and the tests is `>= 1.9.0`, and CI tests Terraform 1.9.0 and the latest version. Stay on 2.x to keep using Terraform 1.8
+
 ## [2.22.0] - 2026-11-11
 
 ### Added

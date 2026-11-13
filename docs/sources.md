@@ -39,7 +39,7 @@ Each release also has a provider v5 archive, `terraform-cloudflare-ezdns-v5-<ver
 
 What a copy may change without affecting the module:
 
-- `versions.tf` (root and `modules/dns/v5`) may be replaced by the repository's own pin, as long as it allows Terraform `>= 1.8.0` and the Cloudflare provider `>= 5.26` within v5
+- `versions.tf` (root and `modules/dns/v5`) may be replaced by the repository's own pin, as long as it allows Terraform `>= 1.9.0` and the Cloudflare provider `>= 5.26` within v5
 - `schema/` is only needed for records in YAML, and the `README.md` files of the submodules are generated reference
 - With the full archive and no history on provider v4: `modules/dns/v4` and `modules/dns/v5/migrate-from-v4.tf` may be dropped, which gives the v5 archive
 
