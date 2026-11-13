@@ -80,6 +80,15 @@ run "converted" {
   }
 }
 
+run "records_are_sensitive" {
+  command = plan
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata) && alltrue([for r in output.record_metadata : r.name == r.fqdn])
+    error_message = "records must be sensitive and name must be the fully qualified name, record_metadata must not be sensitive"
+  }
+}
+
 run "same_keys_as_punycode" {
   command = plan
 

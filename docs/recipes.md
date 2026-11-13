@@ -119,7 +119,7 @@ terraform output -json dns_records | jq -r '
    | "| \(.fqdn) | \(.type) | \(.content // (.data | tostring)) | \(if .proxied then "auto" else .ttl end) | \(.proxied) |")'
 ```
 
-with the output passed through in the root module (`output "dns_records" { value = module.dns.records }`). The values of proxied records are origin addresses, which the proxy hides: leave them out of a table that is published more widely (`select(.value.proxied | not)`).
+with the output passed through in the root module (`records` is sensitive, so the output needs `sensitive = true`; `terraform output -json` shows its values). The values of proxied records are origin addresses, which the proxy hides: leave them out of a table that is published more widely (`select(.value.proxied | not)`).
 
 ## Internationalized Names
 

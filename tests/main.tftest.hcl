@@ -31,6 +31,15 @@ run "plan" {
   }
 }
 
+run "records_are_sensitive" {
+  command = plan
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata) && output.records["app TXT spf"].name == "app.example.com"
+    error_message = "records must be sensitive and have the fully qualified name, record_metadata must not be sensitive"
+  }
+}
+
 run "unknown_attribute" {
   command = plan
 

@@ -66,13 +66,13 @@ Cloudflare supports record tags only on some plans and limits the length of comm
 ## Outputs
 
 - `record_names`: fully qualified names of all managed records (from the configuration, known at plan)
-- `records`: managed records keyed by their [record key](record-model.md#record-keys), with `id`, `zone_id`, `name` (as Cloudflare returns it), `fqdn` (fully qualified and in lower case, from the configuration, so it is known at `plan`), `type`, `content`, `ttl`, `proxied`, `priority` and `data` (structured records, as configured). For other modules, e.g. monitoring of the names or certificates for them:
+- `records` (sensitive): managed records keyed by their [record key](record-model.md#record-keys), with `id`, `zone_id`, `name` and `fqdn` (both the fully qualified name in lower case, from the configuration, so known at `plan`), `type`, `content`, `ttl`, `proxied`, `priority` and `data` (structured records, as configured). For other modules, e.g. monitoring of the names or certificates for them, use `record_metadata`, which is not sensitive:
 
   ```hcl
-  hosts = [for r in module.dns.records : r.fqdn if contains(["A", "AAAA", "CNAME"], r.type)]
+  hosts = [for r in module.dns.record_metadata : r.fqdn if contains(["A", "AAAA", "CNAME"], r.type)]
   ```
 
-  In a plan, everything but `id` (and `content` of structured records, which Cloudflare computes) is known:
+  The plan shows `records` as `(sensitive value)`; `terraform output -json records` and `terraform show -json` give the values. In a plan, everything but `id` (and `content` of structured records, which Cloudflare computes) is known:
 
   ```text
   + records = {
@@ -107,8 +107,8 @@ Cloudflare supports record tags only on some plans and limits the length of comm
         }
     }
   ```
-  `records` is not sensitive, and a proxied record shows there the origin address that Cloudflare hides: in `content`, in `data` (`ipv4hint` of an HTTPS record) and in the keys of records without an explicit `key`. Where plans or outputs end up in logs, pass on `record_metadata` instead, or wrap the output in `sensitive()`.
-- `record_metadata`: the managed records without their values, as a list in the order of their keys: `id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment` and `tags`. It has no `content`, `data` or keys: what it shows besides names is what the configuration writes in comments and tags
+  `records` is sensitive because a proxied record shows there the origin address that Cloudflare hides: in `content`, in `data` (`ipv4hint` of an HTTPS record) and in the keys of records without an explicit `key`. Terraform does not accept `for_each` over a sensitive value: use `record_metadata` (a list, no values) for that, or `nonsensitive()` where the addresses may be public. A root module that passes `records` on marks its output `sensitive = true`: Terraform 1.9.0 shows the values of an output that is not marked.
+- `record_metadata`: the managed records without their values, as a list in the order of their keys (not sensitive): `id`, `zone_id`, `name` (the fully qualified name, as `fqdn`), `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment` and `tags`. It has no `content`, `data` or keys: what it shows besides names is what the configuration writes in comments and tags
 - `state_migration`: map of the record keys used by 1.x to the current ones, see [Upgrading from v1](upgrading.md#from-v1-to-v2)
 - `import_ids` (v5): import IDs of records that already exist in the zone, see [Importing Existing Records](importing.md#importing-existing-records)
 - `import_duplicates` (v5): records that cannot be imported unambiguously, with the IDs of their matches; while there are any, `plan` stops

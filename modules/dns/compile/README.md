@@ -45,5 +45,5 @@ No resources.
 
 | Name | Description |
 | ---- | ----------- |
-| <a name="output_records"></a> [records](#output\_records) | The records as the wrappers would create them, keyed by their record key (the key of the Terraform address): name (as sent to Cloudflare), fqdn, type, content, ttl (1 for proxied records), proxied, comment, tags, settings, private\_routing, priority and data |
+| <a name="output_records"></a> [records](#output\_records) | Sensitive (content and data of a proxied record are its origin address). The records as the wrappers would create them, keyed by their record key (the key of the Terraform address): name (as sent to Cloudflare), fqdn, type, content, ttl (1 for proxied records), proxied, comment, tags, settings, private\_routing, priority and data |
 <!-- END_TF_DOCS -->

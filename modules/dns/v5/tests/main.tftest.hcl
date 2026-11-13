@@ -620,6 +620,16 @@ run "records_output" {
     condition     = output.records["app MX mx.example.com"].fqdn == "app.example.com" && output.records["_sip._tcp SRV sip"].data.port == "5060"
     error_message = "records must have the fully qualified name and the data from the configuration, known at plan"
   }
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata)
+    error_message = "records (content and data of proxied records) must be sensitive, record_metadata must not"
+  }
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].name == "app.example.com" && output.record_metadata[0].name == output.record_metadata[0].fqdn && alltrue([for r in output.record_metadata : r.name == r.fqdn && r.name == lower(r.name)])
+    error_message = "name must be the fully qualified name in lower case, as fqdn, before and after apply"
+  }
 }
 
 run "unmanaged_policy_error_with_an_empty_report" {
