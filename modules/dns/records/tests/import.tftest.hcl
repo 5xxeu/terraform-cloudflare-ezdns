@@ -252,7 +252,7 @@ run "import_fully_qualified_base_name" {
   }
 
   assert {
-    condition     = output.import_record_ids == { "app.example.com A 192.0.2.1" = "id-a", "App AAAA 2001:db8::1" = "id-aaaa" }
+    condition     = output.import_record_ids == { "app.example.com A 192.0.2.1" = "id-a", "app AAAA 2001:db8::1" = "id-aaaa" }
     error_message = "Records with fully qualified and short base names must both be matched"
   }
 }
@@ -418,7 +418,7 @@ run "import_ipv6_in_another_form" {
   }
 
   assert {
-    condition     = output.import_record_ids == { "app AAAA 2001:0db8:0:0:0:0:0:1" = "id-aaaa" }
+    condition     = output.import_record_ids == { "app AAAA 2001:db8::1" = "id-aaaa" }
     error_message = "IPv6 addresses must be compared in their canonical form"
   }
 }
@@ -562,7 +562,7 @@ run "import_ipv4_mapped_in_another_form" {
   }
 
   assert {
-    condition     = output.import_record_ids == { "app AAAA ::ffff:c000:201" = "id-mapped" }
+    condition     = output.import_record_ids == { "app AAAA ::ffff:192.0.2.1" = "id-mapped" }
     error_message = "IPv4-mapped addresses must be compared in one form"
   }
 }

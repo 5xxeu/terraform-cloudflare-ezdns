@@ -55,6 +55,36 @@ The `records` output of the root module, the wrappers and `modules/dns/compile` 
 
 No addresses in the state change.
 
+## To 3.0: Normalized Record Keys
+
+Record keys are built from the name in lower case and the value in a normal form (see [Record Keys](record-model.md#record-keys)), so forms that DNS does not tell apart have one address: `WWW` and `www`, `Mail.Example.com.` and `mail.example.com` as an `MX`, `NS` or `PTR` target, `2001:0DB8::1` and `2001:db8::1`, `5060.0` and `5060` in `data`, the service parameters of `HTTPS` and `SVCB` as fields or in `value`. A record written in the normal form (names in lower case, targets without the trailing dot, IPv6 addresses shortened, parameters in `value`) keeps its key. A record written in another form gets the key of the normal form, and without a `moved` block Terraform plans to delete it and create it again.
+
+The `state_migration` output maps the 2.x keys of these records to their keys now (it held the 1.x keys in 2.x; upgrade from 1.x to 2.x first, see [From v1 to v2](#from-v1-to-v2)). Generate `moved` blocks from it (requires `jq`):
+
+1. Change the module to version 3.0 and run `terraform init -upgrade`.
+2. Set `ADDRESS` to the address of the records in the state, then generate the blocks:
+
+   ```sh
+   # The root module and modules/dns/idna; the //modules/dns/v5 submodule has no module.v5:
+   # module.dns.cloudflare_dns_record.record
+   ADDRESS=module.dns.module.v5.cloudflare_dns_record.record
+   MODULE=${ADDRESS%%.module.v5.*}; MODULE=${MODULE%.cloudflare_dns_record.record}
+   echo "jsonencode(${MODULE}.state_migration)" | terraform console | tail -n 1 \
+     | jq -r --arg addr "$ADDRESS" '
+         fromjson | to_entries[] |
+         "moved {",
+         "  from = \($addr)[\(.key | tojson)]",
+         "  to   = \($addr)[\(.value | tojson)]",
+         "}", ""' \
+     > dns_migration.tf
+   ```
+
+   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
+3. Run `terraform plan`. It should only show records that have moved (and changes in place, if any), with no records to add or destroy.
+4. Run `terraform apply`, then delete `dns_migration.tf`.
+
+The map has every record written in another form, also when its state has the new key already (another state of the same configuration, or one applied before): a `moved` block whose old address is not in the state does nothing. Two records that are one record in another form (`WWW` and `www`) fail at `plan` as duplicates; they were duplicates in 2.x too.
+
 ## To 2.20: IPv4 Without Leading Zeros
 
 A records and the `ipv4hint` of HTTPS and SVCB records now require four decimal

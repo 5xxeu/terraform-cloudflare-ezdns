@@ -189,7 +189,10 @@ run "computed_values" {
   }
 
   assert {
-    condition     = toset(output.keys) == toset(["@ A 192.0.2.1", "@ A 192.0.2.3", "www A 192.0.2.2"])
+    condition = toset(output.keys) == toset([
+      "@ A 192.0.2.1", "@ A 192.0.2.3", "www A 192.0.2.2", "@ MX mail.example.com", "web AAAA 2001:db8::2",
+      "_sip._tcp SRV ${substr(sha1(jsonencode({ port = "5060", priority = "10", target = "sip.example.com", weight = "5" })), 0, 12)}",
+    ])
     error_message = "Record keys must be known at plan when a value is known only after apply"
   }
 }

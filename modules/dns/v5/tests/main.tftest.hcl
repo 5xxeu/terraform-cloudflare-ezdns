@@ -260,7 +260,7 @@ run "names_in_lower_case_and_allowed_cname_conflicts" {
   }
 
   assert {
-    condition     = cloudflare_dns_record.record["Community CNAME"].name == "community" && cloudflare_dns_record.record["Community MX mx.example.net"].name == "community"
+    condition     = cloudflare_dns_record.record["community CNAME"].name == "community" && cloudflare_dns_record.record["community MX mx.example.net"].name == "community"
     error_message = "The resource gets the name in lower case, and the listed CNAME conflict is accepted"
   }
 }
@@ -596,7 +596,7 @@ run "ipv6_sent_in_canonical_form" {
   }
 
   assert {
-    condition     = cloudflare_dns_record.record["app AAAA 2001:0DB8:0:0:0:0:0:1"].content == "2001:db8::1"
+    condition     = cloudflare_dns_record.record["app AAAA 2001:db8::1"].content == "2001:db8::1"
     error_message = "IPv6 addresses are sent in the canonical form"
   }
 }

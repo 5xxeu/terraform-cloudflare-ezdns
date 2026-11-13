@@ -1,6 +1,10 @@
+# The outputs below leave out the instances of the state that the configuration no longer
+# has: terraform console reads the outputs against the state, e.g. one with the keys of
+# 2.x before the moved blocks of state_migration are applied
+
 output "record_names" {
   description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
-  value       = [for key, r in cloudflare_dns_record.record : module.checks.flat_records[key].fqdn]
+  value       = [for key, r in cloudflare_dns_record.record : module.checks.flat_records[key].fqdn if contains(local.configured_keys, key)]
 }
 
 output "records" {
@@ -21,7 +25,7 @@ output "records" {
       tags            = local.effective_records[key].tags
       settings        = module.checks.flat_records[key].settings
       private_routing = module.checks.flat_records[key].private_routing
-    }
+    } if contains(local.configured_keys, key)
   }
   sensitive = true
 }
@@ -40,12 +44,12 @@ output "record_metadata" {
       priority = r.priority
       comment  = local.effective_records[key].comment
       tags     = local.effective_records[key].tags
-    }
+    } if contains(local.configured_keys, key)
   ]
 }
 
 output "state_migration" {
-  description = "Map of record keys used by module versions 1.x to the current keys, for state migration"
+  description = "Map of the record keys of module versions 2.x to the current keys, for the records whose key changed in 3.0 (a name or a value written in another form), to generate moved blocks"
   value       = module.records.state_migration
 }
 

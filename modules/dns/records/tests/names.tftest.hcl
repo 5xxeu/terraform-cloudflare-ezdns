@@ -107,7 +107,7 @@ run "same_record_apex_and_zone_name_case" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"example.com TXT 18de4b91f5e3\" as \"@ TXT d2b1e35921ca\" from records[\"@\"][\"TXT\"][0] and \"EXAMPLE.com TXT d2b1e35921ca\" from records[\"EXAMPLE.com\"][\"TXT\"][0]"]
+    condition     = output.diagnostics.duplicates == ["\"example.com TXT 18de4b91f5e3\" as \"@ TXT d2b1e35921ca\" from records[\"@\"][\"TXT\"][0] and \"example.com TXT d2b1e35921ca\" from records[\"EXAMPLE.com\"][\"TXT\"][0]"]
     error_message = "The records are reported as duplicates"
   }
 }
@@ -123,7 +123,7 @@ run "same_record_prefix_and_base_name" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"_acme-challenge.app.example.com TXT 7deab982ae4b\" as \"_acme-challenge.APP.example.com TXT ee977806d728\" from records[\"_acme-challenge.APP.example.com\"][\"TXT\"][0] and \"_acme-challenge.app TXT ee977806d728\" from records[\"app\"][\"_acme-challenge.TXT\"][0]"]
+    condition     = output.diagnostics.duplicates == ["\"_acme-challenge.app.example.com TXT 7deab982ae4b\" as \"_acme-challenge.app.example.com TXT ee977806d728\" from records[\"_acme-challenge.APP.example.com\"][\"TXT\"][0] and \"_acme-challenge.app TXT ee977806d728\" from records[\"app\"][\"_acme-challenge.TXT\"][0]"]
     error_message = "The records are reported as duplicates"
   }
 }
@@ -155,7 +155,7 @@ run "same_alias_name_forms" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"www.example.com CNAME example.com\" as \"www CNAME\" from records[\"@\"][\"ALIASES\"][0] and \"WWW.example.com CNAME\" from records[\"WWW.example.com\"][\"CNAME\"][0]"]
+    condition     = output.diagnostics.duplicates == ["\"www.example.com CNAME example.com\" as \"www CNAME\" from records[\"@\"][\"ALIASES\"][0] and \"www.example.com CNAME\" from records[\"WWW.example.com\"][\"CNAME\"][0]"]
     error_message = "The records are reported as duplicates"
   }
 

@@ -85,6 +85,9 @@ locals {
       })
     )
   }
+
+  # The keys of the configuration, for the outputs over the resources (outputs.tf)
+  configured_keys = toset(keys(local.effective_records))
 }
 
 resource "cloudflare_dns_record" "record" {

@@ -16,5 +16,9 @@ module "dns_named" {
   source    = "../.."
   zone_id   = "z"
   zone_name = "münchen.de${substr(timestamp(), 0, 0)}"
-  records   = { "bücher" = { A = [{ content = "192.0.2.1" }] } }
+  records = {
+    "bücher" = { A = [{ content = "192.0.2.1" }] }
+    # Normalized keys need no zone name
+    "Shop" = { AAAA = [{ content = "2001:DB8::1" }], PTR = [{ content = "Host.Example.com." }] }
+  }
 }

@@ -215,7 +215,7 @@ run "svc_params_written_into_value" {
   }
 
   assert {
-    condition     = output.flat_records["@ HTTPS ${substr(sha1(jsonencode({ priority = "1", target = ".", ipv6hint = "2001:db8::1", alpn = "h3,h2", port = "443", ipv4hint = "192.0.2.1,192.0.2.2" })), 0, 12)}"].data == tomap({ priority = "1", target = ".", value = "alpn=\"h3,h2\" port=\"443\" ipv4hint=\"192.0.2.1,192.0.2.2\" ipv6hint=\"2001:db8::1\"" })
+    condition     = output.flat_records["@ HTTPS ${substr(sha1(jsonencode({ priority = "1", target = ".", value = "alpn=\"h3,h2\" port=\"443\" ipv4hint=\"192.0.2.1,192.0.2.2\" ipv6hint=\"2001:db8::1\"" })), 0, 12)}"].data == tomap({ priority = "1", target = ".", value = "alpn=\"h3,h2\" port=\"443\" ipv4hint=\"192.0.2.1,192.0.2.2\" ipv6hint=\"2001:db8::1\"" })
     error_message = "Parameters must be written into value in the order of their keys, and left out of data"
   }
 
@@ -263,7 +263,7 @@ run "svc_params_and_value_are_one_record" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"example.com HTTPS 70dd9dca6e21\" as \"@ HTTPS 2563d6f5901e\" from records[\"@\"][\"HTTPS\"][0] and \"@ HTTPS f084fb2b8920\" from records[\"@\"][\"HTTPS\"][1]"]
+    condition     = output.diagnostics.duplicates == ["\"@ HTTPS 2563d6f5901e\" from records[\"@\"][\"HTTPS\"][0] and records[\"@\"][\"HTTPS\"][1]"]
     error_message = "The records are reported as duplicates"
   }
 }

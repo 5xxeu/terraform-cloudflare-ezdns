@@ -72,27 +72,6 @@ run "flattening" {
   }
 }
 
-run "state_migration" {
-  command = plan
-
-  assert {
-    condition = output.state_migration == {
-      "A_@_0"                                   = "@ A 30.40.50.61"
-      "_dmarc.TXT_@_0"                          = "_dmarc TXT ${substr(sha1("v=DMARC1"), 0, 12)}"
-      "ALIASES_@_www"                           = "www CNAME"
-      "ALIASES_INLINE_@_mail.ALIASES_0_m2"      = "m2 CNAME"
-      "A_app_0"                                 = "app A 30.40.50.60"
-      "A_app_1"                                 = "app A 30.40.50.70"
-      "MX_app_0"                                = "app MX mx.example.com"
-      "CAA_app_issue_letsencrypt.org_0"         = "app CAA issue letsencrypt.org"
-      "_acme-challenge.TXT_app_0"               = "_acme-challenge.app TXT ${substr(sha1("tok"), 0, 12)}"
-      "ALIASES_INLINE_app_cdn.ALIASES_0_static" = "static CNAME"
-      "google._domainkey.TXT_app_0"             = "google._domainkey.app TXT dkim"
-    }
-    error_message = "Unexpected state migration map"
-  }
-}
-
 run "duplicate_records" {
   command = plan
 
@@ -669,7 +648,7 @@ run "duplicate_hostname_case_and_dot" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"example.com MX mail.example.com\" as \"@ MX mail.example.com\" from records[\"@\"][\"MX\"][0] and \"example.com MX Mail.Example.com.\" from records[\"example.com\"][\"MX\"][0]"]
+    condition     = output.diagnostics.duplicates == ["\"example.com MX mail.example.com\" as \"@ MX mail.example.com\" from records[\"@\"][\"MX\"][0] and \"example.com MX mail.example.com\" from records[\"example.com\"][\"MX\"][0]"]
     error_message = "The records are reported as duplicates"
   }
 }
@@ -716,7 +695,7 @@ run "duplicate_data_hostname_and_numbers" {
   }
 
   assert {
-    condition     = output.diagnostics.duplicates == ["\"_sip._tcp.example.com SRV 9c61601f99e8\" as \"_sip._tcp SRV 9c61601f99e8\" from records[\"_sip._tcp\"][\"SRV\"][0] and \"_sip._tcp SRV eb21ec8b3679\" from records[\"_sip._tcp\"][\"SRV\"][1]"]
+    condition     = output.diagnostics.duplicates == ["\"_sip._tcp SRV 9c61601f99e8\" from records[\"_sip._tcp\"][\"SRV\"][0] and records[\"_sip._tcp\"][\"SRV\"][1]"]
     error_message = "The records are reported as duplicates"
   }
 }
@@ -912,10 +891,10 @@ run "names_in_lower_case" {
 
   assert {
     condition = (
-      output.flat_records["M1._domainkey TXT dkim"].name == "m1._domainkey"
-      && output.flat_records["_X.App TXT x"].name == "_x.app"
+      output.flat_records["m1._domainkey TXT dkim"].name == "m1._domainkey"
+      && output.flat_records["_x.app TXT x"].name == "_x.app"
     )
-    error_message = "Names must be sent in lower case while keys keep the name as written"
+    error_message = "Names must be sent and keyed in lower case"
   }
 }
 
@@ -1333,15 +1312,15 @@ run "alias_target_over_253_characters" {
   }
 }
 
-# IPv6 addresses are compared in their canonical form: the same address written
-# twice is a duplicate
+# IPv6 addresses are keyed in their canonical form: the same address written twice is
+# one key, a duplicate
 run "ipv6_written_in_two_forms" {
   command = plan
   variables {
     records = { "app" = { AAAA = [{ content = "2001:db8::1" }, { content = "2001:0db8:0:0:0:0:0:1" }] } }
   }
   assert {
-    condition     = output.diagnostics.duplicates == ["\"app.example.com AAAA 2001:db8::1\" as \"app AAAA 2001:db8::1\" from records[\"app\"][\"AAAA\"][0] and \"app AAAA 2001:0db8:0:0:0:0:0:1\" from records[\"app\"][\"AAAA\"][1]"]
+    condition     = output.diagnostics.duplicates == ["\"app AAAA 2001:db8::1\" from records[\"app\"][\"AAAA\"][0] and records[\"app\"][\"AAAA\"][1]"]
     error_message = "The records are reported as duplicates"
   }
 }
@@ -1352,11 +1331,11 @@ run "ipv6_sent_in_canonical_form" {
     records = { "app" = { AAAA = [{ content = "2001:0DB8:0:0:0:0:0:1" }, { content = "::FFFF:C000:201" }] } }
   }
   assert {
-    condition     = output.flat_records["app AAAA 2001:0DB8:0:0:0:0:0:1"].content == "2001:db8::1"
-    error_message = "The key keeps the address as written, the content is canonical"
+    condition     = output.flat_records["app AAAA 2001:db8::1"].content == "2001:db8::1"
+    error_message = "The key and the content have the canonical address"
   }
   assert {
-    condition     = output.flat_records["app AAAA ::FFFF:C000:201"].content == "::ffff:192.0.2.1"
+    condition     = output.flat_records["app AAAA ::ffff:192.0.2.1"].content == "::ffff:192.0.2.1"
     error_message = "An IPv4-mapped address stays an IPv6 address, in the RFC 5952 form"
   }
 }
@@ -1367,7 +1346,7 @@ run "ipv4_mapped_written_in_two_forms" {
     records = { "app" = { AAAA = [{ content = "::ffff:192.0.2.1" }, { content = "::ffff:c000:201" }] } }
   }
   assert {
-    condition     = output.diagnostics.duplicates == ["\"app.example.com AAAA ::ffff:192.0.2.1\" as \"app AAAA ::ffff:192.0.2.1\" from records[\"app\"][\"AAAA\"][0] and \"app AAAA ::ffff:c000:201\" from records[\"app\"][\"AAAA\"][1]"]
+    condition     = output.diagnostics.duplicates == ["\"app AAAA ::ffff:192.0.2.1\" from records[\"app\"][\"AAAA\"][0] and records[\"app\"][\"AAAA\"][1]"]
     error_message = "The records are reported as duplicates"
   }
 }

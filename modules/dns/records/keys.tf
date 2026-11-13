@@ -1,12 +1,18 @@
 # Resolved records and their keys. The key is the Terraform address of a record
 # ("<name> <TYPE> <value>"), so it depends on the value or on an explicit key, never on
 # the position in a list: reordering records changes nothing, and a record with a key is
-# updated in place when its value changes.
+# updated in place when its value changes. The key is built from the normalized name and
+# value, so forms of one record that DNS does not tell apart ("WWW" and "www", a target
+# with or without the trailing dot) have one address.
 
 locals {
   # Service parameters of HTTPS and SVCB records that can be set as fields of data, in
   # the order of their keys (mandatory 0, alpn 1, port 3, ipv4hint 4, ech 5, ipv6hint 6)
   svc_params = ["mandatory", "alpn", "port", "ipv4hint", "ech", "ipv6hint"]
+
+  # Fields of data that hold hostnames (the target of a URI record is a URI, kept as
+  # written: paths and queries are case-sensitive)
+  hostname_fields = ["target", "replacement"]
 
   # Resolved records: ALIASES become CNAMEs, prefixes are prepended to the base name
   resolved = [
@@ -18,38 +24,77 @@ locals {
       # Alias targets are the fully qualified base name, so "app" and
       # "app.example.com" both point to app.example.com
       content = e.kind == "ALIASES" ? (e.prefix == null ? local.qualified[e.base_name] : "${e.prefix}.${local.qualified[e.base_name]}") : e.rec.content
+    }
+  ]
 
-      # Key used by module versions 1.x, for state migration
-      old_key = (
-        e.kind == "ALIASES" && e.prefix == null ? "ALIASES_${e.base_name}_${e.rec.name}" :
-        e.kind == "ALIASES" ? "ALIASES_INLINE_${e.base_name}_${e.raw_key}_${e.idx}_${e.rec.name}" :
-        e.raw_key == "CAA" ? "CAA_${e.base_name}_${e.rec.tag}_${e.rec.content}_${e.rec.flags}" :
-        "${e.raw_key}_${e.base_name}_${e.idx}"
+  # Canonical form of the IPv6 addresses, as Cloudflare stores them (cidrhost formats
+  # them like RFC 5952: lower case, no leading zeros, the longest run of zeros as ::). An
+  # IPv4-mapped address comes back as IPv4 and gets the ::ffff: prefix back
+  # (::ffff:c000:201 is ::ffff:192.0.2.1); a value that is not an address (rejected by
+  # the validation) stays as written, in lower case. Per record, not a map by address:
+  # one address known only after apply (a record with a key) would make the map, and so
+  # the keys of the other AAAA records, unknown
+  addresses = [
+    for r in local.resolved : r.type != "AAAA" ? null : (
+      !can(cidrhost("${r.content}/128", 0)) ? lower(r.content) :
+      strcontains(cidrhost("${r.content}/128", 0), ":") ? cidrhost("${r.content}/128", 0) :
+      "::ffff:${cidrhost("${r.content}/128", 0)}"
+    )
+  ]
+
+  # The normalized parts of the key, from the values as written (no zone name: the keys
+  # must be known at plan also when the zone is not). The name in lower case without the
+  # trailing dot; a short name is not made fully qualified, so "www" and
+  # "www.example.com" stay two addresses (the checks report them as duplicates). The
+  # value, by type:
+  #   A, TXT, OPENPGPKEY  as written (TXT as a hash: text is case-sensitive)
+  #   AAAA                the canonical IPv6 address (RFC 5952)
+  #   MX, NS, PTR         the target in lower case without the trailing dot ("." and "@" as written)
+  #   CAA                 the tag in lower case and the value as written
+  #   CNAME               none: a name has one CNAME
+  #   data types          a hash of data with numbers in their shortest form ("5060.0" is
+  #                       5060), targets in lower case without the trailing dot (except
+  #                       "."), and the service parameters of HTTPS and SVCB in value
+  #   explicit key        the key as written
+  normalized = [
+    for i, r in local.resolved : {
+      name = lower(trimsuffix(r.name, "."))
+      value = (
+        r.rec.key != null ? r.rec.key :
+        r.type == "CNAME" ? null :
+        r.type == "CAA" ? "${lower(r.rec.tag)} ${r.content}" :
+        r.type == "TXT" ? substr(sha1(r.content), 0, 12) :
+        r.type == "AAAA" ? local.addresses[i] :
+        contains(["MX", "NS", "PTR"], r.type) ? (r.content == "." ? "." : lower(trimsuffix(r.content, "."))) :
+        contains(local.data_types, r.type) ? substr(sha1(jsonencode(merge(
+          {
+            for field, value in r.rec.data : field => (
+              value == null ? null :
+              contains(lookup(local.numeric_fields, r.type, []), field) && can(tonumber(value)) ? tostring(tonumber(value)) :
+              contains(local.hostname_fields, field) && !(field == "target" && r.type == "URI") && value != "." ? lower(trimsuffix(value, ".")) :
+              value
+            ) if !(contains(["HTTPS", "SVCB"], r.type) && contains(local.svc_params, field) && value != null)
+          },
+          contains(["HTTPS", "SVCB"], r.type) && length([for param in local.svc_params : param if lookup(r.rec.data, param, null) != null]) > 0 ? {
+            value = join(" ", [for param in local.svc_params : "${param}=\"${param == "port" ? tonumber(r.rec.data[param]) : r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
+          } : {},
+        ))), 0, 12) :
+        r.content
       )
     }
   ]
 
-  # Canonical form of the configured IPv6 addresses (cidrhost formats them like
-  # RFC 5952: lower case, no leading zeros, the longest run of zeros as ::). An
-  # IPv4-mapped address comes back as IPv4 and gets the ::ffff: prefix back
-  # (::ffff:c000:201 is ::ffff:192.0.2.1); a value that is not an address (rejected
-  # by the validation) stays as written, in lower case
-  canonical_ipv6 = {
-    for address in distinct([for r in local.resolved : r.content if r.type == "AAAA"]) : address => (
-      !can(cidrhost("${address}/128", 0)) ? lower(address) :
-      strcontains(cidrhost("${address}/128", 0), ":") ? cidrhost("${address}/128", 0) :
-      "::ffff:${cidrhost("${address}/128", 0)}"
-    )
-  }
-
-  # Keys follow the zone file format: "<name> <TYPE> <value>"
+  # Keys follow the zone file format: "<name> <TYPE> <value>". legacy_key is the key of
+  # the record in 2.x (the name and the value as written), for state_migration
   keyed = [
-    for r in local.resolved : merge(r, {
-      key = (
+    for i, r in local.resolved : merge(r, {
+      address = local.addresses[i]
+      key     = local.normalized[i].value == null ? "${local.normalized[i].name} ${r.type}" : "${local.normalized[i].name} ${r.type} ${local.normalized[i].value}"
+      legacy_key = (
         r.rec.key != null ? "${r.name} ${r.type} ${r.rec.key}" :
         r.type == "CNAME" ? "${r.name} CNAME" :
         r.type == "CAA" ? "${r.name} CAA ${r.rec.tag} ${r.content}" :
-        r.type == "TXT" ? "${r.name} TXT ${substr(sha1(r.content), 0, 12)}" :
+        r.type == "TXT" ? "${r.name} TXT ${local.normalized[i].value}" :
         contains(local.data_types, r.type) ? "${r.name} ${r.type} ${substr(sha1(jsonencode(r.rec.data)), 0, 12)}" :
         "${r.name} ${r.type} ${r.content}"
       )
@@ -58,20 +103,20 @@ locals {
 
   records = [
     for r in local.keyed : {
-      key     = r.key
-      old_key = r.old_key
-      source  = r.source
-      name    = r.name
-      fqdn    = local.fqdn[r.name]
+      key        = r.key
+      legacy_key = r.legacy_key
+      source     = r.source
+      name       = r.name
+      fqdn       = local.fqdn[r.name]
       # An explicit key without its name part ("A main"), null for a key from the value
-      explicit_key = r.rec.key != null ? trimprefix(r.key, "${r.name} ") : null
+      explicit_key = r.rec.key != null ? "${r.type} ${r.rec.key}" : null
       type         = r.type
       # IPv6 addresses are sent in the canonical form, as Cloudflare stores them, and
       # "@" as a CNAME, MX, NS or PTR target as the zone name (the import compares it
-      # with the name in the zone); the key keeps the value as written
+      # with the name in the zone); the key keeps "@"
       content = (
         r.type == "CAA" || contains(local.data_types, r.type) ? null :
-        r.type == "AAAA" ? local.canonical_ipv6[r.content] :
+        r.type == "AAAA" ? r.address :
         contains(["CNAME", "MX", "NS", "PTR"], r.type) && r.content == "@" ? local.zone :
         r.content
       )
@@ -112,7 +157,7 @@ locals {
 
   flat_records = {
     for key, group in local.grouped : key => {
-      # Cloudflare stores names in lower case; the key keeps the name as written
+      # Cloudflare stores names in lower case
       name            = lower(group[0].name)
       fqdn            = group[0].fqdn
       type            = group[0].type
@@ -129,7 +174,9 @@ locals {
     }
   }
 
-  state_migration = {
-    for r in local.records : r.old_key => r.key if r.old_key != r.key
-  }
+  # 2.x keys of the records whose key changed in 3.0, and their keys now, for moved
+  # blocks (docs/upgrading.md). Grouped: records with one 2.x key are duplicates, which
+  # the checks report
+  legacy_keys     = { for r in local.records : r.legacy_key => r.key... if r.legacy_key != r.key }
+  state_migration = { for legacy_key, keys in local.legacy_keys : legacy_key => keys[0] }
 }

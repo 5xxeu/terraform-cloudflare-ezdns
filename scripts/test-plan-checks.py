@@ -289,6 +289,19 @@ with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
     plan, applied, records, output = step(directory, ['records = { "app" = { A = [{ content = "192.0.2.1" }] }, "www" = { CNAME = [{ content = "app" }] } }'], zone='terraform_data.zone.output')
     report('compile: zone known after apply passes', passed(plan) and passed(applied) and len(records) == 2, output)
 
+    # Normalized keys need neither the zone nor the values of other records: with a zone
+    # and an address under a key known only after apply, the other forms get their keys
+    # at plan (one AAAA map over all addresses would make them unknown)
+    fresh(directory)
+    plan, applied, records, output = step(directory, [
+        'records = {',
+        '  "WEB" = { AAAA = [{ key = "web", content = %s }, { content = "2001:DB8:0::2" }] }' % VALUE,
+        '  "@"   = { MX = [{ content = "Mail.Example.com.", priority = 10 }] }',
+        '}',
+    ], value='2001:db8::1', zone='terraform_data.zone.output')
+    report('compile: normalized keys known at plan with a zone and an address known after apply',
+           passed(plan) and passed(applied) and sorted(records) == ['@ MX mail.example.com', 'web AAAA 2001:db8::2', 'web AAAA web'], output)
+
     # A value known only after apply that makes two records the same: the check of
     # same_values waits for apply and fails there, before any record is created
     fresh(directory)

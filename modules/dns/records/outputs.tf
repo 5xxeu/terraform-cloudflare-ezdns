@@ -22,7 +22,7 @@ output "diagnostics" {
 }
 
 output "state_migration" {
-  description = "Map of record keys used by module versions 1.x to the current keys, for state migration"
+  description = "Map of the record keys of module versions 2.x to the current keys, for the records whose key changed in 3.0 (a name or a value written in another form), to generate moved blocks"
   value       = local.state_migration
 }
 
