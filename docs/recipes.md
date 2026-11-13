@@ -123,7 +123,7 @@ with the output passed through in the root module (`output "dns_records" { value
 
 ## Internationalized Names
 
-The module expects internationalized names in Punycode, as the Cloudflare API does. The `idna` submodule takes them in Unicode instead: it converts them with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider and passes everything to the v5 wrapper. The provider has only functions (Terraform 1.8 or later): no configuration and no network requests, but `terraform init` installs it, which is why the root module does not use it.
+The module expects internationalized names in Punycode, as the Cloudflare API does. The `idna` submodule takes them in Unicode instead: it converts them with `provider::idna::to_ascii` of the [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) provider and passes everything to the v5 wrapper. The provider has only functions (Terraform 1.9 or later): no configuration and no network requests, but `terraform init` installs it, which is why the root module does not use it.
 
 ```hcl
 module "dns" {

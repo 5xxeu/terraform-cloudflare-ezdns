@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end test against a real Cloudflare zone: creates records of all types
-# under a label of this run, checks updates, import, the v4 to v5 migration and
-# names in Unicode, an upgrade from the previous release, and deletes everything
+# under a label of this run, checks updates, import and names in
+# Unicode, an upgrade from the previous release, and deletes everything
 # at the end.
 #
 # Requires CLOUDFLARE_API_TOKEN (DNS Edit on the zone), E2E_ZONE_ID and E2E_ZONE_NAME.
@@ -34,7 +34,7 @@ qualified_names() {
 cleanup() {
     local rc=$? cleaned=1 dir
     set +e
-    for dir in upgrade idna v4to5 v4 v5; do
+    for dir in upgrade idna v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
             echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
@@ -96,7 +96,7 @@ plan_summary() {
 # its address too, without an index or values
 record_ids() {
     tf "$1" show -json | jq -r '
-        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
+        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record"))]
         | map("\(.index) \(.values.id)") | sort[]'
 }
 
@@ -117,7 +117,7 @@ assert_no_changes() {
 echo "Label: ${LABEL}"
 "${E2E_DIR}/sweep.sh" --stale
 
-for dir in v5 import v4 v4to5 idna; do tf "$dir" init -no-color >/dev/null; done
+for dir in v5 import idna; do tf "$dir" init -no-color >/dev/null; done
 
 api="https://api.cloudflare.com/client/v4/zones/${E2E_ZONE_ID}/dns_records"
 guard="$(git rev-parse --show-toplevel)/tools/plan-guard.py"
@@ -245,42 +245,7 @@ assert_same_ids "import" "${E2E_DIR}/ids-v5.txt" "${E2E_DIR}/ids-import.txt"
 rm -f "${E2E_DIR}/import/terraform.tfstate"*
 pass "all ${count} records imported, no drift afterwards (${summary})"
 
-# Scenario 3: records created with provider v4 are moved to v5 without recreation
-tf v4 apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "v4 apply: $(tail -40 "${E2E_DIR}/apply.log")"
-assert_no_changes v4
-pass "provider v4: created records without drift"
-names=$(qualified_names v4)
-[ "${names% of *}" = "${names#* of }" ] || fail "v4: record_names are not all fully qualified (${names})"
-pass "v4: record_names fully qualified (${names})"
-record_ids v4 >"${E2E_DIR}/ids-v4.txt"
-cp "${E2E_DIR}/v4/terraform.tfstate" "${E2E_DIR}/v4to5/terraform.tfstate"
-rm -f "${E2E_DIR}/v4/terraform.tfstate"
-summary=$(plan_summary v4to5)
-case "$summary" in
-    "create=0 delete=0 "*) ;;
-    *) fail "v4 to v5 migration: ${summary}" ;;
-esac
-# Provider v5 may report an inconsistent modified_on (different precision than in the
-# migrated state) for some records on this first apply; the records are updated and
-# the next plan is empty, so only this error is tolerated until
-# https://github.com/cloudflare/terraform-provider-cloudflare/issues/7387 is fixed
-only_modified_on_inconsistency() {
-    local attributes
-    grep -q "Provider produced inconsistent result after apply" "$1" || return 1
-    attributes=$(grep -oE "unexpected new value: \.[a-z_]+" "$1" | sed 's/.*\.//' | sort -u)
-    [ "$attributes" = "modified_on" ]
-}
-if ! tf v4to5 apply -auto-approve -no-color tfplan >"${E2E_DIR}/apply.log" 2>&1; then
-    only_modified_on_inconsistency "${E2E_DIR}/apply.log" || fail "v4 to v5 apply: $(tail -40 "${E2E_DIR}/apply.log")"
-    echo "note: provider reported the known modified_on inconsistency after the migration"
-fi
-assert_no_changes v4to5
-# The same records under the same keys: moved, not recreated
-record_ids v4to5 >"${E2E_DIR}/ids-v4to5.txt"
-assert_same_ids "v4 to v5 migration" "${E2E_DIR}/ids-v4.txt" "${E2E_DIR}/ids-v4to5.txt"
-pass "v4 to v5 migration without recreating records, same IDs (${summary})"
-
-# Scenario 4: names, a prefix of a record type and a CNAME target in Unicode through
+# Scenario 3: names, a prefix of a record type and a CNAME target in Unicode through
 # the idna submodule, stored in Punycode without drift
 tf idna apply -auto-approve -no-color >"${E2E_DIR}/apply.log" || fail "idna apply: $(tail -40 "${E2E_DIR}/apply.log")"
 assert_no_changes idna
@@ -290,7 +255,7 @@ punycode=$(tf idna output -json record_names | jq '[.[] | select(startswith("xn-
 [ "$punycode" = 2 ] || fail "idna: expected 2 names in Punycode, got ${punycode}"
 pass "idna: records with names in Unicode created in Punycode without drift (${names})"
 
-# Scenario 5: upgrade the previous release to this checkout without losing records.
+# Scenario 4: upgrade the previous release to this checkout without losing records.
 # The override changes only the source, removing it restores ../../.. in main.tf.
 mkdir -p "${E2E_DIR}/.upgrade-from"
 # Archive from the repository root, git archive otherwise uses the current subdirectory.

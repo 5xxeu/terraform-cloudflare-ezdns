@@ -7,7 +7,7 @@ The v5 wrapper for zones and names in Unicode (`münchen.de`, `bücher`): conver
 
 | Name | Version |
 | ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.8.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.0 |
 | <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | ~> 5.26 |
 | <a name="requirement_idna"></a> [idna](#requirement\_idna) | ~> 0.1 |
 

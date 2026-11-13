@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
-# Checks the module archives that release.yml builds before they are published: the
-# files a configuration needs are there, tests and CI files are not, the v5 archive
-# has no v4 wrapper, and each archive is a module that terraform validates.
+# Checks the module archive that release.yml builds before it is published: the files
+# a configuration needs are there, tests and CI files are not, and the archive is a
+# module that terraform validates.
 #
-#   ./scripts/check-archives.sh <full archive> <v5 archive>
+#   ./scripts/check-archives.sh <archive>
 set -eu
 
-[ $# -eq 2 ] || { echo "Usage: $0 <full archive> <v5 archive>" >&2; exit 2; }
+[ $# -eq 1 ] || { echo "Usage: $0 <archive>" >&2; exit 2; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 status=0
@@ -29,8 +29,7 @@ check() {
 
 common="main.tf variables.tf outputs.tf versions.tf modules/dns/v5/main.tf modules/dns/v5/import.tf modules/dns/records/main.tf schema/records.schema.json README.md CHANGELOG.md LICENSE VERSION"
 tests='(^|/)tests/|^\.github/|(^|/)\.terraform|\.tftest\.hcl$'
-check full "$1" "$common modules/dns/v4/main.tf modules/dns/v5/migrate-from-v4.tf modules/dns/compile/main.tf modules/dns/idna/main.tf tools/zone-to-ezdns.py tools/plan-guard.py" "$tests"
-check v5 "$2" "$common" "$tests|^modules/dns/(v4|compile|idna)/|^tools/|migrate-from-v4\.tf$"
+check full "$1" "$common modules/dns/compile/main.tf modules/dns/idna/main.tf tools/zone-to-ezdns.py tools/plan-guard.py" "$tests"
 
-[ "$status" = 0 ] && echo "Archives are complete"
+[ "$status" = 0 ] && echo "Archive is complete"
 exit "$status"

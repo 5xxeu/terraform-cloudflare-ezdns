@@ -7,7 +7,7 @@ Part of the documentation of [ezdns](../README.md).
 Do one step at a time, each with its own `terraform plan` and `apply`, and review every plan: it must not destroy or create records.
 
 1. **From v1 to v2** (record keys): [v1 to v2](#from-v1-to-v2), staying on the submodule you already use. Targeting 2.6 or later, fix any [unknown attributes](#to-26-unknown-attributes) as part of this step.
-2. **From provider v4 to v5**, if you use the `v4` submodule: [provider v4 to v5](#from-provider-v4-to-v5).
+2. **From provider v4 to v5**, if you use the `v4` submodule: [provider v4 to v5](#from-provider-v4-to-v5). Do it with the latest 2.x: version 3.0 has no `v4` submodule.
 3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module).
 
 Configurations that use the module from an earlier address (the repository `i386dev/terraform-cloudflare-easy-dns` or the Registry source `NikitaPuglachenko/easy-dns/cloudflare`) only change `source`, see [from an earlier address](#from-an-earlier-address).
@@ -102,7 +102,9 @@ Since 2.6, a record attribute that the module does not know fails the plan, e.g.
 
 ## From Provider v4 to v5
 
-The v5 wrapper contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record`, so the state is migrated without recreating records:
+This step is possible in 2.x only. Version 3.0 removed the `v4` submodule and the `moved` block from `cloudflare_record`, so a configuration on provider v4 moves to provider v5 with the latest 2.x first, and only then to 3.0.
+
+The v5 wrapper of 2.x contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record`, so the state is migrated without recreating records:
 
 1. Upgrade the Cloudflare provider to `~> 5.26`.
 2. Change the module `source` from `//modules/dns/v4` to `//modules/dns/v5`, keeping the module name the same. To go straight to the root module, also add the `moved` block from [the v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module), with `cloudflare_record` in `from`.

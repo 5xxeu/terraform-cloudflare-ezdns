@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Terraform 1.9.0 or later is required (was 1.8.0): `required_version` of the root module, the wrappers, the submodules and the tests is `>= 1.9.0`, and CI tests Terraform 1.9.0 and the latest version. Stay on 2.x to keep using Terraform 1.8
+
+### Removed
+
+- **Breaking:** the provider v4 wrapper `modules/dns/v4`, `examples/v4` and the `moved` block from `cloudflare_record` to `cloudflare_dns_record` (`modules/dns/v5/migrate-from-v4.tf`). The second release archive, `terraform-cloudflare-ezdns-v5-<version>.tar.gz`, is gone too: a release has one archive, `terraform-cloudflare-ezdns-<version>.tar.gz`, which does not contain the v4 wrapper. Configurations on provider v4 first move to provider v5 with the latest 2.x (see [From Provider v4 to v5](docs/upgrading.md#from-provider-v4-to-v5)), then to 3.0; a direct upgrade from v4 on 2.x or 1.x to 3.0 is not supported
+
 ## [2.22.0] - 2026-11-11
 
 ### Added

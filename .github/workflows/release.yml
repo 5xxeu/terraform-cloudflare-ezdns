@@ -83,34 +83,27 @@ jobs:
           done
           echo "No end-to-end result for ${GITHUB_SHA} after 35 minutes"; exit 1
 
-      # The module files only, for a local copy in the configurations that use it:
-      # the full module, and a provider v5 one without the v4 wrapper and its
-      # migration moved block
+      # The module files only, for a local copy in the configurations that use it
       - name: Module archives
         run: |
           full="terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz"
-          v5="terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
-          mkdir -p dist/module dist/module-v5
+          mkdir -p dist/module
           git archive HEAD -- ':(glob)*.tf' modules schema tools docs README.md CHANGELOG.md LICENSE \
             ':(exclude,glob)modules/**/tests/**' ':(exclude)tools/tests' | tar -x -C dist/module
-          git archive HEAD -- ':(glob)*.tf' modules/dns/v5 modules/dns/records schema docs README.md CHANGELOG.md LICENSE \
-            ':(exclude,glob)modules/**/tests/**' ':(exclude)modules/dns/v5/migrate-from-v4.tf' | tar -x -C dist/module-v5
           echo "$GITHUB_REF_NAME" >dist/module/VERSION
-          echo "$GITHUB_REF_NAME" >dist/module-v5/VERSION
           tar -czf "dist/${full}" -C dist/module .
-          tar -czf "dist/${v5}" -C dist/module-v5 .
-          (cd dist && sha256sum "${full}" "${v5}" >SHA256SUMS)
+          (cd dist && sha256sum "${full}" >SHA256SUMS)
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_wrapper: false
 
-      # Before the GitHub Release and archives are published: the module files, no
-      # tests, no v4 wrapper in the v5 archive, and both archives validate as modules
-      - name: Check the archives
-        run: ./scripts/check-archives.sh "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz"
+      # Before the GitHub Release and the archive are published: the module files, no
+      # tests, and the archive validates as a module
+      - name: Check the archive
+        run: ./scripts/check-archives.sh "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz"
 
-      # Signed SLSA build provenance of the archives, checked with
+      # Signed SLSA build provenance of the archive, checked with
       # gh attestation verify <archive> --repo 5xxeu/terraform-cloudflare-ezdns \
       #   --signer-workflow 5xxeu/terraform-cloudflare-ezdns/.github/workflows/release.yml
       - name: Attest build provenance
@@ -125,8 +118,7 @@ jobs:
           prerelease=false
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease=true; fi
           gh release create "$GITHUB_REF_NAME" --prerelease="$prerelease" --title "$GITHUB_REF_NAME" --notes-file notes.md --latest=false \
-            "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" \
-            "dist/terraform-cloudflare-ezdns-v5-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
+            "dist/terraform-cloudflare-ezdns-${GITHUB_REF_NAME}.tar.gz" dist/SHA256SUMS
 
       # The latest mark goes to the highest published version, so a patch of an older
       # line (v2.15.3 after v2.16.0) does not take it; versions with a suffix

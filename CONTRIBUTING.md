@@ -6,7 +6,7 @@ Security problems are reported privately, see [SECURITY.md](SECURITY.md).
 
 ## Development Setup
 
-- Terraform 1.8.0 or later (CI tests 1.8.0 and the latest version)
+- Terraform 1.9.0 or later (CI tests 1.9.0 and the latest version)
 - [terraform-docs](https://terraform-docs.io) v0.24.0
 - [TFLint](https://github.com/terraform-linters/tflint)
 - Python 3 with `jsonschema` and `pyyaml`
@@ -20,14 +20,11 @@ modules/dns/
 ├── records/   # Provider-agnostic core: validation and flattening (internal)
 ├── compile/   # The checks of the wrappers without a provider, for tests of your records
 ├── idna/      # The v5 wrapper for names in Unicode, converted with the 5xxeu/idna provider
-├── v4/        # Wrapper for Cloudflare provider v4 (cloudflare_record)
-└── v5/        # Wrapper for Cloudflare provider v5 (cloudflare_dns_record);
-               # migrate-from-v4.tf moves the state of the v4 wrapper
+└── v5/        # Wrapper for Cloudflare provider v5 (cloudflare_dns_record)
 examples/
 ├── v5/        # Records in HCL
 ├── yaml/      # Records in a YAML file, validated by the JSON Schema
-├── import/    # Adopting a zone that already has records
-└── v4/        # Provider v4, for existing configurations
+└── import/    # Adopting a zone that already has records
 schema/        # JSON Schema for records in YAML
 tools/         # plan-guard.py (checks a saved plan), moved-blocks.py (moved blocks from a plan), zone-to-ezdns.py (YAML of a zone)
 docs/          # The guides: record model, validation, inputs and outputs, YAML, examples, ...
@@ -35,7 +32,7 @@ scripts/       # The checks of CI
 tests/         # terraform test with a mocked provider, the end-to-end test, benchmarks
 ```
 
-Both wrappers share the same inputs, outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
+The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
 
 The README covers what the module does and how to start; the record model, validation, inputs and outputs and the longer guides are in [docs](docs).
 
@@ -59,7 +56,7 @@ tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 
 # in the changed module and its examples
 terraform init -backend=false && terraform validate && terraform test
-# or in every directory that CI tests, with a given Terraform binary (CI tests 1.8.0 too)
+# or in every directory that CI tests, with a given Terraform binary (CI tests 1.9.0 too)
 ./scripts/test-modules.sh [path/to/terraform]
 ```
 
@@ -68,7 +65,7 @@ The plan-only tests use a mocked provider and need no Cloudflare credentials, se
 ## Pull Requests
 
 - Keep one change per pull request, with tests for new behavior and fixed bugs.
-- Keep the wrappers in sync: a change of inputs or outputs goes into `modules/dns/v4`, `modules/dns/v5` and the root module.
+- Keep the copies of the interface in sync: a change of inputs or outputs goes into `modules/dns/v5`, `modules/dns/idna` and the root module.
 - Changing a record key moves records in the state of every user. Avoid it, or add `moved` blocks and a note in [Upgrading and Migration](docs/upgrading.md).
 - Add a line to the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) for changes users see.
 - Update the README or the guide in `docs` when the behavior or the inputs change.
@@ -78,7 +75,7 @@ The plan-only tests use a mocked provider and need no Cloudflare credentials, se
 These are not visible from a single file, and the tests catch only some of them:
 
 - **Record keys stay the same within 2.x.** A key is the address of a record in the state of every user; a change of the key format recreates records. Changes of keys wait for 3.0 and come with `moved` blocks.
-- **The wrappers are one code.** `modules/dns/v4`, `modules/dns/v5` and `modules/dns/compile` share their inputs and the merge of `record_groups`; `scripts/check-sync.sh` compares them, and the root module passes every input to the v5 wrapper.
+- **The wrapper and compile are one code.** `modules/dns/v5` and `modules/dns/compile` share their inputs and the merge of `record_groups`; `scripts/check-sync.sh` compares them, and the root module passes every input to the v5 wrapper.
 - **Keys stay known at plan.** A value known only after apply (a TTL or a target from another resource) must not make names or keys unknown, or `for_each` fails. So there is no `try()` over record values: `try()` returns an unknown result for a value that is not wholly known. Use `can()` over the shape (names, types and attribute names) and conditionals. The `computed_values` tests of `modules/dns/v5` and `modules/dns/idna` cover it.
 - **Terraform 1.8.** Variable validations cannot reference other variables, so checks across inputs are preconditions of outputs or `check` blocks; provider functions need 1.8.
 - **The work grows linearly with the records.** Do not scan all records once per name (a lookup per name in a map grouped once instead); plans of zones with thousands of records must stay fast. Some functions scan their whole argument on every call: `contains()` inside a loop over records (look up a map built once instead), `distinct()` on a long list (`toset()`), and `alltrue(flatten(...))` over all records (nest `alltrue()` per level). `tests/bench` has plain, groups and import benchmarks and a profile of the trace log. `python3 scripts/bench.py` runs the workloads; CI checks core changes against a stored runner baseline and fails above 2x time or peak memory, see [Testing](docs/testing.md).
