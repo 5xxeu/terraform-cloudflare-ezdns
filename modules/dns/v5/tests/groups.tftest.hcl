@@ -1,6 +1,7 @@
 # record_groups: merging with records, group defaults and their precedence, and the
 # checks of grouped records. Duplicates across groups are checked by the core
-# (modules/dns/records/tests/main.tftest.hcl, source of grouped records).
+# (modules/dns/records/tests/main.tftest.hcl, source of grouped records), numbers in
+# text and attributes that do not apply to the type by modules/dns/prepare.
 
 mock_provider "cloudflare" {}
 
@@ -154,16 +155,6 @@ run "grouped_record_boolean_text" {
   expect_failures = [var.record_groups]
 }
 
-run "grouped_record_number_text" {
-  command = plan
-
-  variables {
-    record_groups = { web = { records = { "@" = { TXT = [{ content = 123 }] } } } }
-  }
-
-  expect_failures = [check.records_text_values_are_strings]
-}
-
 run "grouped_empty_containers" {
   command = plan
 
@@ -186,34 +177,6 @@ run "grouped_record_without_a_list" {
   }
 
   expect_failures = [var.record_groups]
-}
-
-run "unused_attributes" {
-  command = plan
-
-  variables {
-    records = {
-      "_sip._tcp" = { SRV = [{ content = "ignored", data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" } }] }
-      "app"       = { A = [{ content = "192.0.2.3", priority = 10 }] }
-    }
-    record_groups = { web = { records = { "@" = { TXT = [{ content = "v=spf1 -all", tag = "issue" }] } } } }
-  }
-
-  expect_failures = [check.records_unused_attributes]
-}
-
-run "null_attributes_are_not_numbers" {
-  command = plan
-
-  variables {
-    records       = { "app" = { TXT = [{ content = "text", comment = null, key = null }] } }
-    record_groups = {}
-  }
-
-  assert {
-    condition     = length(cloudflare_dns_record.record) == 1
-    error_message = "Attributes set to null must not be reported as numbers"
-  }
 }
 
 # A value computed by another resource must not make the keys unknown (try() over the

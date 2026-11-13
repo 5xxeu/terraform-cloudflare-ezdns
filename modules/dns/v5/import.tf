@@ -5,7 +5,7 @@
 locals {
   # Record types of the configuration, records and record_groups (ALIASES are CNAMEs)
   import_types = toset(flatten([
-    for base_name, type_map in local.all_records : [
+    for base_name, type_map in module.prepare.all_records : [
       for raw_key, recs in type_map :
       replace(element(split(".", raw_key), length(split(".", raw_key)) - 1), "ALIASES", "CNAME")
     ]

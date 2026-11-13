@@ -33,6 +33,7 @@ jobs:
           - .
           - modules/dns/records
           - modules/dns/compile
+          - modules/dns/prepare
           - modules/dns/idna
           - modules/dns/v5
           - examples/v5

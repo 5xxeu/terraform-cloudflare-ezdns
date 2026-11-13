@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # Checks that the copies of the module interface are the same: the root module
-# repeats the variables and outputs of the v5 wrapper, both wrappers and the compile
-# module share the records variable, the merge of record_groups and the checks of
-# records.
+# repeats the variables and outputs of the v5 wrapper, and the v5 wrapper and the
+# compile module share the records variable (both pass records and record_groups
+# through modules/dns/prepare, which merges the groups and checks the values).
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -21,12 +21,10 @@ fi
 
 records() { awk '/^variable "records"/, /^}/' "$1"; }
 without_import() { awk '/^variable "(import_existing|report_unmanaged|unmanaged_ignore|unmanaged_policy)"/ { skip = 1 } !skip { print } skip && /^}/ { skip = 0; getline }' "$1"; }
-# The v5 wrapper and the compile module merge record_groups and check the text values
-# and unused attributes of records the same way: everything from the merge to the end
-# of main.tf, where the checks are, is the same
-text_checks() { grep -E '^  text_data_fields' "$1"; awk '/^# record_groups merged into records/, /^module "records"/' "$1"; awk '/^# Numbers in text values are written/, 0' "$1"; }
-if [ "$(text_checks modules/dns/compile/main.tf)" != "$(text_checks modules/dns/v5/main.tf)" ]; then
-    echo "The merge of record_groups or the checks of records differ between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
+# Both pass records and record_groups through the same call of modules/dns/prepare
+prepare() { awk '/^module "prepare"/, /^}/' "$1"; }
+if [ -z "$(prepare modules/dns/v5/main.tf)" ] || [ "$(prepare modules/dns/compile/main.tf)" != "$(prepare modules/dns/v5/main.tf)" ]; then
+    echo "The call of modules/dns/prepare differs between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
     status=1
 fi
 # The compile module has the variables of the v5 wrapper without the lookup of existing
@@ -39,7 +37,7 @@ if [ "$(without_import modules/dns/v5/variables.tf | without_zone -)" != "$(with
 fi
 # The entry points accept records as any and check attribute names themselves; the
 # allowed names must be the attributes of the typed records in the core module (except
-# source, which the wrappers set for grouped records)
+# source, which modules/dns/prepare sets for grouped records)
 core_attributes() { records modules/dns/records/variables.tf | sed -nE "s/^ {$1}([a-z0-9_]+) +=.*optional\(.*/\1/p" | grep -vx source | sort; }
 allowed() { grep -oE "\\[\"$1\"[^]]*\\]" modules/dns/v5/variables.tf | head -n 1 | grep -oE '[a-z0-9_]+' | sort; }
 if [ "$(core_attributes 10)" != "$(allowed content)" ]; then

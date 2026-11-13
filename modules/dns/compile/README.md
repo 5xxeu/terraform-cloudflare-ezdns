@@ -17,6 +17,7 @@ No providers.
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
+| <a name="module_prepare"></a> [prepare](#module\_prepare) | ../prepare | n/a |
 | <a name="module_records"></a> [records](#module\_records) | ../records | n/a |
 
 ## Resources

@@ -371,22 +371,6 @@ run "yaml_quoted_text_values" {
   }
 }
 
-run "yaml_numbers_in_text_values" {
-  command = plan
-
-  variables {
-    records = yamldecode(<<-YAML
-      "@":
-        TXT:
-          - content: 0123
-            key: "n"
-    YAML
-    )
-  }
-
-  expect_failures = [check.records_text_values_are_strings]
-}
-
 # Import through the wrapper: one lookup per record type of the configuration, ALIASES
 # looked up as CNAME. Matching is tested in modules/dns/records (tests/import.tftest.hcl)
 # and against a real zone in tests/e2e: the mocked provider cannot return a list for the
@@ -532,56 +516,6 @@ run "yaml_unquoted_n_as_loc_lat_direction" {
   }
 }
 
-run "yaml_numbers_in_data_text_fields" {
-  command = plan
-
-  variables {
-    records = yamldecode(<<-YAML
-      "@":
-        DS:
-          - data: { key_tag: 2371, algorithm: 13, digest_type: 2, digest: 0123 }
-    YAML
-    )
-  }
-
-  expect_failures = [check.records_text_values_are_strings]
-}
-
-run "yaml_numbers_in_tags" {
-  command = plan
-
-  variables {
-    records = yamldecode(<<-YAML
-      app:
-        A:
-          - content: 192.0.2.1
-            tags: [0123]
-    YAML
-    )
-  }
-
-  expect_failures = [check.records_text_values_are_strings]
-}
-
-# Numeric fields of data may be numbers: no warning
-run "yaml_numbers_in_numeric_data_fields" {
-  command = plan
-
-  variables {
-    records = yamldecode(<<-YAML
-      _sip._tcp:
-        SRV:
-          - data: { priority: 10, weight: 5, port: 5060, target: sip.example.com }
-    YAML
-    )
-  }
-
-  assert {
-    condition     = length(module.records.flat_records) == 1
-    error_message = "SRV with numeric fields"
-  }
-}
-
 # A module call may pass optional inputs through as null; null means the default
 run "null_defaults" {
   command = plan
@@ -608,16 +542,6 @@ run "booleans_in_a_set_of_tags" {
   }
 
   expect_failures = [var.records]
-}
-
-run "numbers_in_a_set_of_tags" {
-  command = plan
-
-  variables {
-    records = { "app" = { A = [{ content = "192.0.2.1", tags = toset([123]) }] } }
-  }
-
-  expect_failures = [check.records_text_values_are_strings]
 }
 
 run "fractional_default_ttl" {

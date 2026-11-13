@@ -24,7 +24,7 @@ The `records` input (and the records of `record_groups`) is validated before any
 - `CAA` records require `tag`: `issue`, `issuewild` or `iodef`
 - `key` must be a non-empty string without whitespace
 - With `require_keys` (record types, e.g. `["A", "AAAA", "TXT"]`), every record of these types must have a `key`. `CNAME` and `ALIASES` cannot be listed: their records are keyed by name, so a new target is an update in place anyway
-- Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) show a warning, since the module ignores them; they will fail from 3.0
+- Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan (a warning in 2.x)
 - Two different SPF records on one name, two DMARC records on a `_dmarc` name, and a null `MX` next to other `MX` records on one name (RFC 7505) show a warning: Cloudflare accepts them, but mail receivers do not, see [Troubleshooting](troubleshooting.md#a-name-with-a-null-mx-has-other-mx-records)
 - With [`owned_names`](unmanaged-records.md#the-part-of-the-zone-a-module-call-owns), every record must be in the part of the zone that the module call owns
 - Record keys must be unique. The error shows where each duplicate is defined, e.g. `"_acme-challenge.app TXT 79bead8e6d65" from records["_acme-challenge.app"]["TXT"][0] and records["app"]["_acme-challenge.TXT"][0]`
@@ -48,14 +48,14 @@ records["_sip._tcp"]["SRV"][0].data.port: "70000" (a whole number from 0 to
 65535)
 ```
 
-Attributes that the module ignores only show a warning in 2.x:
+Attributes that do not apply to the type of their record fail the input that has them, `records` or `record_groups`:
 
 ```text
-Warning: Check block assertion failed
+Error: Invalid value for variable
 
-These attributes do not apply to the type of their record and are ignored
-(SRV keeps its priority in data; content is for records without data; tag and
-flags are for CAA). Remove them: from 3.0 they will fail the plan:
+These attributes do not apply to the type of their record (SRV keeps its
+priority in data; content is for records without data; tag and flags are for
+CAA). Remove them:
 records["app"]["A"][0].priority
 ```
 
