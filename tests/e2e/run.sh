@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end test against a real Cloudflare zone: creates records of all types
 # under a label of this run, checks updates, import and names in
-# Unicode, an upgrade from the previous release, and deletes everything
+# Unicode, an upgrade from the previous release, the migration of the keys of 2.x, and
+# deletes everything
 # at the end.
 #
 # Requires CLOUDFLARE_API_TOKEN (DNS Edit on the zone), E2E_ZONE_ID and E2E_ZONE_NAME.
@@ -34,7 +35,7 @@ qualified_names() {
 cleanup() {
     local rc=$? cleaned=1 dir
     set +e
-    for dir in upgrade idna v5; do
+    for dir in migrate upgrade idna v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
             echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
@@ -46,7 +47,7 @@ cleanup() {
         cleaned=0
     fi
     if [ "$cleaned" = 1 ]; then
-        rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/upgrade/source_override.tf"
+        rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/.migrate-from" "${E2E_DIR}"/*/source_override.tf "${E2E_DIR}/migrate/dns_migration.tf"
         rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids* "${E2E_DIR}/tfplan.json"
     else
         echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
@@ -71,6 +72,9 @@ else
     done < <(git tag --merged HEAD --sort=-version:refname)
     [ -n "$upgrade_from" ] || fail "no previous vX.Y.Z ancestor tag available, fetch full history and tags or set E2E_UPGRADE_FROM"
 fi
+# The migration of the keys of 2.x (docs/upgrading.md) starts from the last 2.x release
+migrate_from=${E2E_MIGRATE_FROM:-v2.22.0}
+git show-ref --verify --quiet "refs/tags/${migrate_from}" || fail "E2E_MIGRATE_FROM must name an available tag"
 trap cleanup EXIT
 
 # Prints how many resources a saved plan creates, deletes, updates, imports and moves
@@ -100,10 +104,18 @@ record_ids() {
         | map("\(.index) \(.values.id)") | sort[]'
 }
 
-# Fails unless two lists of record IDs are the same: no record was recreated
+# Fails unless two lists of record IDs are the same: no record was recreated. With a
+# state_migration map (JSON), the keys of the first list are its old keys
 assert_same_ids() {
+    local before=$2
     [ -s "$2" ] || fail "$1: no records in the state"
-    diff -u "$2" "$3" >"${E2E_DIR}/ids.diff" || fail "$1: record IDs differ: $(head -40 "${E2E_DIR}/ids.diff")"
+    if [ -n "${4:-}" ]; then
+        before="${E2E_DIR}/ids-${1}-mapped.txt"
+        jq -R -s -r --slurpfile migration "$4" '
+            [split("\n")[] | select(length > 0) | capture("^(?<key>.*) (?<id>[^ ]+)$") |
+                "\($migration[0][.key] // .key) \(.id)"] | sort[]' "$2" >"$before"
+    fi
+    diff -u "$before" "$3" >"${E2E_DIR}/ids.diff" || fail "$1: record IDs differ: $(head -40 "${E2E_DIR}/ids.diff")"
 }
 
 # Fails when the plan has any change: the provider would show a perpetual diff
@@ -255,42 +267,88 @@ punycode=$(tf idna output -json record_names | jq '[.[] | select(startswith("xn-
 [ "$punycode" = 2 ] || fail "idna: expected 2 names in Punycode, got ${punycode}"
 pass "idna: records with names in Unicode created in Punycode without drift (${names})"
 
-# Scenario 4: upgrade the previous release to this checkout without losing records.
-# The override changes only the source, removing it restores ../../.. in main.tf.
-mkdir -p "${E2E_DIR}/.upgrade-from"
-# Archive from the repository root, git archive otherwise uses the current subdirectory.
-git -C "$(git rev-parse --show-toplevel)" archive "refs/tags/${upgrade_from}" | tar -x -C "${E2E_DIR}/.upgrade-from"
-if ! grep -q '^module "v5" {' "${E2E_DIR}/.upgrade-from/main.tf" ||
-    [ ! -f "${E2E_DIR}/.upgrade-from/modules/dns/v5/main.tf" ]; then
-    fail "upgrade: archive of ${upgrade_from} does not contain the root module and v5 wrapper"
-fi
-cat >"${E2E_DIR}/upgrade/source_override.tf" <<'EOF'
+# Applies the configuration of a directory with a release, saves its record IDs and
+# addresses, then switches the directory to the current checkout. The override changes
+# only the source (removing it restores ../../.. in main.tf) and, before 3.0, the
+# attribute of the name of ALIASES records, also for a destroy in cleanup
+apply_release() {
+    local dir=$1 tag=$2 alias_attribute=name
+    case "$tag" in v[0-2].*) alias_attribute=content ;; esac
+    rm -rf "${E2E_DIR}/.${dir}-from"
+    mkdir -p "${E2E_DIR}/.${dir}-from"
+    # Archive from the repository root, git archive otherwise uses the current subdirectory.
+    git -C "$(git rev-parse --show-toplevel)" archive "refs/tags/${tag}" | tar -x -C "${E2E_DIR}/.${dir}-from"
+    if ! grep -q '^module "v5" {' "${E2E_DIR}/.${dir}-from/main.tf" ||
+        [ ! -f "${E2E_DIR}/.${dir}-from/modules/dns/v5/main.tf" ]; then
+        fail "${dir}: archive of ${tag} does not contain the root module and v5 wrapper"
+    fi
+    cat >"${E2E_DIR}/${dir}/source_override.tf" <<EOF
 module "dns" {
-  source = "../.upgrade-from"
+  source = "../.${dir}-from"
+}
+
+variable "alias_attribute" {
+  default = "${alias_attribute}"
 }
 EOF
-tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
-tf upgrade apply -auto-approve -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of ${upgrade_from}: $(tail -40 "${E2E_DIR}/upgrade.log")"
-record_ids upgrade >"${E2E_DIR}/ids-upgrade-before.txt"
-# Capture addresses before moved blocks in the new source can rewrite the prior state.
-tf upgrade show -json | jq '
-    [.values | .. | objects |
-        select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] | sort
-' >"${E2E_DIR}/ids-upgrade-addresses.json"
-rm "${E2E_DIR}/upgrade/source_override.tf"
-tf upgrade init -no-color >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: init of current checkout: $(tail -40 "${E2E_DIR}/upgrade.log")"
+    tf "$dir" init -no-color >"${E2E_DIR}/${dir}.log" 2>&1 || fail "${dir}: init of ${tag}: $(tail -40 "${E2E_DIR}/${dir}.log")"
+    tf "$dir" apply -auto-approve -no-color >"${E2E_DIR}/${dir}.log" 2>&1 || fail "${dir}: apply of ${tag}: $(tail -40 "${E2E_DIR}/${dir}.log")"
+    record_ids "$dir" >"${E2E_DIR}/ids-${dir}-before.txt"
+    # Capture addresses before moved blocks in the new source can rewrite the prior state.
+    tf "$dir" show -json | jq '
+        [.values | .. | objects |
+            select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] | sort
+    ' >"${E2E_DIR}/ids-${dir}-addresses.json"
+    rm "${E2E_DIR}/${dir}/source_override.tf"
+    tf "$dir" init -no-color >"${E2E_DIR}/${dir}.log" 2>&1 || fail "${dir}: init of current checkout: $(tail -40 "${E2E_DIR}/${dir}.log")"
+}
+
+# Fails unless the saved plan of a directory only keeps, updates in place or moves the
+# records of apply_release, with the given number of moves (any number without one)
+assert_kept_records() {
+    tf "$1" show -json tfplan | jq -e --slurpfile before "${E2E_DIR}/ids-${1}-addresses.json" --argjson moves "${2:-null}" '
+        [.resource_changes[]? | select(.mode == "managed" and .type == "cloudflare_dns_record")] as $rc |
+        ($rc | length) > 0 and
+        all($rc[]; .change.actions == ["no-op"] or .change.actions == ["update"]) and
+        $before[0] == ([$rc[] | .previous_address // .address] | sort) and
+        ($moves == null or ([$rc[] | select(.previous_address and .previous_address != .address)] | length) == $moves)
+    ' >/dev/null
+}
+
+# Scenario 4: upgrade the previous release to this checkout without losing records.
+apply_release upgrade "$upgrade_from"
 summary=$(plan_summary upgrade) || fail "upgrade: plan failed"
 # Check the saved plan's actions, including both orders of a replacement.
-tf upgrade show -json tfplan | jq -e --slurpfile before "${E2E_DIR}/ids-upgrade-addresses.json" '
-    [.resource_changes[]? | select(.mode == "managed" and .type == "cloudflare_dns_record")] as $rc |
-    ($rc | length) > 0 and
-    all($rc[]; .change.actions == ["no-op"] or .change.actions == ["update"]) and
-    $before[0] == ([$rc[] | .previous_address // .address] | sort)
-' >/dev/null || fail "upgrade: expected only no-op, in-place updates or explicit moves (${summary})"
+assert_kept_records upgrade || fail "upgrade: expected only no-op, in-place updates or explicit moves (${summary})"
 tf upgrade apply -auto-approve -no-color tfplan >"${E2E_DIR}/upgrade.log" 2>&1 || fail "upgrade: apply of saved plan: $(tail -40 "${E2E_DIR}/upgrade.log")"
 record_ids upgrade >"${E2E_DIR}/ids-upgrade-after.txt"
 assert_same_ids "upgrade" "${E2E_DIR}/ids-upgrade-before.txt" "${E2E_DIR}/ids-upgrade-after.txt"
 assert_no_changes upgrade
 pass "upgrade from ${upgrade_from}: same record IDs, no drift (${summary})"
+
+# Scenario 5: the migration of docs/upgrading.md from 2.x to 3.0. Records written in
+# forms that have another key in 3.0 are moved by the blocks generated from
+# state_migration, with the command of the docs; the IDs of the records stay
+migration_moves=7
+apply_release migrate "$migrate_from"
+address=module.dns.module.v5.cloudflare_dns_record.record
+echo "jsonencode(module.dns.state_migration)" | tf migrate console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
+    fail "migrate: state_migration could not be read"
+jq -r --arg addr "$address" '
+    to_entries[] |
+    "moved {",
+    "  from = \($addr)[\(.key | tojson)]",
+    "  to   = \($addr)[\(.value | tojson)]",
+    "}", ""' "${E2E_DIR}/ids-migration.json" >"${E2E_DIR}/migrate/dns_migration.tf"
+entries=$(jq length "${E2E_DIR}/ids-migration.json")
+[ "$entries" = "$migration_moves" ] || fail "migrate: expected ${migration_moves} keys in state_migration, got ${entries}"
+summary=$(plan_summary migrate) || fail "migrate: plan failed"
+assert_kept_records migrate "$migration_moves" || fail "migrate: expected ${migration_moves} moves and only no-op or in-place updates (${summary})"
+tf migrate apply -auto-approve -no-color tfplan >"${E2E_DIR}/migrate.log" 2>&1 || fail "migrate: apply of saved plan: $(tail -40 "${E2E_DIR}/migrate.log")"
+rm "${E2E_DIR}/migrate/dns_migration.tf"
+record_ids migrate >"${E2E_DIR}/ids-migrate-after.txt"
+assert_same_ids "migrate" "${E2E_DIR}/ids-migrate-before.txt" "${E2E_DIR}/ids-migrate-after.txt" "${E2E_DIR}/ids-migration.json"
+assert_no_changes migrate
+pass "migrate from ${migrate_from}: ${migration_moves} records moved to their new keys, same record IDs, no drift (${summary})"
 
 echo "All end-to-end checks passed"
