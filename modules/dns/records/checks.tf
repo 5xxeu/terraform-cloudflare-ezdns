@@ -1,6 +1,7 @@
-# Invariants over all records, reported by the preconditions of output.flat_records
-# (outputs.tf): they compare records with each other or with other inputs, which
-# validations of var.records cannot do on Terraform 1.8.
+# Invariants over all records: they compare records with each other or with other
+# inputs. The lists of problems go out in output.diagnostics (outputs.tf), and
+# modules/dns/checks fails on them: a validation of var.records cannot use these locals,
+# which are built from var.records (Terraform reports a cycle).
 
 locals {
   # The same record written in different forms gets different keys, so it is checked
@@ -122,7 +123,7 @@ locals {
   # is the zone name in content already
   self_cnames = [
     for r in local.records : "\"${r.key}\" from ${r.source}"
-    # Terraform 1.8 evaluates both sides of &&, and records of other types may have no content
+    # Terraform 1.9 evaluates both sides of &&, and records of other types may have no content
     if r.type == "CNAME" && contains([
       lower(trimsuffix((r.content == null ? "" : r.content), ".")),
       "${lower(trimsuffix((r.content == null ? "" : r.content), "."))}.${lower(local.zone)}",

@@ -11,6 +11,8 @@ The errors and warnings that come up most often, with the beginning of their tex
 
 ## Errors at Plan
 
+The checks over all records (duplicates, records with the same value, TTLs below `minimum_ttl`, `require_keys`, wildcards, long names, CNAMEs to their own name, `owned_names` and CNAME conflicts) fail as `Error: Invalid value for variable` in `module "checks"` (in 2.x: `Error: Module output value precondition failed`); the text of each message is the same.
+
 ### The "for_each" value depends on resource attributes that cannot be determined until apply
 
 A record takes its value from another resource (`content = aws_instance.web.public_ip`), which is known only after apply, and the value is a part of the record key. Give the record a `key`, which takes the place of the value in the address:
@@ -50,6 +52,10 @@ DNS does not allow a CNAME next to other records of the same name, and Cloudflar
 
 A record has an attribute the module does not know, usually a typo (`proxid`, `prority`), or is not an object. Terraform would drop an unknown attribute without a word, so the module stops instead. Fix the attribute named after `unknown attribute`.
 
+### These attributes do not apply to the type of their record
+
+A record sets an attribute its type does not use: `priority` on an A record, `content` on a record with `data`, `tag` outside CAA, or `priority` on SRV (it belongs in `data`). The attribute would have no effect; remove it. In 2.x this was a warning. An attribute whose value is known only after apply (computed by another resource) is checked at apply.
+
 ### TTLs below 60 seconds are only available on the Cloudflare Enterprise plan.
 
 A record or `default_ttl` has a TTL below 60 seconds (other than `1`, automatic). Use at least 60, or `1`; on an Enterprise zone, set `minimum_ttl = 30` (or `"auto"`, to take it from the plan of the zone).
@@ -85,11 +91,6 @@ The record is in the zone already, created outside this configuration (in the da
 A record of the configuration conflicts with a record in the zone that the configuration does not describe (a CNAME on a name that has other records, or the other way round). The module checks conflicts between configured records at `plan`, but cannot see records it does not manage unless `report_unmanaged = true` lists them. Remove or adopt the record in the zone.
 
 ## Warnings
-
-### These attributes do not apply to the type of their record and are ignored
-
-A record sets an attribute its type does not use: `priority` on an A record, `content` on a record with `data`, `tag` outside CAA, or `priority` on SRV (it belongs in `data`). The attribute has no effect; remove it. From 3.0 this will be an error.
-
 
 ### Text values given as numbers are written in their canonical form
 

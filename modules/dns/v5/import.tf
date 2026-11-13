@@ -5,7 +5,7 @@
 locals {
   # Record types of the configuration, records and record_groups (ALIASES are CNAMEs)
   import_types = toset(flatten([
-    for base_name, type_map in local.all_records : [
+    for base_name, type_map in module.prepare.all_records : [
       for raw_key, recs in type_map :
       replace(element(split(".", raw_key), length(split(".", raw_key)) - 1), "ALIASES", "CNAME")
     ]
@@ -25,7 +25,7 @@ locals {
   live_lookups = {
     # Keyed by the record key, known at plan; the name may be known only after apply (a
     # zone created in the same apply, without zone_name)
-    for key, rec in module.records.flat_records : key => { type = rec.type, name = rec.fqdn }
+    for key, rec in module.checks.flat_records : key => { type = rec.type, name = rec.fqdn }
     if length(rec.ignore_changes) > 0 && !contains(local.lookup_types, rec.type)
   }
 }

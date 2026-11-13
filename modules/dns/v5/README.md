@@ -20,6 +20,8 @@ Manages DNS records with `cloudflare_dns_record`. See the [main README](https://
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
+| <a name="module_checks"></a> [checks](#module\_checks) | ../checks | n/a |
+| <a name="module_prepare"></a> [prepare](#module\_prepare) | ../prepare | n/a |
 | <a name="module_records"></a> [records](#module\_records) | ../records | n/a |
 
 ## Resources

@@ -128,7 +128,7 @@ Both files have records on `"@"`, and all of them are kept, each with the defaul
 Proxied records get TTL 1 (automatic) whatever the default; `status` sets `proxied: false` itself, and `_dmarc` its own TTL. With the same MX record also in `records`, the plan fails:
 
 ```text
-Error: Module output value precondition failed
+Error: Invalid value for variable
 
 Duplicate records (remove the duplicates or set a unique key for each of
 them; MX records that differ only in priority and CAA records that differ

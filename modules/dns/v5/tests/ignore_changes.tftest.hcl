@@ -35,7 +35,11 @@ override_module {
         ttl = 120, proxied = false, comment = "changed in the dashboard", tags = null
       }
     }
-    state_migration           = {}
+    state_migration = {}
+    diagnostics = {
+      duplicates  = [], same_values = [], low_ttls = [], missing_keys = [], misplaced_wildcards = [], long_names = [],
+      self_cnames = [], not_owned = [], cname_conflicts = [], owned_include = ["example.com"], owned_exclude = [], minimum_ttl = 60
+    }
     import_record_ids         = {}
     import_duplicates         = {}
     ambiguous_matches         = {}
@@ -110,7 +114,11 @@ run "private_routing_with_proxied_from_the_zone" {
           ttl = 1, proxied = true, comment = null, tags = null
         }
       }
-      state_migration           = {}
+      state_migration = {}
+      diagnostics = {
+        duplicates  = [], same_values = [], low_ttls = [], missing_keys = [], misplaced_wildcards = [], long_names = [],
+        self_cnames = [], not_owned = [], cname_conflicts = [], owned_include = ["example.com"], owned_exclude = [], minimum_ttl = 60
+      }
       import_record_ids         = {}
       import_duplicates         = {}
       ambiguous_matches         = {}
@@ -145,7 +153,11 @@ run "private_routing_with_unproxied_record_in_the_zone" {
           ttl = 1, proxied = false, comment = null, tags = null
         }
       }
-      state_migration           = {}
+      state_migration = {}
+      diagnostics = {
+        duplicates  = [], same_values = [], low_ttls = [], missing_keys = [], misplaced_wildcards = [], long_names = [],
+        self_cnames = [], not_owned = [], cname_conflicts = [], owned_include = ["example.com"], owned_exclude = [], minimum_ttl = 60
+      }
       import_record_ids         = {}
       import_duplicates         = {}
       ambiguous_matches         = {}

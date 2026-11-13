@@ -1,50 +1,23 @@
 output "flat_records" {
-  description = "Flattened map of records keyed by \"<name> <TYPE> <value>\", ready for for_each"
+  description = "Flattened map of records keyed by \"<name> <TYPE> <value>\", ready for for_each. Not checked here: the callers pass it through modules/dns/checks, which fails on the lists of diagnostics"
   value       = local.flat_records
+}
 
-  precondition {
-    condition     = length(local.duplicates) == 0
-    error_message = "Duplicate records (remove the duplicates or set a unique key for each of them; MX records that differ only in priority and CAA records that differ only in flags have the same key and need a key too):\n${join("\n", local.duplicates)}"
-  }
-
-  precondition {
-    condition     = length(local.same_values) == 0
-    error_message = "Records with the same name, type and value under different keys, which Cloudflare rejects as identical records (remove all but one of them):\n${join("\n", local.same_values)}"
-  }
-
-  precondition {
-    condition     = length(local.low_ttls) == 0
-    error_message = "TTLs below ${var.minimum_ttl} seconds are only available on the Cloudflare Enterprise plan. If this zone is on Enterprise, set minimum_ttl = 30 in the module call; otherwise use a TTL of at least 60 seconds, or 1 for automatic:\n${join("\n", local.low_ttls)}"
-  }
-
-  precondition {
-    condition     = length(local.missing_keys) == 0
-    error_message = "require_keys lists the types of these records, so each of them needs a key (e.g. key = \"web\"): with a key, a new value is an update in place, without one the record is deleted and created again:\n${join("\n", local.missing_keys)}"
-  }
-
-  precondition {
-    condition     = length(local.misplaced_wildcards) == 0
-    error_message = "A wildcard must be the whole leftmost label of a name (\"*\", \"*.app\"); these names put it elsewhere:\n${join("\n", local.misplaced_wildcards)}"
-  }
-
-  precondition {
-    condition     = length(local.long_names) == 0
-    error_message = "A fully qualified name can have at most 253 characters; these names and alias targets (prefix, name and zone together) are longer:\n${join("\n", local.long_names)}"
-  }
-
-  precondition {
-    condition     = length(local.self_cnames) == 0
-    error_message = "A CNAME (or alias) cannot point to its own name:\n${join("\n", local.self_cnames)}"
-  }
-
-  precondition {
-    condition     = length(local.not_owned) == 0
-    error_message = "These records are outside owned_names (included: ${join(", ", local.owned_include)}; excluded: ${length(local.owned_exclude) == 0 ? "none" : join(", ", local.owned_exclude)}), the part of the zone that this module call manages:\n${join("\n", local.not_owned)}"
-  }
-
-  precondition {
-    condition     = length(local.cname_conflicts) == 0
-    error_message = "A CNAME record cannot share its name with other records (except at the zone apex, where only A and AAAA conflict with it), and a name has at most one CNAME. Names that already have a CNAME next to other records in the zone can be listed in allowed_cname_conflicts:\n${join("\n", local.cname_conflicts)}"
+output "diagnostics" {
+  description = "Invariants over all records, for modules/dns/checks: a list of problems per check (duplicates, same_values, low_ttls, missing_keys, misplaced_wildcards, long_names, self_cnames, not_owned, cname_conflicts), empty when the records pass it, and the context of the messages (owned_include, owned_exclude, minimum_ttl)"
+  value = {
+    duplicates          = local.duplicates
+    same_values         = local.same_values
+    low_ttls            = local.low_ttls
+    missing_keys        = local.missing_keys
+    misplaced_wildcards = local.misplaced_wildcards
+    long_names          = local.long_names
+    self_cnames         = local.self_cnames
+    not_owned           = local.not_owned
+    cname_conflicts     = local.cname_conflicts
+    owned_include       = local.owned_include
+    owned_exclude       = local.owned_exclude
+    minimum_ttl         = var.minimum_ttl
   }
 }
 

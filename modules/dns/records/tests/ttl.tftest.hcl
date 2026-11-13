@@ -1,6 +1,7 @@
 # TTL boundaries: 1 (automatic), minimum_ttl (60, or 30 on Enterprise zones) to 86400.
 # Values out of the range for every plan fail in the validation of records; values
-# below minimum_ttl fail in a precondition of output.flat_records, with a hint
+# below minimum_ttl are listed in output.diagnostics.low_ttls (modules/dns/checks fails on
+# them, with a hint)
 
 variables {
   root_domain = "example.com"
@@ -76,7 +77,15 @@ run "ttl_30_without_enterprise" {
     records = { "app" = { A = [{ content = "192.0.2.1", ttl = 30 }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.low_ttls == ["\"app A 192.0.2.1\" (ttl 30) from records[\"app\"][\"A\"][0]"]
+    error_message = "The TTLs are reported as below minimum_ttl"
+  }
+
+  assert {
+    condition     = output.diagnostics.minimum_ttl == 60
+    error_message = "The message of low_ttls names minimum_ttl"
+  }
 }
 
 run "ttl_59_without_enterprise" {
@@ -86,7 +95,15 @@ run "ttl_59_without_enterprise" {
     records = { "app" = { A = [{ content = "192.0.2.1", ttl = 59 }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.low_ttls == ["\"app A 192.0.2.1\" (ttl 59) from records[\"app\"][\"A\"][0]"]
+    error_message = "The TTLs are reported as below minimum_ttl"
+  }
+
+  assert {
+    condition     = output.diagnostics.minimum_ttl == 60
+    error_message = "The message of low_ttls names minimum_ttl"
+  }
 }
 
 run "ttl_29_on_enterprise" {

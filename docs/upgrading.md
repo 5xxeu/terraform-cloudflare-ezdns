@@ -37,6 +37,10 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
+## To 3.0: Unused Attributes Fail the Plan
+
+Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan; in 2.x they showed a warning. A configuration that plans on the latest 2.x without the warning "These attributes do not apply to the type of their record" is not affected. Otherwise remove the listed attributes, on 2.x or with the upgrade: they had no effect, so the records do not change. No addresses in the state change.
+
 ## To 2.20: IPv4 Without Leading Zeros
 
 A records and the `ipv4hint` of HTTPS and SVCB records now require four decimal
@@ -76,7 +80,7 @@ Such a list passed the validations as no groups, so the plan deleted every recor
 
 > **Configurations with out-of-range `data` values:** `plan` now fails for them, e.g. an SRV `port` of 70000 or a CAA `flags` of 256.
 
-Numeric fields of structured records are checked against their ranges (see [Validation](validation.md#validation)). Such values were rejected by the Cloudflare API at apply before, so a configuration that applies today is not affected, unless it has a record that has never been applied. Attributes that do not apply to the type of a record (`content` of an SRV record, `priority` of an A record, `tag` of a TXT record) now show a warning; they were ignored before and still are, and will fail from 3.0, so remove them.
+Numeric fields of structured records are checked against their ranges (see [Validation](validation.md#validation)). Such values were rejected by the Cloudflare API at apply before, so a configuration that applies today is not affected, unless it has a record that has never been applied. Attributes that do not apply to the type of a record (`content` of an SRV record, `priority` of an A record, `tag` of a TXT record) now show a warning; they were ignored before and still are, and fail from [3.0](#to-30-unused-attributes-fail-the-plan), so remove them.
 
 The `records` output has more attributes (`zone_id`, `fqdn`, `ttl`, `proxied`, `priority`, `data`), and the lookups of `import_existing` and `report_unmanaged` read up to 100,000 records per type instead of 10,000. No addresses in the state change.
 

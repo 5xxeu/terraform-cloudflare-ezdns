@@ -7,6 +7,9 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - **Breaking:** Terraform 1.9.0 or later is required (was 1.8.0): `required_version` of the root module, the wrappers, the submodules and the tests is `>= 1.9.0`, and CI tests Terraform 1.9.0 and the latest version. Stay on 2.x to keep using Terraform 1.8
+- **Breaking:** attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan with an error of `records` or `record_groups`; in 2.x they showed a warning. See [To 3.0: Unused Attributes Fail the Plan](docs/upgrading.md#to-30-unused-attributes-fail-the-plan)
+- The v5 wrapper and `modules/dns/compile` merge `record_groups` and check the values as given in one new internal module, `modules/dns/prepare`, instead of two copies of the code. Record keys and values do not change
+- The checks over all records (duplicates, records with the same value, TTLs below `minimum_ttl`, `require_keys`, wildcards, long names, CNAMEs to their own name, `owned_names`, CNAME conflicts) are validations of a new internal module, `modules/dns/checks`, instead of preconditions of an output of `modules/dns/records`. Their messages are the same, but Terraform shows them as `Error: Invalid value for variable` in `module "checks"` (was `Error: Module output value precondition failed`); a script that matches the old heading needs the new one. The records reach the resources through this module, so a check that waits for a value known only after apply still fails before any record is created or changed
 
 ### Removed
 

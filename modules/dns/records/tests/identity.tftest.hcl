@@ -142,7 +142,10 @@ run "same_key_twice" {
     records = { "app" = { TXT = [{ key = "foo", content = "a" }, { key = "foo", content = "b" }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"app TXT foo\" from records[\"app\"][\"TXT\"][0] and records[\"app\"][\"TXT\"][1]"]
+    error_message = "The records are reported as duplicates"
+  }
 }
 
 run "same_value_under_explicit_keys" {
@@ -152,7 +155,10 @@ run "same_value_under_explicit_keys" {
     records = { "app" = { TXT = [{ key = "foo", content = "a" }, { key = "bar", content = "a" }] } }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.same_values == ["TXT app.example.com from records[\"app\"][\"TXT\"][0] and records[\"app\"][\"TXT\"][1]"]
+    error_message = "The records are reported as records with the same value under different keys"
+  }
 }
 
 run "same_value_shown_without_the_value" {
@@ -163,11 +169,9 @@ run "same_value_shown_without_the_value" {
   }
 
   assert {
-    condition     = local.same_values == ["A app.example.com from records[\"app\"][\"A\"][0] and records[\"app\"][\"A\"][1]"]
+    condition     = output.diagnostics.same_values == ["A app.example.com from records[\"app\"][\"A\"][0] and records[\"app\"][\"A\"][1]"]
     error_message = "Records with the same value are reported by name, type and source, without the value (an origin address)"
   }
-
-  expect_failures = [output.flat_records]
 }
 
 run "caa_flags_under_explicit_keys" {
@@ -178,7 +182,7 @@ run "caa_flags_under_explicit_keys" {
   }
 
   assert {
-    condition     = length(local.same_values) == 0
+    condition     = length(output.diagnostics.same_values) == 0
     error_message = "CAA records that differ only in flags are distinct records"
   }
 }
@@ -191,11 +195,9 @@ run "same_caa_flags_under_explicit_keys" {
   }
 
   assert {
-    condition     = local.same_values == ["CAA app.example.com from records[\"@\"][\"app.CAA\"][0] and records[\"@\"][\"app.CAA\"][1]"]
+    condition     = output.diagnostics.same_values == ["CAA app.example.com from records[\"@\"][\"app.CAA\"][0] and records[\"@\"][\"app.CAA\"][1]"]
     error_message = "CAA records with the same flags, tag and value are reported by name, type and source"
   }
-
-  expect_failures = [output.flat_records]
 }
 
 run "srv_priorities_under_explicit_keys" {
@@ -213,7 +215,7 @@ run "srv_priorities_under_explicit_keys" {
   }
 
   assert {
-    condition     = length(local.same_values) == 0
+    condition     = length(output.diagnostics.same_values) == 0
     error_message = "SRV records that differ only in priority in data are distinct records"
   }
 }
@@ -228,7 +230,10 @@ run "same_value_with_and_without_a_key" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.same_values == ["A app.example.com from records[\"app\"][\"A\"][0] and records[\"app.example.com\"][\"A\"][0]"]
+    error_message = "The records are reported as records with the same value under different keys"
+  }
 }
 
 run "key_like_the_value_of_another_record" {

@@ -1,5 +1,6 @@
-# The compile module runs the checks of the wrappers (the same code, see
-# scripts/check-sync.sh) and returns the records without a provider.
+# The compile module runs the checks of the wrappers (the same inputs, see
+# scripts/check-sync.sh, and the same modules/dns/prepare and modules/dns/records) and
+# returns the records without a provider.
 
 variables {
   zone_name = "example.com"
@@ -57,16 +58,6 @@ run "boolean_text" {
   expect_failures = [var.records]
 }
 
-run "unused_attribute" {
-  command = plan
-
-  variables {
-    records = { "@" = { A = [{ content = "192.0.2.1", priority = 10 }] } }
-  }
-
-  expect_failures = [check.records_unused_attributes]
-}
-
 run "zone_name_required_in_punycode" {
   command = plan
 
@@ -75,21 +66,6 @@ run "zone_name_required_in_punycode" {
   }
 
   expect_failures = [var.zone_name]
-}
-
-# null fields of data come from an object type with optional(...) attributes: they are not
-# text given as numbers (a failed check fails the run)
-run "null_data_fields" {
-  command = plan
-
-  variables {
-    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", value = "alpn=h2", ipv4hint = null } }] } }
-  }
-
-  assert {
-    condition     = length([for r in values(output.records) : r if r.type == "HTTPS"]) == 1
-    error_message = "A null field of data must plan without the warning about numbers"
-  }
 }
 
 # records: [] or record_groups: [] in YAML is a list: it must stop the plan, not pass

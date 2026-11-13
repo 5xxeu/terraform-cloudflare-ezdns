@@ -55,7 +55,10 @@ run "record_without_a_key" {
     require_keys = ["TXT"]
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.missing_keys == ["TXT app.example.com from records[\"app\"][\"TXT\"][0]"]
+    error_message = "The records are reported as records without a key"
+  }
 }
 
 run "grouped_record_without_a_key" {
@@ -68,7 +71,10 @@ run "grouped_record_without_a_key" {
     }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.missing_keys == ["A app.example.com from record_groups[\"web\"]"]
+    error_message = "The records are reported as records without a key"
+  }
 }
 
 run "cname_cannot_be_listed" {

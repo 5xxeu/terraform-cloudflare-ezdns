@@ -79,7 +79,15 @@ run "record_outside_owned_names" {
     owned_names = { include = ["web.apps"] }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.not_owned == ["\"apps.example.com\" (A) from records[\"apps\"][\"A\"][0]"]
+    error_message = "The records are reported as outside owned_names"
+  }
+
+  assert {
+    condition     = output.diagnostics.owned_include == tolist(["web.apps.example.com"]) && length(output.diagnostics.owned_exclude) == 0
+    error_message = "The message of not_owned names the included and excluded names"
+  }
 }
 
 run "record_in_excluded_names" {
@@ -89,7 +97,15 @@ run "record_in_excluded_names" {
     owned_names = { include = ["@"], exclude = ["web.apps"] }
   }
 
-  expect_failures = [output.flat_records]
+  assert {
+    condition     = output.diagnostics.not_owned == ["\"web.apps.example.com\" (A) from records[\"web.apps\"][\"A\"][0]"]
+    error_message = "The records are reported as outside owned_names"
+  }
+
+  assert {
+    condition     = output.diagnostics.owned_include == tolist(["example.com"]) && output.diagnostics.owned_exclude == tolist(["web.apps.example.com"])
+    error_message = "The message of not_owned names the included and excluded names"
+  }
 }
 
 run "owned_names_without_include" {

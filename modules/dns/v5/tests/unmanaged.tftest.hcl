@@ -7,8 +7,12 @@ mock_provider "cloudflare" {}
 override_module {
   target = module.records
   outputs = {
-    flat_records              = {}
-    state_migration           = {}
+    flat_records    = {}
+    state_migration = {}
+    diagnostics = {
+      duplicates  = [], same_values = [], low_ttls = [], missing_keys = [], misplaced_wildcards = [], long_names = [],
+      self_cnames = [], not_owned = [], cname_conflicts = [], owned_include = ["example.com"], owned_exclude = [], minimum_ttl = 60
+    }
     import_record_ids         = {}
     import_duplicates         = {}
     ambiguous_matches         = {}
