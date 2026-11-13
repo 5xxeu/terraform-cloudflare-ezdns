@@ -351,6 +351,40 @@ run "yaml_booleans_in_text_values" {
   expect_failures = [var.records]
 }
 
+# name of ALIASES is text too: unquoted off would become the name "false"
+run "yaml_booleans_in_alias_names" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        ALIASES:
+          - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+run "yaml_booleans_in_alias_names_of_groups" {
+  command = plan
+
+  variables {
+    records = {}
+    record_groups = yamldecode(<<-YAML
+      web:
+        records:
+          "@":
+            ALIASES:
+              - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.record_groups]
+}
+
 run "yaml_quoted_text_values" {
   command = plan
 

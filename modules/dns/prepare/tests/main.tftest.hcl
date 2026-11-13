@@ -92,6 +92,40 @@ run "yaml_numbers_in_text_values" {
   expect_failures = [check.records_text_values_are_strings]
 }
 
+run "yaml_numbers_in_alias_names" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        ALIASES:
+          - name: 1.10
+    YAML
+    )
+    record_groups = {}
+  }
+
+  expect_failures = [check.records_text_values_are_strings]
+}
+
+run "yaml_numbers_in_alias_names_of_groups" {
+  command = plan
+
+  variables {
+    records = {}
+    record_groups = yamldecode(<<-YAML
+      web:
+        records:
+          "@":
+            ALIASES:
+              - name: 0123
+    YAML
+    )
+  }
+
+  expect_failures = [check.records_text_values_are_strings]
+}
+
 run "yaml_numbers_in_data_text_fields" {
   command = plan
 

@@ -87,7 +87,7 @@ variable "records" {
       for name, types in var.records : alltrue([
         for type, list in types : alltrue([
           for record in list : alltrue(concat(
-            [for attribute in ["content", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
+            [for attribute in ["content", "name", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
             [for field in try(keys(record.data), []) : !contains(["true", "false"], jsonencode(try(record.data[field], ""))) || (field == "lat_direction" && jsonencode(try(record.data[field], "")) == "false")],
             # tags may be a list or a set (a set has no index), so the values are iterated
             try([for tag in record.tags : !contains(["true", "false"], jsonencode(tag))], []),
@@ -101,7 +101,7 @@ variable "records" {
           for type, list in types : [
             for index, record in list : concat(
               [
-                for attribute in ["content", "key", "comment", "tag"] : "records[\"${name}\"][\"${type}\"][${index}].${attribute} is ${jsonencode(record[attribute])}"
+                for attribute in ["content", "name", "key", "comment", "tag"] : "records[\"${name}\"][\"${type}\"][${index}].${attribute} is ${jsonencode(record[attribute])}"
                 if contains(["true", "false"], jsonencode(try(record[attribute], "")))
               ],
               [
@@ -228,7 +228,7 @@ variable "record_groups" {
         for name, types in try(g.records, {}) : alltrue([
           for type, list in types : alltrue([
             for record in list : alltrue(concat(
-              [for attribute in ["content", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
+              [for attribute in ["content", "name", "key", "comment", "tag"] : !contains(["true", "false"], jsonencode(try(record[attribute], "")))],
               [for field in try(keys(record.data), []) : !contains(["true", "false"], jsonencode(try(record.data[field], ""))) || (field == "lat_direction" && jsonencode(try(record.data[field], "")) == "false")],
               try([for tag in record.tags : !contains(["true", "false"], jsonencode(tag))], []),
             ))
@@ -243,7 +243,7 @@ variable "record_groups" {
             for type, list in types : [
               for index, record in list : concat(
                 [
-                  for attribute in ["content", "key", "comment", "tag"] : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].${attribute} is ${jsonencode(record[attribute])}"
+                  for attribute in ["content", "name", "key", "comment", "tag"] : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].${attribute} is ${jsonencode(record[attribute])}"
                   if contains(["true", "false"], jsonencode(try(record[attribute], "")))
                 ],
                 [

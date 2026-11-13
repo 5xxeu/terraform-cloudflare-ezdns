@@ -77,7 +77,7 @@ check "records_text_values_are_strings" {
         for type, list in types : alltrue([
           for record in list : alltrue(concat(
             # fine: a JSON string, or a value that is not a number
-            [for attribute in ["content", "key", "comment", "tag"] : try(record[attribute], null) == null || startswith(jsonencode(try(record[attribute], "")), "\"") || !can(tonumber(try(record[attribute], "")))],
+            [for attribute in ["content", "name", "key", "comment", "tag"] : try(record[attribute], null) == null || startswith(jsonencode(try(record[attribute], "")), "\"") || !can(tonumber(try(record[attribute], "")))],
             [for field in setintersection(try(keys(record.data), []), local.text_data_fields) : try(record.data[field], null) == null || startswith(jsonencode(try(record.data[field], "")), "\"") || !can(tonumber(try(record.data[field], "")))],
             # tags may be a list or a set (a set has no index), so the values are iterated
             try([for tag in record.tags : startswith(jsonencode(tag), "\"") || !can(tonumber(tag))], []),
@@ -90,7 +90,7 @@ check "records_text_values_are_strings" {
         for type, list in types : [
           for index, record in list : concat(
             [
-              for attribute in ["content", "key", "comment", "tag"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute} is ${jsonencode(record[attribute])}"
+              for attribute in ["content", "name", "key", "comment", "tag"] : "${try(record.source, "records[\"${name}\"][\"${type}\"][${index}]")}.${attribute} is ${jsonencode(record[attribute])}"
               if try(record[attribute], null) != null && !startswith(jsonencode(try(record[attribute], "")), "\"") && can(tonumber(try(record[attribute], "")))
             ],
             [
