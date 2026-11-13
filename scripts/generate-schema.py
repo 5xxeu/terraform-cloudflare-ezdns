@@ -155,8 +155,8 @@ def schema():
         "AAAA": record({**proxied, "content": {"description": "IPv6 address", "type": "string", "format": "ipv6"}}, ["content"], "AAAA record"),
         "CNAME": record({**proxied, "content": hostname("Target hostname, @ for the zone apex", "@")}, ["content"], "CNAME record"),
         "ALIASES": record(
-            {**proxied, "content": {"description": "Name of a CNAME pointing to this name", "type": "string", "pattern": f"^{NAME}$"}},
-            ["content"], "CNAMEs pointing to this name (or to the prefixed name)",
+            {**proxied, "name": {"description": "Name of a CNAME pointing to this name", "type": "string", "pattern": f"^{NAME}$"}},
+            ["name"], "CNAMEs pointing to this name (or to the prefixed name)",
         ),
         "NS": record({"content": hostname("Name server hostname", "@")}, ["content"], "NS record"),
         "PTR": record({"content": hostname("Hostname", "@")}, ["content"], "PTR record"),

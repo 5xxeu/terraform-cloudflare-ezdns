@@ -41,6 +41,20 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 
 Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan; in 2.x they showed a warning. A configuration that plans on the latest 2.x without the warning "These attributes do not apply to the type of their record" is not affected. Otherwise remove the listed attributes, on 2.x or with the upgrade: they had no effect, so the records do not change. No addresses in the state change.
 
+## To 3.0: ALIASES Take name Instead of content
+
+An `ALIASES` record names the CNAME it creates in `name`; `content` on an `ALIASES` record fails the plan with the list of the records to change. Rename the attribute: `ALIASES = [{ content = "www" }]` becomes `ALIASES = [{ name = "www" }]`, and `- content: www` becomes `- name: www` in YAML, also in `record_groups` and for `"<prefix>.ALIASES"`. The JSON Schema (`schema/records.schema.json`) requires `name` for `ALIASES` as well. The CNAME, its key (`www CNAME`) and its target do not change, so no addresses in the state change.
+
+## To 3.0: records Is Sensitive, name Is the Fully Qualified Name
+
+The `records` output of the root module, the wrappers and `modules/dns/compile` is sensitive: `content` and `data` of a proxied record show the origin address that Cloudflare hides. What changes for a configuration that uses it:
+
+- An output that passes `records` on needs `sensitive = true` next to its `value`, or Terraform rejects the configuration. Terraform 1.9.0 shows the value of an output that is not marked, so mark it on every version.
+- `for_each` over `module.dns.records` fails ("Invalid for_each argument", sensitive value). Use `record_metadata`, a list of the records without values (`id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment`, `tags`), or `nonsensitive(module.dns.records)` where the addresses may be public. Expressions over `records` give sensitive results (`[for r in module.dns.records : r.fqdn]`): use `record_metadata` there too.
+- `name` in `records` and `record_metadata` is the fully qualified name in lower case, the same as `fqdn`. It was the name as written right after `apply` (`app`) and the fully qualified name after the next refresh, which made a configuration that reads `name` change its result between the two. Read `name` as `fqdn` now. The names of the records in Cloudflare and in the state do not change.
+
+No addresses in the state change.
+
 ## To 2.20: IPv4 Without Leading Zeros
 
 A records and the `ipv4hint` of HTTPS and SVCB records now require four decimal

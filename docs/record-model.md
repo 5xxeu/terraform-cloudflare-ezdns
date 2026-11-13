@@ -58,8 +58,10 @@ The service and protocol of `SRV`, `URI` and `TLSA` records are part of the name
 
 ## The `ALIASES` Logic
 When you define `ALIASES` inside a block (e.g., inside `"app"`), the module creates a `CNAME` record for each entry where:
-- **Name**: The value provided in `content` (e.g., `support` for support.example.com).
+- **Name**: The value provided in `name` (e.g., `support` for support.example.com).
 - **Target**: The base name plus the zone domain (e.g., `app.example.com`, or `example.com` for `@`).
+
+`ALIASES` records take `name`, not `content` (before 3.0 the name was in `content`): `content` on an `ALIASES` record fails the plan.
 
 A base name may be short (`app`) or fully qualified (`app.example.com`): the target is the same fully qualified name, and `@` or the zone name point to the zone apex.
 

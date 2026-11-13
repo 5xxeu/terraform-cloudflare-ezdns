@@ -14,8 +14,9 @@
 # and conditionals instead.
 
 locals {
-  # Record types whose content is a name (ALIASES name the CNAME by their content)
-  name_content_kinds = ["CNAME", "MX", "NS", "PTR", "ALIASES"]
+  # Record types whose content is a name (ALIASES have the name of the CNAME they
+  # create in name, not in content)
+  name_content_kinds = ["CNAME", "MX", "NS", "PTR"]
 
   # Scheme with user information, host and the rest of a URI target; only the host is
   # a name
@@ -77,6 +78,9 @@ locals {
                 record,
                 contains(local.name_content_kinds, kind) && contains(keys(record), "content") ? {
                   content = can(regex("[^[:ascii:]]", record.content)) ? provider::idna::to_ascii(record.content) : record.content
+                } : {},
+                kind == "ALIASES" && contains(keys(record), "name") ? {
+                  name = can(regex("[^[:ascii:]]", record.name)) ? provider::idna::to_ascii(record.name) : record.name
                 } : {},
                 contains(["SRV", "HTTPS", "SVCB"], kind) && try(contains(keys(record.data), "target"), false) ? {
                   data = merge(record.data, { target = can(regex("[^[:ascii:]]", record.data.target)) ? provider::idna::to_ascii(record.data.target) : record.data.target })

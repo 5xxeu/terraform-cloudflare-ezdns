@@ -10,8 +10,8 @@ records:
     OPENPGPKEY: [{ content: mQINBGE }]
     _dmarc.TXT: [{ content: "v=DMARC1; p=none", ttl: 300 }]
     google._domainkey.TXT: [{ key: dkim, content: "v=DKIM1; p=abc" }]
-    ALIASES: [{ content: www, proxied: true }]
-    cdn.ALIASES: [{ content: static }]
+    ALIASES: [{ name: www, proxied: true }]
+    cdn.ALIASES: [{ name: static }]
   app:
     CNAME: [{ content: target.example.net, ttl: 1 }]
   "*.dev":

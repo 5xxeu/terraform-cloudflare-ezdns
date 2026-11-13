@@ -24,7 +24,10 @@ module "dns" {
   zone_name = "example.com"
   records = yamldecode(file("${path.module}/records.yaml")).records
 }
-output "records" { value = module.dns.records }
+output "records" {
+  value     = module.dns.records
+  sensitive = true
+}
 ''' % json.dumps('../modules/dns/compile'))
     (directory / 'main.tftest.hcl').write_text('''
 run "equivalent_records" {

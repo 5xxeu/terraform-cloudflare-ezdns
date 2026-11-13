@@ -16,7 +16,7 @@ variables {
       A               = [{ content = "192.0.2.1" }]
       "straße.A"      = [{ content = "192.0.2.2" }]
       MX              = [{ content = "mx.münchen.de", priority = 10 }]
-      ALIASES         = [{ content = "www" }, { content = "größe" }]
+      ALIASES         = [{ name = "www" }, { name = "größe" }]
       "_sip._tcp.SRV" = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.münchen.de" } }]
       "_ftp._tcp.URI" = [
         { priority = 10, data = { weight = 1, target = "https://straße.münchen.de/Pfad?ä=1" } },
@@ -77,6 +77,15 @@ run "converted" {
   assert {
     condition     = contains(keys(module.v5.records), "xn--caf-dma TXT ${substr(sha1("punycode written by hand"), 0, 12)}")
     error_message = "Names already in Punycode must stay as written"
+  }
+}
+
+run "records_are_sensitive" {
+  command = plan
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata) && alltrue([for r in output.record_metadata : r.name == r.fqdn])
+    error_message = "records must be sensitive and name must be the fully qualified name, record_metadata must not be sensitive"
   }
 }
 

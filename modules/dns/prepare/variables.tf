@@ -22,6 +22,7 @@ variable "records" {
               (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
               || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
               || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
+              || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
             )
             # unknown types fail in the records module
           ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
@@ -30,7 +31,7 @@ variable "records" {
     ]), true)
     # Terraform evaluates the message also when the condition holds, and both results of a
     # conditional: the list is built in a for expression whose if leaves it out then
-    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA). Remove them:\n${join("", [
+    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${join("", [
       for ok in [try(alltrue([
         for name, types in var.records : alltrue([
           for type, list in types : alltrue([
@@ -39,6 +40,7 @@ variable "records" {
                 (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
                 || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
                 || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
+                || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
               )
             ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
           ])
@@ -49,7 +51,8 @@ variable "records" {
             for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
               for index, record in list : [
                 for attribute, kinds in {
-                  content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES"]
+                  content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA"]
+                  name     = ["ALIASES"]
                   priority = ["MX", "URI"]
                   tag      = ["CAA"]
                   flags    = ["CAA"]
@@ -82,6 +85,7 @@ variable "record_groups" {
                   (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
                   || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
                   || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
+                  || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
                 )
                 # unknown types fail in the records module
               ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
@@ -92,7 +96,7 @@ variable "record_groups" {
     ]), true)
     # Terraform evaluates the message also when the condition holds, and both results of a
     # conditional: the list is built in a for expression whose if leaves it out then
-    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA). Remove them:\n${join("", [
+    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${join("", [
       for ok in [try(alltrue([
         for group, g in var.record_groups : alltrue([
           for records in [for x in [g] : lookup(x, "records", {}) if can(keys(x))] : alltrue([
@@ -103,6 +107,7 @@ variable "record_groups" {
                     (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
                     || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
                     || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
+                    || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
                   )
                 ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
               ])
@@ -117,7 +122,8 @@ variable "record_groups" {
                 for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
                   for index, record in list : [
                     for attribute, kinds in {
-                      content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES"]
+                      content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA"]
+                      name     = ["ALIASES"]
                       priority = ["MX", "URI"]
                       tag      = ["CAA"]
                       flags    = ["CAA"]

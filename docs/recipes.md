@@ -43,7 +43,7 @@ A website behind the Cloudflare proxy, with `www` pointing to the apex:
 ```hcl
 "@" = {
   A       = [{ content = "192.0.2.10", proxied = true }]
-  ALIASES = [{ content = "www", proxied = true }]
+  ALIASES = [{ name = "www", proxied = true }]
 }
 ```
 
@@ -119,7 +119,7 @@ terraform output -json dns_records | jq -r '
    | "| \(.fqdn) | \(.type) | \(.content // (.data | tostring)) | \(if .proxied then "auto" else .ttl end) | \(.proxied) |")'
 ```
 
-with the output passed through in the root module (`output "dns_records" { value = module.dns.records }`). The values of proxied records are origin addresses, which the proxy hides: leave them out of a table that is published more widely (`select(.value.proxied | not)`).
+with the output passed through in the root module (`records` is sensitive, so the output needs `sensitive = true`; `terraform output -json` shows its values). The values of proxied records are origin addresses, which the proxy hides: leave them out of a table that is published more widely (`select(.value.proxied | not)`).
 
 ## Internationalized Names
 
@@ -182,6 +182,6 @@ module "dns" {
 ```
 
 - An internationalized zone must set `zone_name` here, see [Requirements](../README.md#requirements).
-- `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names, but not the record types under them: `to_ascii` would write `"_acme-challenge.TXT"` in lower case. An internationalized prefix of a type is converted on its own (`"${provider::idna::to_ascii("straße")}.A"`). Convert targets where they are written: `content` of `CNAME`, `MX`, `NS`, `PTR` and `ALIASES`, `target` of `SRV`, `HTTPS` and `SVCB` and `replacement` of `NAPTR` in `data`. A `URI` target is a URI: convert only its host (`"https://${provider::idna::to_ascii("münchen.de")}/path"`).
+- `to_ascii` keeps `@`, a `*` wildcard and labels such as `_acme-challenge`, so it can convert every name. Convert the names, but not the record types under them: `to_ascii` would write `"_acme-challenge.TXT"` in lower case. An internationalized prefix of a type is converted on its own (`"${provider::idna::to_ascii("straße")}.A"`). Convert targets where they are written: `content` of `CNAME`, `MX`, `NS` and `PTR`, `name` of `ALIASES`, `target` of `SRV`, `HTTPS` and `SVCB` and `replacement` of `NAPTR` in `data`. A `URI` target is a URI: convert only its host (`"https://${provider::idna::to_ascii("münchen.de")}/path"`).
 - Record keys contain the converted form (`xn--bcher-kva CNAME`). A configuration that wrote these names and targets in Punycode in lower case can switch to the readable form without changing addresses in the state. Keys keep a name as written, so a name written in another form (`XN--BCHER-KVA`) gets a new key: keep the record with a `moved` block, see [Record Keys](record-model.md#record-keys).
 - With records in YAML, convert the names of the decoded map the same way. The JSON Schema accepts names in Punycode only, so the editor marks names in Unicode.

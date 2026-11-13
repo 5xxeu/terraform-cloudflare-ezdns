@@ -90,6 +90,7 @@ variable "records" {
       list(
         object({
           content  = optional(string)
+          name     = optional(string) # ALIASES only: the name of the CNAME the record creates
           ttl      = optional(number) # default_ttl when not set
           proxied  = optional(bool)   # default_proxied when not set
           priority = optional(number)
@@ -166,17 +167,17 @@ variable "records" {
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
-            if rec.content == null || rec.content == ""
+            if(kind == "ALIASES" ? rec.name : rec.content) == null || (kind == "ALIASES" ? rec.name : rec.content) == ""
           ] if !contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
       ]
     ])) == 0
-    error_message = "Every record except SRV, URI, HTTPS, SVCB, TLSA, SMIMEA, SSHFP, DS, DNSKEY, CERT, NAPTR and LOC must have a non-empty content:\n${join("\n", flatten([
+    error_message = "Every record except SRV, URI, HTTPS, SVCB, TLSA, SMIMEA, SSHFP, DS, DNSKEY, CERT, NAPTR and LOC must have a non-empty content (an ALIASES record has a name instead):\n${join("\n", flatten([
       for base_name, type_map in var.records : [
         for raw_key, recs in type_map : [
           for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
             for idx, rec in recs : (rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]")
-            if rec.content == null || rec.content == ""
+            if(kind == "ALIASES" ? rec.name : rec.content) == null || (kind == "ALIASES" ? rec.name : rec.content) == ""
           ] if !contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
         ]
       ]
@@ -639,8 +640,8 @@ variable "records" {
           for base_name, type_map in var.records : [
             for raw_key, recs in type_map : [
               for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.content)}"
-                if rec.content != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.content, "x")))
+                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.name)}"
+                if rec.name != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.name, "x")))
               ] if kind == "ALIASES"
             ]
           ]
@@ -663,8 +664,8 @@ variable "records" {
           for base_name, type_map in var.records : [
             for raw_key, recs in type_map : [
               for kind in [element(split(".", raw_key), length(split(".", raw_key)) - 1)] : [
-                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.content)}"
-                if rec.content != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.content, "x")))
+                for idx, rec in recs : "${rec.source != null ? rec.source : "records[\"${base_name}\"][\"${raw_key}\"][${idx}]"}: ${jsonencode(rec.name)}"
+                if rec.name != null && !can(regex("^(\\*|[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$", coalesce(rec.name, "x")))
               ] if kind == "ALIASES"
             ]
           ]

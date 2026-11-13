@@ -7,7 +7,7 @@ variables {
   zone_id   = "z"
   zone_name = "example.com"
   records = {
-    "@"   = { A = [{ content = "192.0.2.1" }], ALIASES = [{ content = "www" }] }
+    "@"   = { A = [{ content = "192.0.2.1" }], ALIASES = [{ name = "www" }] }
     "app" = { TXT = [{ content = "v=spf1 -all", key = "spf" }] }
   }
 }
@@ -28,6 +28,15 @@ run "plan" {
   assert {
     condition     = output.import_ids == {} && output.import_duplicates == {}
     error_message = "No import lookup unless import_existing is true"
+  }
+}
+
+run "records_are_sensitive" {
+  command = plan
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata) && output.records["app TXT spf"].name == "app.example.com"
+    error_message = "records must be sensitive and have the fully qualified name, record_metadata must not be sensitive"
   }
 }
 

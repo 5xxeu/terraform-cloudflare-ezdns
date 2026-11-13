@@ -17,7 +17,7 @@ variables {
       TXT     = [{ content = "v=spf1 ~all", key = "spf" }]
       MX      = [{ content = "mx.example.com", priority = 5 }]
       CAA     = [{ content = "letsencrypt.org", tag = "issue" }]
-      ALIASES = [{ content = "support" }]
+      ALIASES = [{ name = "support" }]
       DNSKEY  = [{ data = { flags = 257, protocol = 3, algorithm = 13, public_key = "abc" } }]
       NAPTR   = [{ data = { order = 100, preference = 10, flags = "U", service = "E2U+sip", regex = "!^.*0sip:info@example.com!", replacement = "." } }]
     }
@@ -351,6 +351,40 @@ run "yaml_booleans_in_text_values" {
   expect_failures = [var.records]
 }
 
+# name of ALIASES is text too: unquoted off would become the name "false"
+run "yaml_booleans_in_alias_names" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        ALIASES:
+          - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+run "yaml_booleans_in_alias_names_of_groups" {
+  command = plan
+
+  variables {
+    records = {}
+    record_groups = yamldecode(<<-YAML
+      web:
+        records:
+          "@":
+            ALIASES:
+              - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.record_groups]
+}
+
 run "yaml_quoted_text_values" {
   command = plan
 
@@ -427,7 +461,7 @@ run "zone_name_with_a_trailing_dot" {
 
   variables {
     zone_name = "Example.com."
-    records   = { "app" = { A = [{ content = "192.0.2.1" }], ALIASES = [{ content = "www" }] }, "api.example.com" = { A = [{ content = "192.0.2.2" }] } }
+    records   = { "app" = { A = [{ content = "192.0.2.1" }], ALIASES = [{ name = "www" }] }, "api.example.com" = { A = [{ content = "192.0.2.2" }] } }
   }
 
   assert {
@@ -619,6 +653,16 @@ run "records_output" {
   assert {
     condition     = output.records["app MX mx.example.com"].fqdn == "app.example.com" && output.records["_sip._tcp SRV sip"].data.port == "5060"
     error_message = "records must have the fully qualified name and the data from the configuration, known at plan"
+  }
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata)
+    error_message = "records (content and data of proxied records) must be sensitive, record_metadata must not"
+  }
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].name == "app.example.com" && output.record_metadata[0].name == output.record_metadata[0].fqdn && alltrue([for r in output.record_metadata : r.name == r.fqdn && r.name == lower(r.name)])
+    error_message = "name must be the fully qualified name in lower case, as fqdn, before and after apply"
   }
 }
 

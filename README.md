@@ -25,8 +25,8 @@ records[<name>][<TYPE>] = [ <record>, ... ]
 | `<name>` | A name within the zone: `app`, `app.example.com`, `@` (apex), `*.app` (wildcard) |
 | `<TYPE>` | A record on `<name>`: `A`, `TXT`, `MX`, ... |
 | `<prefix>.<TYPE>` | A record on `<prefix>.<name>`: `"_acme-challenge.TXT"` |
-| `ALIASES` | CNAMEs named by each `content`, pointing to `<name>` |
-| `<prefix>.ALIASES` | CNAMEs named by each `content`, pointing to `<prefix>.<name>` |
+| `ALIASES` | CNAMEs named by each `name`, pointing to `<name>` |
+| `<prefix>.ALIASES` | CNAMEs named by each `name`, pointing to `<prefix>.<name>` |
 
 Each record becomes one Cloudflare DNS record, with a stable address in the Terraform state:
 
@@ -47,7 +47,7 @@ module "dns" {
       "_acme-challenge.TXT" = [{ key = "acme", content = "token" }]
 
       # www.example.com -> CNAME -> app.example.com
-      ALIASES = [{ content = "www" }]
+      ALIASES = [{ name = "www" }]
     }
   }
 }
@@ -116,7 +116,7 @@ Everything else (all record types, defaults, import of existing records, validat
      records = {
        "@" = {
          A       = [{ key = "web", content = "192.0.2.10", proxied = true }]
-         ALIASES = [{ content = "www", proxied = true }]
+         ALIASES = [{ name = "www", proxied = true }]
        }
      }
    }

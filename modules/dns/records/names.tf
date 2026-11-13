@@ -25,11 +25,11 @@ locals {
     ]
   ])
 
-  # Record names as written: ALIASES name the CNAME by their content, prefixes are
+  # Record names as written: ALIASES name the CNAME by their name, prefixes are
   # prepended to the base name
   entry_names = [
     for e in local.entries : (
-      element(split(".", e.raw_key), length(split(".", e.raw_key)) - 1) == "ALIASES" ? e.rec.content :
+      element(split(".", e.raw_key), length(split(".", e.raw_key)) - 1) == "ALIASES" ? e.rec.name :
       length(split(".", e.raw_key)) == 1 ? e.base_name :
       e.base_name == "@" ? join(".", slice(split(".", e.raw_key), 0, length(split(".", e.raw_key)) - 1)) :
       "${join(".", slice(split(".", e.raw_key), 0, length(split(".", e.raw_key)) - 1))}.${e.base_name}"

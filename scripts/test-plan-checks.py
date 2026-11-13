@@ -15,7 +15,9 @@ terraform test cannot expect a failure in a called module, so these cases are pl
 - through modules/dns/checks alone, for the full text of the messages that take the
   context of the call (minimum_ttl, owned_names);
 - through the v5 wrapper and the root module, with terraform test and a mock provider (no
-  Cloudflare account): each run must fail with the message of its check.
+  Cloudflare account): each run must fail with the message of its check;
+- the plan JSON of root, v5, idna and compile (made-up token, nothing is read from
+  Cloudflare): the records output is sensitive and record_metadata is not.
 
 Standard library only; no provider credentials. The last part downloads the cloudflare
 provider for the mock (terraform init). TERRAFORM sets the binary (default: terraform).
@@ -51,6 +53,15 @@ CASES = [
     ('record_groups with an attribute that does not apply to the type',
      'record_groups = { web = { records = { "@" = { A = [{ content = "192.0.2.1", ttl = %s, priority = 10 }] } } } }' % TTL,
      'record_groups["web"].records["@"]["A"][0].priority', False),
+    ('ALIASES with content (2.x syntax, the name is in name)',
+     'records = { "@" = { ALIASES = [{ content = "www" }] } }',
+     'records["@"]["ALIASES"][0].content', False),
+    ('record_groups with ALIASES that have content',
+     'record_groups = { web = { records = { "@" = { "cdn.ALIASES" = [{ content = "static" }] } } } }',
+     'record_groups["web"].records["@"]["cdn.ALIASES"][0].content', False),
+    ('ALIASES with name',
+     'records = { "@" = { ALIASES = [{ name = "www", ttl = %s }] } }' % TTL,
+     None, False),
     # The keys stay known: records and grouped records with a key and a computed content
     ('content known after apply, with a key',
      'records = { "@" = { A = [{ content = %s, key = "c1" }] } }\n'
@@ -177,7 +188,7 @@ module "dns" {
 }
 
 resource "terraform_data" "records" {
-  for_each = module.dns.records
+  for_each = nonsensitive(module.dns.records)
 }
 ''' % arguments)
         (directory / 'terraform.tfstate').unlink(missing_ok=True)
@@ -216,7 +227,7 @@ module "dns" {
 }
 
 resource "terraform_data" "records" {
-  for_each = module.dns.records
+  for_each = nonsensitive(module.dns.records)
   input    = each.value
 }
 '''
@@ -367,6 +378,30 @@ run "%s" {
             init(directory)
             result = run(['test', '-json'], directory)
             report(f'{label}: {check} fails the plan', failed_with(result, message), result[1])
+
+# The records output of root, v5, idna and compile is sensitive in the plan JSON of the
+# module as a root module (a caller must mark its own output, and Terraform 1.9.0 does not
+# carry the mark through a module call), record_metadata is not. The provider gets a
+# made-up token: the plan reads nothing from Cloudflare
+os.environ['CLOUDFLARE_API_TOKEN'] = '0123456789abcdef0123456789abcdef01234567'
+with tempfile.TemporaryDirectory() as tmp:
+    for label, module in [('root', ROOT), ('v5', ROOT / 'modules/dns/v5'), ('idna', ROOT / 'modules/dns/idna'), ('compile', ROOT / 'modules/dns/compile')]:
+        wrapper = label != 'compile'
+        variables = {'zone_name': 'example.com', 'records': {'app': {'A': [{'content': '192.0.2.1', 'proxied': True}]}}}
+        if wrapper:
+            variables['zone_id'] = 'z'
+        varfile = Path(tmp) / f'{label}.tfvars.json'
+        varfile.write_text(json.dumps(variables))
+        planfile = Path(tmp) / f'{label}.tfplan'
+        init(module)
+        result = run(['plan', f'-var-file={varfile}', f'-out={planfile}'], module)
+        shown = run(['show', '-json', str(planfile)], module)
+        try:
+            changes = json.loads(shown[1])['output_changes']
+            marked = changes['records']['after_sensitive'] is True and (not wrapper or changes['record_metadata']['after_sensitive'] is False)
+        except (ValueError, KeyError):
+            marked = False
+        report(f'{label}: records is sensitive in the plan JSON, record_metadata is not', result[0] == 0 and marked, result[1] + shown[1][:2000])
 
 if failed:
     raise SystemExit(f'Failed: {", ".join(failed)}')

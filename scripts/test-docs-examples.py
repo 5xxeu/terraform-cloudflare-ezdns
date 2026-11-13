@@ -164,7 +164,7 @@ def to_compile(hcl, inputs, source):
 def records(ex, d, env):
     """The records of the module calls of the example, as compile gives them."""
     main, names = to_compile(ex["hcl"], compile_inputs(), local_source(ROOT / "modules" / "dns" / "compile", d))
-    outputs = "".join(f'\noutput "records_{n}" {{\n  value = module.{n}.records\n}}\n' for n in names)
+    outputs = "".join(f'\noutput "records_{n}" {{\n  value = nonsensitive(module.{n}.records)\n}}\n' for n in names)
     (d / "main.tf").write_text(main + "\n" + outputs)
     for name, text in ex["files"].items():
         (d / name).write_text(text)
