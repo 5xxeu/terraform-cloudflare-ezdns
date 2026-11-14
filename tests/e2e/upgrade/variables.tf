@@ -13,3 +13,9 @@ variable "prefix" {
   type        = string
 }
 
+
+variable "alias_attribute" {
+  description = "Attribute of the name of an ALIASES record: content before 3.0, name since"
+  type        = string
+  default     = "name"
+}

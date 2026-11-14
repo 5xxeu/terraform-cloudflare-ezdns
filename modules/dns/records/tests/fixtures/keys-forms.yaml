@@ -1,0 +1,80 @@
+# The records of keys-canonical.yaml written in other forms, each a record of its own in
+# 2.x and the same address as its canonical form now. Valid on v2.22.0 (no two of them
+# are one record), whose keys state_migration lists. Read by ../keys.tftest.hcl
+records:
+  APP:
+    A:
+      - content: 192.0.2.1
+    AAAA:
+      - content: 2001:0DB8:0:0:0:0:0:1
+    TXT:
+      - content: v=DKIM1; p=Abc
+        key: dkim
+    cdn.ALIASES:
+      - name: Static
+  V4M:
+    AAAA:
+      - content: ::ffff:c000:201
+  WWW:
+    CNAME:
+      - content: example.net
+  "@":
+    ALIASES:
+      - name: WWW2
+    MX:
+      - content: Mail.Example.com.
+        priority: 10
+    TXT:
+      - content: v=spf1 -all
+    HTTPS:
+      - data:
+          priority: "1.0"
+          target: .
+          value: alpn="h2" port="443"
+  HTTPS-FIELDS:
+    HTTPS:
+      - data:
+          priority: "01"
+          target: .
+          alpn: h2
+          port: 443
+  Sub:
+    NS:
+      - content: NS1.example.net.
+  "1.2":
+    PTR:
+      - content: Host.Example.com.
+  _SIP._tcp:
+    SRV:
+      - data:
+          priority: "10.0"
+          weight: "05"
+          port: 5060
+          target: SIP.example.com.
+  svc:
+    SVCB:
+      - data:
+          priority: 1
+          target: Svc.Example.net.
+          value: alpn="h2"
+  _web._tcp:
+    URI:
+      - priority: 10
+        data:
+          weight: "1.0"
+          target: https://Example.com/Path
+  office:
+    LOC:
+      - data:
+          lat_degrees: 59
+          lat_minutes: 26
+          lat_seconds: "14.50"
+          lat_direction: "N"
+          long_degrees: 24
+          long_minutes: 44
+          long_seconds: 43
+          long_direction: E
+          altitude: "10.0"
+          size: 1
+          precision_horz: 10000
+          precision_vert: 10

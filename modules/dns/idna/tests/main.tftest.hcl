@@ -70,8 +70,8 @@ run "converted" {
   }
 
   assert {
-    condition     = contains(keys(module.v5.records), "Upper CNAME") && [for k, r in module.v5.records : r.content if k == "Upper CNAME"] == ["Target.Example.com"]
-    error_message = "ASCII names and targets must stay as written, so their keys do not change"
+    condition     = contains(keys(module.v5.records), "upper CNAME") && [for k, r in module.v5.records : r.content if k == "upper CNAME"] == ["Target.Example.com"]
+    error_message = "ASCII names and targets must stay as written (the key has the name in lower case, as for any name)"
   }
 
   assert {
@@ -180,7 +180,7 @@ run "computed_zone_id" {
   }
 
   assert {
-    condition     = output.keys_named == ["xn--bcher-kva A 192.0.2.1"]
+    condition     = output.keys_named == ["shop AAAA 2001:db8::1", "shop PTR host.example.com", "xn--bcher-kva A 192.0.2.1"]
     error_message = "A zone_name known only after apply must not make the keys unknown"
   }
 }

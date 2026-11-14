@@ -21,13 +21,22 @@ run "plan" {
   }
 
   assert {
-    condition     = module.v5.state_migration["ALIASES_@_www"] == "www CNAME"
-    error_message = "Outputs of the v5 wrapper must be passed through"
+    condition     = output.import_ids == {} && output.import_duplicates == {}
+    error_message = "No import lookup unless import_existing is true"
+  }
+}
+
+# state_migration: the 2.x keys of the records whose key changed, passed through
+run "state_migration" {
+  command = plan
+
+  variables {
+    records = { "WEB" = { A = [{ content = "192.0.2.2" }] }, "app" = { A = [{ content = "192.0.2.3" }] } }
   }
 
   assert {
-    condition     = output.import_ids == {} && output.import_duplicates == {}
-    error_message = "No import lookup unless import_existing is true"
+    condition     = output.state_migration == { "WEB A 192.0.2.2" = "web A 192.0.2.2" } && module.v5.state_migration == output.state_migration
+    error_message = "The keys of the records written in another form must be mapped from their 2.x keys"
   }
 }
 

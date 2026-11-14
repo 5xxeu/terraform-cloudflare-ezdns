@@ -4,14 +4,15 @@
 # which are built from var.records (Terraform reports a cycle).
 
 locals {
-  # The same record written in different forms gets different keys, so it is checked
-  # separately: names in different forms ("www" and "www.example.com", "@" and the zone
-  # name), and values that the import takes for one record (import.tf: hostnames in any
-  # case and with or without the trailing dot, TXT text quoted or not, numbers in data
-  # as numbers, HTTPS service parameters as fields or in value). Records with an
-  # explicit key are compared by their keys, marked with "key" (no type is called so):
-  # a key that looks like a value ("A 192.0.2.1") is not the record with that value.
-  # Long values and data are shown as a hash
+  # Forms of one record that the keys normalize (keys.tf: names and hostnames in any
+  # case, the trailing dot, IPv6 forms, numbers in data) have one key and are found by
+  # grouped. The forms that keep their own keys are checked here: names in different
+  # forms ("www" and "www.example.com", "@" and the zone name), TXT text quoted or not
+  # and HTTPS service parameters as fields or in value, compared by
+  # the fully qualified name and the value that the import compares (import.tf).
+  # Records with an explicit key are compared by their keys, marked with "key" (no type
+  # is called so): a key that looks like a value ("A 192.0.2.1") is not the record with
+  # that value. Long values and data are shown as a hash
   by_identity = {
     for r in local.records : "${r.fqdn} ${r.explicit_key != null ? "key ${r.explicit_key}" : "${r.type} ${(
       r.data != null || contains(["TXT", "OPENPGPKEY"], r.type) ? substr(sha1(local.configured_value[r.key]), 0, 12) : local.configured_value[r.key]

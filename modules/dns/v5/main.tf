@@ -85,6 +85,10 @@ locals {
       })
     )
   }
+
+  # The keys of the configuration, for the outputs over the resources (outputs.tf): a
+  # map, so a lookup does not go through all keys, and its values stay known
+  configured_keys = { for key in keys(local.effective_records) : key => true }
 }
 
 resource "cloudflare_dns_record" "record" {

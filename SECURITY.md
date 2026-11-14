@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-Fixes go into the latest release. Older versions do not get backports: upgrade to the latest 2.x release, see [Upgrading and Migration](docs/upgrading.md).
+Fixes go into the latest 3.x release. The latest 2.x release gets fixes only, for configurations that stay on Terraform 1.8 (3.x requires 1.9.0). Older versions do not get backports: upgrade to the latest 3.x release (or the latest 2.x on Terraform 1.8), see [Upgrading and Migration](docs/upgrading.md).
 
 | Version | Supported |
 |---------|-----------|
-| Latest 2.x release | Yes |
-| Older 2.x releases, 1.x | No |
+| Latest 3.x release | Yes |
+| Latest 2.x release | Fixes only (Terraform 1.8) |
+| Older 2.x and 3.x releases, 1.x | No |
 
 ## Reporting a Vulnerability
 

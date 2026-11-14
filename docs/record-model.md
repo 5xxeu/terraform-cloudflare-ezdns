@@ -28,7 +28,7 @@ Most records are defined by `content`. Structured records are defined by a `data
 | `NAPTR` | `data` | `order`, `preference`, `replacement`, *`flags`*, *`service`*, *`regex`* |
 | `LOC` | `data` | `lat_degrees`, `lat_minutes`, `lat_seconds`, `lat_direction`, `long_degrees`, `long_minutes`, `long_seconds`, `long_direction`, *`altitude`*, *`size`*, *`precision_horz`*, *`precision_vert`* |
 
-Service parameters of `HTTPS` and `SVCB` records (RFC 9460) can be written as text in `value` (`alpn="h3,h2" port="443"`) or as fields of `data`, which the module writes into `value` in the order of their keys, each in quotes: lists such as `alpn`, `mandatory`, `ipv4hint` and `ipv6hint` are comma-separated, `ech` is base64. A record uses one form or the other, not both. The fields are checked at `plan` (addresses in the hints, protocol IDs without spaces, `port` from 0 to 65535). The record key is the hash of `data` as written, so switching an existing record from `value` to fields gives it a new key: set a `key` first, or move it with a `moved` block.
+Service parameters of `HTTPS` and `SVCB` records (RFC 9460) can be written as text in `value` (`alpn="h3,h2" port="443"`) or as fields of `data`, which the module writes into `value` in the order of their keys, each in quotes: lists such as `alpn`, `mandatory`, `ipv4hint` and `ipv6hint` are comma-separated, `ech` is base64. A record uses one form or the other, not both. The fields are checked at `plan` (addresses in the hints, protocol IDs without spaces, `port` from 0 to 65535). The record key hashes `data` with the parameters where they are written (only numbers and `target` are normalized), so switching an existing record from `value` to fields gives it a new key: set a `key` first, or move it with a `moved` block. The same record in both forms in one configuration fails at `plan` as a duplicate.
 
 ```hcl
 "@" = {
@@ -69,16 +69,20 @@ A base name may be short (`app`) or fully qualified (`app.example.com`): the tar
 A key like `"cdn.ALIASES"` works the same way, but the target is the prefixed name: `cdn.app.example.com` (or `cdn.example.com` for `@`).
 
 ## Record Keys
-Each record is keyed in the state by its content, in the zone file format `<name> <TYPE> <value>`, so adding, removing or reordering items in a list affects only those items:
+Each record is keyed in the state by its content, in the zone file format `<name> <TYPE> <value>`, so adding, removing or reordering items in a list affects only those items. The name and the value are normalized, so forms that DNS does not tell apart have one key: the name is in lower case without a trailing dot, and the value is in the form of the table:
 
-| Record | Key |
-|--------|-----|
-| `A`, `AAAA`, `MX`, `NS`, `PTR` | `app A 192.0.2.10`, `@ MX mail.example.com` |
-| `TXT` | `_dmarc TXT 21541c4e7044` (first 12 characters of the SHA-1 of the value) |
-| Records with `data` (`SRV`, `TLSA`, ...) | `_sip._tcp SRV 9c61601f99e8` (first 12 characters of the SHA-1 of the data) |
-| `CNAME` and `ALIASES` | `www CNAME` (only one CNAME is allowed per name) |
-| `CAA` | `app CAA issue letsencrypt.org` |
-| Any record with `key` | `google._domainkey TXT dkim` |
+| Record | Key | Value in the key |
+|--------|-----|------------------|
+| `A` | `app A 192.0.2.10` | the address as written |
+| `AAAA` | `app AAAA 2001:db8::1` | the canonical address (RFC 5952: `2001:db8::1` for `2001:0DB8:0:0:0:0:0:1`) |
+| `MX`, `NS`, `PTR` | `@ MX mail.example.com` | the target in lower case without the trailing dot (`.` and `@` as written) |
+| `TXT` | `_dmarc TXT 21541c4e7044` | first 12 characters of the SHA-1 of the value as written (text is case-sensitive) |
+| Records with `data` (`SRV`, `TLSA`, ...) | `_sip._tcp SRV 9c61601f99e8` | first 12 characters of the SHA-1 of the data, with numbers in their shortest form (`5060` for `5060.0`), `target` and `replacement` in lower case without the trailing dot (except `.` and the URI of `URI` records); the service parameters of `HTTPS` and `SVCB` stay as written, in `value` or as fields |
+| `CNAME` and `ALIASES` | `www CNAME` | none: only one CNAME is allowed per name |
+| `CAA` | `app CAA issue letsencrypt.org` | the tag and the value as written |
+| Any record with `key` | `google._domainkey TXT dkim` | the key as written (`dkim` and `DKIM` are two keys) |
+
+`WWW` and `www`, or `Mail.Example.com.` and `mail.example.com` as an `MX` target, are one key: written twice, they fail at `plan` as duplicates. A short name and the fully qualified one (`www` and `www.example.com`, `@` and the zone name) stay two keys, since the key is known without the zone name (a zone created in the same `apply`); written for one record, they fail at `plan` as duplicates too.
 
 ```
 module.dns.module.v5.cloudflare_dns_record.record["app A 192.0.2.10"]
@@ -131,9 +135,9 @@ MX = [
 
 A `key` does not make a copy of a record a new one: two records with the same name, type and value (and priority, for `MX` and `URI`) fail at `plan` whatever their keys, since Cloudflare rejects identical records at `apply`.
 
-Names are sent to Cloudflare in lower case, as Cloudflare stores them; the key keeps the name as written (`M1._domainkey TXT dkim`).
+Names are sent to Cloudflare in lower case, as Cloudflare stores them, and are in lower case in the key (`m1._domainkey TXT dkim` for `M1._domainkey`).
 
-**Rewriting a name in another form changes its key.** `www`, `WWW` and `www.example.com` are the same DNS name, but the key keeps the form as written, so changing it (`www` to `www.example.com`, or `WWW` to `www`) gives the record a new address, and Terraform plans to delete and create it. The two are different instances, so their order is not fixed: when the delete goes first, the name does not answer until the create, and resolvers cache the empty answer for the negative TTL of the zone; when the create goes first, Cloudflare may reject it as a copy of the record that still exists, and the apply fails. To keep the existing record, add a `moved` block with the old and the new key, then check that the plan neither deletes nor creates it:
+**Rewriting a name between the short and the fully qualified form changes its key.** `www` and `www.example.com` are the same DNS name, but the key keeps the form, so changing it (`www` to `www.example.com`, or `@` to the zone name) gives the record a new address, and Terraform plans to delete and create it. The same goes for a value whose form is a part of the key (TXT text, a `key`). The two are different instances, so their order is not fixed: when the delete goes first, the name does not answer until the create, and resolvers cache the empty answer for the negative TTL of the zone; when the create goes first, Cloudflare may reject it as a copy of the record that still exists, and the apply fails. To keep the existing record, add a `moved` block with the old and the new key, then check that the plan neither deletes nor creates it:
 
 ```hcl
 moved {

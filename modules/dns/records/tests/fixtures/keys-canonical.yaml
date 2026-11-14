@@ -1,0 +1,106 @@
+# One record of each class in the canonical form: each keeps the key it had in 2.x
+# (checked against v2.22.0), so state_migration is empty. Read by ../keys.tftest.hcl
+records:
+  app:
+    A:
+      - content: 192.0.2.1
+    AAAA:
+      - content: 2001:db8::1
+    TXT:
+      - content: v=DKIM1; p=Abc
+        key: dkim
+    cdn.ALIASES:
+      - name: static
+  v4m:
+    AAAA:
+      - content: ::ffff:192.0.2.1
+  www:
+    CNAME:
+      - content: example.net
+  "@":
+    ALIASES:
+      - name: www2
+    MX:
+      - content: mail.example.com
+        priority: 10
+    CAA:
+      - content: letsencrypt.org
+        tag: issue
+    TXT:
+      - content: v=spf1 -all
+    HTTPS:
+      - data:
+          priority: 1
+          target: .
+          value: alpn="h2" port="443"
+  https-fields:
+    HTTPS:
+      - data:
+          priority: 1
+          target: .
+          alpn: h2
+          port: 443
+  nomail:
+    MX:
+      - content: .
+        priority: 0
+  relay:
+    MX:
+      - content: "@"
+        priority: 10
+  sub:
+    NS:
+      - content: ns1.example.net
+  "1.2":
+    PTR:
+      - content: host.example.com
+  _sip._tcp:
+    SRV:
+      - data:
+          priority: 10
+          weight: 5
+          port: 5060
+          target: sip.example.com
+  sip:
+    NAPTR:
+      - data:
+          order: 100
+          preference: 10
+          flags: S
+          service: SIP+D2U
+          regex: ""
+          replacement: .
+  svc:
+    SVCB:
+      - data:
+          priority: 1
+          target: svc.example.net
+          value: alpn="h2"
+  _25._tcp.mail:
+    TLSA:
+      - data:
+          usage: 3
+          selector: 1
+          matching_type: 1
+          certificate: ABCDEF0123
+  _web._tcp:
+    URI:
+      - priority: 10
+        data:
+          weight: 1
+          target: https://Example.com/Path
+  office:
+    LOC:
+      - data:
+          lat_degrees: 59
+          lat_minutes: 26
+          lat_seconds: 14.5
+          lat_direction: "N"
+          long_degrees: 24
+          long_minutes: 44
+          long_seconds: 43
+          long_direction: E
+          altitude: 10
+          size: 1
+          precision_horz: 10000
+          precision_vert: 10

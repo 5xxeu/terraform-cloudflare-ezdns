@@ -26,6 +26,8 @@ python3 scripts/test-plan-checks.py
 TERRAFORM=~/bin/terraform-1.9.0 python3 scripts/test-plan-checks.py
 ```
 
+The same script runs the command of [To 3.0, Normalized Record Keys](upgrading.md#normalized-record-keys) that writes `moved` blocks from `state_migration`, on the three addresses of the records (the root module, `modules/dns/v5` and `modules/dns/idna`), against a state with the 2.x keys made from the plan (no refresh, nothing is read from Cloudflare; it needs `jq`).
+
 The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/tests`), and the YAML that `zone-to-ezdns.py` writes from a fixture goes through the module in CI.
 
 CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile`, `prepare`, `checks` and `idna` submodules, the v5 wrapper and the examples (on Terraform 1.9.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, runs `scripts/test-plan-checks.py` on both Terraform versions (checks with values known only after apply through `compile`, which plans, applies a saved plan and reads the state; the checks over all records through the v5 wrapper and the root module with a mocked provider), checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request. The Benchmarks check measures the core on pull requests that change it and on pushes to main, and blocks time or peak memory regressions over 2x the stored CI baseline.
@@ -147,7 +149,8 @@ Pass the same inputs as to the module call that manages the zone (`record_groups
 3. Adopts the same records into an empty state with `import_existing` and checks that all of them are imported, none created, and each one under the ID of the record created in step 1.
 4. Creates records with names, a prefix of a record type and a `CNAME` target in Unicode through the `idna` submodule, and checks that they are stored in Punycode without drift.
 5. Applies a small configuration from the highest stable ancestor tag before the current commit (or `E2E_UPGRADE_FROM`), then switches to the current checkout. The saved plan must have no record creates or deletes; moves and in-place updates are reported. After apply, record keys and Cloudflare IDs must match and the next plan must show no changes. Tags and their commits must be available locally.
-6. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
+6. Migrates the keys of 2.x as [To 3.0, Normalized Record Keys](upgrading.md#normalized-record-keys) describes: applies records written in forms that get another key in 3.0 (names in upper case, an IPv6 address not shortened, an `ALIASES` name in upper case) with `v2.22.0` (or `E2E_MIGRATE_FROM`), switches to the current checkout, generates `moved` blocks from `state_migration` with the command of the docs and checks the expected number of moves, no creates or deletes, the same Cloudflare IDs under the new keys and no changes after apply. Both upgrade configurations have `ALIASES` (inline and with a prefix), which keep their keys although the attribute of the name changed from `content` to `name`.
+7. Deletes everything. `tests/e2e/sweep.sh` also removes records left by failed runs; it only deletes records with the comment `ezdns-e2e` and a run label in the name.
 
 The log of a run names neither the zone nor the records, since the CI logs are public; in CI the zone name is a secret of the environment, so GitHub masks it.
 
