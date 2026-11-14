@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 # Checks that the copies of the module interface are the same: the root module
-# repeats the variables and outputs of the v5 wrapper, and the v5 wrapper and the
+# repeats the variables and outputs of the v5 wrapper, the v4 wrapper has them without
+# the lookup of existing records, and the v5 wrapper, the v4 wrapper and the
 # compile module share the records variable (both pass records and record_groups
 # through modules/dns/prepare, which merges the groups and checks the values, and the
 # records of modules/dns/records through modules/dns/checks, which checks them all).
@@ -22,17 +23,55 @@ fi
 
 records() { awk '/^variable "records"/, /^}/' "$1"; }
 without_import() { awk '/^variable "(import_existing|report_unmanaged|unmanaged_ignore|unmanaged_policy)"/ { skip = 1 } !skip { print } skip && /^}/ { skip = 0; getline }' "$1"; }
-# Both pass records and record_groups through the same call of modules/dns/prepare
+# The compile module and the v4 wrapper pass records and record_groups through the same
+# call of modules/dns/prepare as the v5 wrapper
 prepare() { awk '/^module "prepare"/, /^}/' "$1"; }
-if [ -z "$(prepare modules/dns/v5/main.tf)" ] || [ "$(prepare modules/dns/compile/main.tf)" != "$(prepare modules/dns/v5/main.tf)" ]; then
-    echo "The call of modules/dns/prepare differs between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
-    status=1
-fi
-# Both pass the records and the diagnostics of modules/dns/records through the same call
+for wrapper in modules/dns/compile modules/dns/v4; do
+    if [ -z "$(prepare modules/dns/v5/main.tf)" ] || [ "$(prepare "$wrapper/main.tf")" != "$(prepare modules/dns/v5/main.tf)" ]; then
+        echo "The call of modules/dns/prepare differs between $wrapper/main.tf and modules/dns/v5/main.tf" >&2
+        status=1
+    fi
+done
+# They pass the records and the diagnostics of modules/dns/records through the same call
 # of modules/dns/checks
 checks() { awk '/^module "checks"/, /^}/' "$1"; }
-if [ -z "$(checks modules/dns/v5/main.tf)" ] || [ "$(checks modules/dns/compile/main.tf)" != "$(checks modules/dns/v5/main.tf)" ]; then
-    echo "The call of modules/dns/checks differs between modules/dns/compile/main.tf and modules/dns/v5/main.tf" >&2
+for wrapper in modules/dns/compile modules/dns/v4; do
+    if [ -z "$(checks modules/dns/v5/main.tf)" ] || [ "$(checks "$wrapper/main.tf")" != "$(checks modules/dns/v5/main.tf)" ]; then
+        echo "The call of modules/dns/checks differs between $wrapper/main.tf and modules/dns/v5/main.tf" >&2
+        status=1
+    fi
+done
+# The v4 wrapper calls modules/dns/records like the v5 wrapper, without the arguments of
+# the lookup of existing records (provider v4 has none)
+core() { awk '/^module "records"/, /^}/' "$1" | grep -vE '^  (existing_records|import_existing|unmanaged_ignore) '; }
+if [ -z "$(core modules/dns/v5/main.tf)" ] || [ "$(core modules/dns/v4/main.tf)" != "$(core modules/dns/v5/main.tf)" ]; then
+    echo "The call of modules/dns/records differs between modules/dns/v4/main.tf and modules/dns/v5/main.tf (other than the lookup of existing records)" >&2
+    status=1
+fi
+# The v4 wrapper has the variables of the v5 wrapper without the lookup of existing records
+if ! without_import modules/dns/v5/variables.tf | diff -u - modules/dns/v4/variables.tf; then
+    echo "The variables of modules/dns/v4 differ from modules/dns/v5 (other than import_existing, report_unmanaged, unmanaged_ignore and unmanaged_policy)" >&2
+    status=1
+fi
+# and the outputs of the v5 wrapper except the ones of that lookup
+v4_outputs=$(outputs modules/dns/v5/outputs.tf | grep -vE '^output "(import_ids|import_duplicates|presumed_previous_records|matched_records|unmanaged_records)"')
+if [ "$v4_outputs" != "$(outputs modules/dns/v4/outputs.tf)" ]; then
+    echo "The outputs of modules/dns/v4 differ from modules/dns/v5 (other than import_ids, import_duplicates, presumed_previous_records, matched_records and unmanaged_records)" >&2
+    status=1
+fi
+# records and state_migration show origin addresses and keys with values: sensitive in
+# every module that has them
+sensitive() { awk -v n="$2" '$0 ~ "^output \"" n "\"" { found = 1 } found && /^  sensitive +=/ { print $3; exit } found && /^}/ { exit }' "$1"; }
+for file in modules/dns/v5/outputs.tf modules/dns/v4/outputs.tf outputs.tf modules/dns/idna/outputs.tf; do
+    for name in records state_migration; do
+        if [ "$(sensitive "$file" "$name")" != "true" ]; then
+            echo "$file: output $name must be sensitive" >&2
+            status=1
+        fi
+    done
+done
+if [ "$(sensitive modules/dns/compile/outputs.tf records)" != "true" ]; then
+    echo "modules/dns/compile/outputs.tf: output records must be sensitive" >&2
     status=1
 fi
 # The compile module has the variables of the v5 wrapper without the lookup of existing
