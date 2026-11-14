@@ -26,6 +26,8 @@ python3 scripts/test-plan-checks.py
 TERRAFORM=~/bin/terraform-1.9.0 python3 scripts/test-plan-checks.py
 ```
 
+The same script runs the command of [To 3.0: Normalized Record Keys](upgrading.md#to-30-normalized-record-keys) that writes `moved` blocks from `state_migration`, on the three addresses of the records (the root module, `modules/dns/v5` and `modules/dns/idna`), against a state with the 2.x keys made from the plan (no refresh, nothing is read from Cloudflare; it needs `jq`).
+
 The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/tests`), and the YAML that `zone-to-ezdns.py` writes from a fixture goes through the module in CI.
 
 CI runs `terraform fmt`, `validate` and `test` for the root module, the core module, the `compile`, `prepare`, `checks` and `idna` submodules, the v5 wrapper and the examples (on Terraform 1.9.0 and the latest version, and on the minimum supported provider versions), checks that the module READMEs and the JSON Schema are up to date, tests the schema and the tools, runs `scripts/test-plan-checks.py` on both Terraform versions (checks with values known only after apply through `compile`, which plans, applies a saved plan and reads the state; the checks over all records through the v5 wrapper and the root module with a mocked provider), checks that the root module, the wrappers and the submodules have the same interface, [TFLint](https://github.com/terraform-linters/tflint) and [Gitleaks](https://github.com/gitleaks/gitleaks) on every pull request. The Benchmarks check measures the core on pull requests that change it and on pushes to main, and blocks time or peak memory regressions over 2x the stored CI baseline.

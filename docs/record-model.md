@@ -28,7 +28,7 @@ Most records are defined by `content`. Structured records are defined by a `data
 | `NAPTR` | `data` | `order`, `preference`, `replacement`, *`flags`*, *`service`*, *`regex`* |
 | `LOC` | `data` | `lat_degrees`, `lat_minutes`, `lat_seconds`, `lat_direction`, `long_degrees`, `long_minutes`, `long_seconds`, `long_direction`, *`altitude`*, *`size`*, *`precision_horz`*, *`precision_vert`* |
 
-Service parameters of `HTTPS` and `SVCB` records (RFC 9460) can be written as text in `value` (`alpn="h3,h2" port="443"`) or as fields of `data`, which the module writes into `value` in the order of their keys, each in quotes: lists such as `alpn`, `mandatory`, `ipv4hint` and `ipv6hint` are comma-separated, `ech` is base64. A record uses one form or the other, not both. The fields are checked at `plan` (addresses in the hints, protocol IDs without spaces, `port` from 0 to 65535). The record key hashes `data` with the parameters in `value`, so switching a record between `value` and fields keeps its key.
+Service parameters of `HTTPS` and `SVCB` records (RFC 9460) can be written as text in `value` (`alpn="h3,h2" port="443"`) or as fields of `data`, which the module writes into `value` in the order of their keys, each in quotes: lists such as `alpn`, `mandatory`, `ipv4hint` and `ipv6hint` are comma-separated, `ech` is base64. A record uses one form or the other, not both. The fields are checked at `plan` (addresses in the hints, protocol IDs without spaces, `port` from 0 to 65535). The record key hashes `data` with the parameters where they are written (only numbers and `target` are normalized), so switching an existing record from `value` to fields gives it a new key: set a `key` first, or move it with a `moved` block. The same record in both forms in one configuration fails at `plan` as a duplicate.
 
 ```hcl
 "@" = {
@@ -77,7 +77,7 @@ Each record is keyed in the state by its content, in the zone file format `<name
 | `AAAA` | `app AAAA 2001:db8::1` | the canonical address (RFC 5952: `2001:db8::1` for `2001:0DB8:0:0:0:0:0:1`) |
 | `MX`, `NS`, `PTR` | `@ MX mail.example.com` | the target in lower case without the trailing dot (`.` and `@` as written) |
 | `TXT` | `_dmarc TXT 21541c4e7044` | first 12 characters of the SHA-1 of the value as written (text is case-sensitive) |
-| Records with `data` (`SRV`, `TLSA`, ...) | `_sip._tcp SRV 9c61601f99e8` | first 12 characters of the SHA-1 of the data, with numbers in their shortest form (`5060` for `5060.0`), `target` and `replacement` in lower case without the trailing dot (except `.` and the URI of `URI` records), and the service parameters of `HTTPS` and `SVCB` in `value` |
+| Records with `data` (`SRV`, `TLSA`, ...) | `_sip._tcp SRV 9c61601f99e8` | first 12 characters of the SHA-1 of the data, with numbers in their shortest form (`5060` for `5060.0`), `target` and `replacement` in lower case without the trailing dot (except `.` and the URI of `URI` records); the service parameters of `HTTPS` and `SVCB` stay as written, in `value` or as fields |
 | `CNAME` and `ALIASES` | `www CNAME` | none: only one CNAME is allowed per name |
 | `CAA` | `app CAA issue letsencrypt.org` | the tag and the value as written |
 | Any record with `key` | `google._domainkey TXT dkim` | the key as written (`dkim` and `DKIM` are two keys) |

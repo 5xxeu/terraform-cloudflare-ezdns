@@ -420,7 +420,7 @@ The module creates these records:
 |:-----|:-----|:------|----:|:-----------|
 | `app.example.com` | A | `192.0.2.30` | 3600 | `app A web` |
 | `app.example.com` | AAAA | `2001:db8::30` | 3600 | `app AAAA web` |
-| `app.example.com` | HTTPS | `1 . alpn="h3,h2" ipv4hint="192.0.2.30" ipv6hint="2001:db8::30"` | 3600 | `app HTTPS 20e7d19eb932` |
+| `app.example.com` | HTTPS | `1 . alpn="h3,h2" ipv4hint="192.0.2.30" ipv6hint="2001:db8::30"` | 3600 | `app HTTPS c2403c3d36f3` |
 
 <!-- END_RECORDS -->
 

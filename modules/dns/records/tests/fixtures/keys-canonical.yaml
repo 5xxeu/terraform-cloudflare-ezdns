@@ -33,6 +33,13 @@ records:
           priority: 1
           target: .
           value: alpn="h2" port="443"
+  https-fields:
+    HTTPS:
+      - data:
+          priority: 1
+          target: .
+          alpn: h2
+          port: 443
   nomail:
     MX:
       - content: .

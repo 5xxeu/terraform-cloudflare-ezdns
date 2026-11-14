@@ -53,8 +53,9 @@ locals {
   #   CAA                 the tag in lower case and the value as written
   #   CNAME               none: a name has one CNAME
   #   data types          a hash of data with numbers in their shortest form ("5060.0" is
-  #                       5060), targets in lower case without the trailing dot (except
-  #                       "."), and the service parameters of HTTPS and SVCB in value
+  #                       5060) and targets in lower case without the trailing dot (except
+  #                       "."); the service parameters of HTTPS and SVCB stay as written,
+  #                       as fields or in value (two keys, as in 2.x)
   #   explicit key        the key as written
   normalized = [
     for i, r in local.resolved : {
@@ -66,19 +67,14 @@ locals {
         r.type == "TXT" ? substr(sha1(r.content), 0, 12) :
         r.type == "AAAA" ? local.addresses[i] :
         contains(["MX", "NS", "PTR"], r.type) ? (r.content == "." ? "." : lower(trimsuffix(r.content, "."))) :
-        contains(local.data_types, r.type) ? substr(sha1(jsonencode(merge(
-          {
-            for field, value in r.rec.data : field => (
-              value == null ? null :
-              contains(lookup(local.numeric_fields, r.type, []), field) && can(tonumber(value)) ? tostring(tonumber(value)) :
-              contains(local.hostname_fields, field) && !(field == "target" && r.type == "URI") && value != "." ? lower(trimsuffix(value, ".")) :
-              value
-            ) if !(contains(["HTTPS", "SVCB"], r.type) && contains(local.svc_params, field) && value != null)
-          },
-          contains(["HTTPS", "SVCB"], r.type) && length([for param in local.svc_params : param if lookup(r.rec.data, param, null) != null]) > 0 ? {
-            value = join(" ", [for param in local.svc_params : "${param}=\"${param == "port" ? tonumber(r.rec.data[param]) : r.rec.data[param]}\"" if lookup(r.rec.data, param, null) != null])
-          } : {},
-        ))), 0, 12) :
+        contains(local.data_types, r.type) ? substr(sha1(jsonencode({
+          for field, value in r.rec.data : field => (
+            value == null ? null :
+            contains(lookup(local.numeric_fields, r.type, []), field) && can(tonumber(value)) ? tostring(tonumber(value)) :
+            contains(local.hostname_fields, field) && !(field == "target" && r.type == "URI") && value != "." ? lower(trimsuffix(value, ".")) :
+            value
+          )
+        })), 0, 12) :
         r.content
       )
     }

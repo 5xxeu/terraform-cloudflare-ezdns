@@ -30,6 +30,12 @@ records:
       - data:
           priority: "1.0"
           target: .
+          value: alpn="h2" port="443"
+  HTTPS-FIELDS:
+    HTTPS:
+      - data:
+          priority: "01"
+          target: .
           alpn: h2
           port: 443
   Sub:
@@ -50,7 +56,7 @@ records:
       - data:
           priority: 1
           target: Svc.Example.net.
-          alpn: h2
+          value: alpn="h2"
   _web._tcp:
     URI:
       - priority: 10

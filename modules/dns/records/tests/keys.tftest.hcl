@@ -7,7 +7,8 @@ variables {
 }
 
 # One record of each class (A, AAAA, CNAME and ALIASES, MX, NS, PTR, CAA, TXT, data
-# types, an explicit key) in the canonical form: the keys of 2.x, nothing to migrate
+# types, HTTPS and SVCB with the service parameters in value and HTTPS with them as
+# fields, an explicit key) in the canonical form: the keys of 2.x, nothing to migrate
 run "canonical_keys_as_in_2x" {
   command = plan
 
@@ -28,6 +29,7 @@ run "canonical_keys_as_in_2x" {
       "app A 192.0.2.1",
       "app AAAA 2001:db8::1",
       "app TXT dkim",
+      "https-fields HTTPS f084fb2b8920",
       "nomail MX .",
       "office LOC 46ecfa803924",
       "relay MX @",
@@ -49,8 +51,9 @@ run "canonical_keys_as_in_2x" {
 }
 
 # The same records in other forms (names in upper case, targets with the trailing dot,
-# IPv6 not shortened, numbers as decimals, HTTPS service parameters as fields), each
-# planned on its own: the addresses of their canonical forms
+# IPv6 not shortened, numbers as decimals), each planned on its own: the addresses of
+# their canonical forms. The service parameters of HTTPS and SVCB stay where they are
+# written (in value or as fields)
 run "other_forms_same_keys" {
   command = plan
 
@@ -59,27 +62,28 @@ run "other_forms_same_keys" {
   }
 
   assert {
-    condition     = length(setsubtract(keys(output.flat_records), keys(run.canonical_keys_as_in_2x.flat_records))) == 0 && length(output.flat_records) == 16
+    condition     = length(setsubtract(keys(output.flat_records), keys(run.canonical_keys_as_in_2x.flat_records))) == 0 && length(output.flat_records) == 17
     error_message = "Every form must have the address of its canonical form"
   }
 
   assert {
     condition = output.state_migration == {
-      "1.2 PTR Host.Example.com."      = "1.2 PTR host.example.com"
-      "@ HTTPS eb0e3fa8c313"           = "@ HTTPS 2563d6f5901e"
-      "@ MX Mail.Example.com."         = "@ MX mail.example.com"
-      "APP A 192.0.2.1"                = "app A 192.0.2.1"
-      "APP AAAA 2001:0DB8:0:0:0:0:0:1" = "app AAAA 2001:db8::1"
-      "APP TXT dkim"                   = "app TXT dkim"
-      "Static CNAME"                   = "static CNAME"
-      "Sub NS NS1.example.net."        = "sub NS ns1.example.net"
-      "V4M AAAA ::ffff:c000:201"       = "v4m AAAA ::ffff:192.0.2.1"
-      "WWW CNAME"                      = "www CNAME"
-      "WWW2 CNAME"                     = "www2 CNAME"
-      "_SIP._tcp SRV ebb29c51d740"     = "_sip._tcp SRV 9c61601f99e8"
-      "_web._tcp URI bdb1f67a8194"     = "_web._tcp URI 8b8dfee6118d"
-      "office LOC 44bf1db748bf"        = "office LOC 46ecfa803924"
-      "svc SVCB 3af14752662a"          = "svc SVCB 8d99af72d5c0"
+      "1.2 PTR Host.Example.com."       = "1.2 PTR host.example.com"
+      "@ HTTPS f146118ed5b1"            = "@ HTTPS 2563d6f5901e"
+      "@ MX Mail.Example.com."          = "@ MX mail.example.com"
+      "APP A 192.0.2.1"                 = "app A 192.0.2.1"
+      "APP AAAA 2001:0DB8:0:0:0:0:0:1"  = "app AAAA 2001:db8::1"
+      "APP TXT dkim"                    = "app TXT dkim"
+      "HTTPS-FIELDS HTTPS ce06d2371e57" = "https-fields HTTPS f084fb2b8920"
+      "Static CNAME"                    = "static CNAME"
+      "Sub NS NS1.example.net."         = "sub NS ns1.example.net"
+      "V4M AAAA ::ffff:c000:201"        = "v4m AAAA ::ffff:192.0.2.1"
+      "WWW CNAME"                       = "www CNAME"
+      "WWW2 CNAME"                      = "www2 CNAME"
+      "_SIP._tcp SRV ebb29c51d740"      = "_sip._tcp SRV 9c61601f99e8"
+      "_web._tcp URI bdb1f67a8194"      = "_web._tcp URI 8b8dfee6118d"
+      "office LOC 44bf1db748bf"         = "office LOC 46ecfa803924"
+      "svc SVCB 3542592b3cf7"           = "svc SVCB 8d99af72d5c0"
     }
     error_message = "state_migration must map the 2.x keys of the other forms to their keys now"
   }
@@ -154,5 +158,26 @@ run "same_legacy_key_twice" {
   assert {
     condition     = length(output.diagnostics.duplicates) == 1
     error_message = "The records are reported as duplicates"
+  }
+}
+
+# The service parameters of an HTTPS or SVCB record in value and as fields are two keys
+# (as in 2.x), but one record in DNS: two such records in one configuration are
+# duplicates
+run "svc_params_in_value_and_as_fields" {
+  command = plan
+
+  variables {
+    records = {
+      "svc" = { SVCB = [
+        { data = { priority = 1, target = "svc.example.net", value = "alpn=\"h2\" port=\"8443\"" } },
+        { data = { priority = 1, target = "Svc.Example.net.", alpn = "h2", port = 8443 } },
+      ] }
+    }
+  }
+
+  assert {
+    condition     = output.diagnostics.duplicates == ["\"svc.example.com SVCB 6d5dba16b6fa\" as \"svc SVCB 6d5dba16b6fa\" from records[\"svc\"][\"SVCB\"][0] and \"svc SVCB e3f0a4255c5d\" from records[\"svc\"][\"SVCB\"][1]"]
+    error_message = "The two forms of one SVCB record must be reported as duplicates"
   }
 }

@@ -332,7 +332,7 @@ pass "upgrade from ${upgrade_from}: same record IDs, no drift (${summary})"
 migration_moves=7
 apply_release migrate "$migrate_from"
 address=module.dns.module.v5.cloudflare_dns_record.record
-echo "jsonencode(module.dns.state_migration)" | tf migrate console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
+echo "jsonencode(nonsensitive(module.dns.state_migration))" | tf migrate console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
     fail "migrate: state_migration could not be read"
 jq -r --arg addr "$address" '
     to_entries[] |

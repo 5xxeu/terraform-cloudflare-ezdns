@@ -333,8 +333,7 @@ run "hcl_equals_yaml" {
 }
 
 # Service parameters of an HTTPS record moved between value and fields: the same record,
-# so its address stays, with a key or without one (the key hashes data with the
-# parameters in value)
+# so with a key its address stays (without one, the key is a hash of data as written)
 run "https_params_in_value_under_a_key" {
   command = plan
 
@@ -353,26 +352,5 @@ run "https_params_as_fields_under_a_key" {
   assert {
     condition     = output.flat_records == run.https_params_in_value_under_a_key.flat_records
     error_message = "Service parameters as fields or in value under one key give the same address and data"
-  }
-}
-
-run "https_params_in_value" {
-  command = plan
-
-  variables {
-    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", value = "alpn=\"h2\" port=\"443\"" } }] } }
-  }
-}
-
-run "https_params_as_fields" {
-  command = plan
-
-  variables {
-    records = { "@" = { HTTPS = [{ data = { priority = 1, target = ".", alpn = "h2", port = 443 } }] } }
-  }
-
-  assert {
-    condition     = output.flat_records == run.https_params_in_value.flat_records
-    error_message = "Service parameters as fields or in value give the same address and data"
   }
 }

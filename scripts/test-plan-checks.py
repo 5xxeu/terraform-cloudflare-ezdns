@@ -17,9 +17,11 @@ terraform test cannot expect a failure in a called module, so these cases are pl
 - through the v5 wrapper and the root module, with terraform test and a mock provider (no
   Cloudflare account): each run must fail with the message of its check;
 - the plan JSON of root, v5, idna and compile (made-up token, nothing is read from
-  Cloudflare): the records output is sensitive and record_metadata is not.
+  Cloudflare): the records output is sensitive and record_metadata is not;
+- the command of docs/upgrading.md that writes moved blocks from state_migration, on the
+  three addresses of the records (root, v5, idna), against a state with the 2.x keys.
 
-Standard library only; no provider credentials. The last part downloads the cloudflare
+Standard library, sh and jq; no provider credentials. The last parts download the cloudflare
 provider for the mock (terraform init). TERRAFORM sets the binary (default: terraform).
 """
 import json
@@ -415,6 +417,84 @@ with tempfile.TemporaryDirectory() as tmp:
         except (ValueError, KeyError):
             marked = False
         report(f'{label}: records is sensitive in the plan JSON, record_metadata is not', result[0] == 0 and marked, result[1] + shown[1][:2000])
+
+# The moved blocks of docs/upgrading.md ("To 3.0: Normalized Record Keys") on the three
+# addresses of the records: a state with the 2.x keys (the keys of state_migration, on
+# the values that the plan gives the records) is moved by the blocks that the command of
+# the docs writes, without records to create or delete. Made-up token, no refresh:
+# nothing is read from Cloudflare. Needs jq and sh
+upgrading = (ROOT / 'docs/upgrading.md').read_text()
+section = upgrading[upgrading.index('## To 3.0: Normalized Record Keys'):]
+command = section[section.index('```sh') + len('```sh'):]
+command = '\n'.join(line[3:] for line in command[:command.index('```')].splitlines()
+                    if line.strip() and not line.strip().startswith(('#', 'ADDRESS=')))
+# Records in other forms (each moves) next to one in the canonical form (stays)
+FORMS = {
+    'WWW': {'A': [{'content': '192.0.2.1'}]},
+    'app': {'AAAA': [{'content': '2001:DB8:0:0:0:0:0:1'}]},
+    '@': {'MX': [{'content': 'Mail.Example.com.', 'priority': 10}]},
+    '_SIP._tcp': {'SRV': [{'data': {'priority': '10.0', 'weight': 5, 'port': 5060, 'target': 'sip.example.com'}}]},
+    'static': {'A': [{'content': '192.0.2.2'}]},
+}
+for label, source, address in [
+    ('root', './..', 'module.dns.module.v5.cloudflare_dns_record.record'),
+    ('v5', '../modules/dns/v5', 'module.dns.cloudflare_dns_record.record'),
+    ('idna', '../modules/dns/idna', 'module.dns.module.v5.cloudflare_dns_record.record'),
+]:
+    with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
+        directory = Path(tmp)
+        (directory / 'records.json').write_text(json.dumps(FORMS))
+        (directory / 'main.tf').write_text('''terraform {
+  required_providers {
+    cloudflare = {
+      source = "cloudflare/cloudflare"
+    }
+  }
+}
+
+module "dns" {
+  source    = "%s"
+  zone_id   = "z"
+  zone_name = "example.com"
+  records   = jsondecode(file("records.json"))
+}
+''' % source)
+        init(directory)
+        ok, output = False, ''
+        try:
+            code, output = run(['plan', '-out=new.tfplan'], directory)
+            planned = json.loads(run(['show', '-json', 'new.tfplan'], directory)[1])
+            schema = json.loads(subprocess.run([terraform, 'providers', 'schema', '-json'], cwd=directory,
+                                               capture_output=True, text=True, check=True).stdout)
+            version = schema['provider_schemas']['registry.terraform.io/cloudflare/cloudflare']['resource_schemas']['cloudflare_dns_record']['version']
+            migration = json.loads(json.loads(subprocess.run(
+                [terraform, 'console'], input='jsonencode(nonsensitive(module.dns.state_migration))', cwd=directory,
+                capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1]))
+            old_keys = {new: old for old, new in migration.items()}
+            changes = [c for c in planned['resource_changes'] if c['type'] == 'cloudflare_dns_record']
+            resource = changes[0]
+            instances = [{'index_key': old_keys.get(c['index'], c['index']), 'schema_version': version, 'sensitive_attributes': [],
+                          'attributes': dict(c['change']['after'], id=f'{n:032x}')} for n, c in enumerate(changes)]
+            (directory / 'terraform.tfstate').write_text(json.dumps({
+                'version': 4, 'terraform_version': '1.9.0', 'serial': 1, 'lineage': 'plan-checks', 'outputs': {},
+                'resources': [{'module': resource['module_address'], 'mode': 'managed', 'type': 'cloudflare_dns_record',
+                               'name': 'record', 'provider': 'provider["registry.terraform.io/cloudflare/cloudflare"]',
+                               'instances': instances}]}))
+            before = sorted(f'{address}[{json.dumps(i["index_key"])}]' for i in instances)
+            generated = subprocess.run(['sh', '-c', f'ADDRESS={address}\n{command}'], cwd=directory, capture_output=True, text=True,
+                                       env=dict(os.environ, PATH=f'{Path(terraform).resolve().parent}:{os.environ["PATH"]}' if '/' in terraform else os.environ['PATH']))
+            output = generated.stdout + generated.stderr
+            blocks = (directory / 'dns_migration.tf').read_text().count('moved {')
+            code, output = run(['plan', '-refresh=false', '-out=moved.tfplan'], directory)
+            moved = [c for c in json.loads(run(['show', '-json', 'moved.tfplan'], directory)[1])['resource_changes']
+                     if c['type'] == 'cloudflare_dns_record']
+            moves = [c for c in moved if c.get('previous_address', c['address']) != c['address']]
+            ok = (code == 0 and blocks == len(migration) == len(moves) == 4
+                  and all(c['change']['actions'] in (['no-op'], ['update']) for c in moved)
+                  and sorted(c.get('previous_address', c['address']) for c in moved) == before)
+        except (ValueError, KeyError, IndexError, OSError, subprocess.CalledProcessError) as error:
+            output += f'\n{error!r}'
+        report(f'{label}: moved blocks of docs/upgrading.md move the 2.x keys of {address}', ok, output[-3000:])
 
 if failed:
     raise SystemExit(f'Failed: {", ".join(failed)}')

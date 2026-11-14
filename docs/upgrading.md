@@ -57,7 +57,7 @@ No addresses in the state change.
 
 ## To 3.0: Normalized Record Keys
 
-Record keys are built from the name in lower case and the value in a normal form (see [Record Keys](record-model.md#record-keys)), so forms that DNS does not tell apart have one address: `WWW` and `www`, `Mail.Example.com.` and `mail.example.com` as an `MX`, `NS` or `PTR` target, `2001:0DB8::1` and `2001:db8::1`, `5060.0` and `5060` in `data`, the service parameters of `HTTPS` and `SVCB` as fields or in `value`. A record written in the normal form (names in lower case, targets without the trailing dot, IPv6 addresses shortened, parameters in `value`) keeps its key. A record written in another form gets the key of the normal form, and without a `moved` block Terraform plans to delete it and create it again.
+Record keys are built from the name in lower case and the value in a normal form (see [Record Keys](record-model.md#record-keys)), so forms that DNS does not tell apart have one address: `WWW` and `www`, `Mail.Example.com.` and `mail.example.com` as an `MX`, `NS` or `PTR` target, `2001:0DB8::1` and `2001:db8::1`, `5060.0` and `5060` in `data`. A record written in the normal form (names in lower case, targets without the trailing dot, IPv6 addresses shortened, numbers in their shortest form) keeps its key. The service parameters of `HTTPS` and `SVCB` records are not normalized: a record keeps its key with the parameters as fields of `data` and with them in `value`, and switching between the two still gives a new key. A record written in another form gets the key of the normal form, and without a `moved` block Terraform plans to delete it and create it again.
 
 The `state_migration` output maps the 2.x keys of these records to their keys now (it held the 1.x keys in 2.x; upgrade from 1.x to 2.x first, see [From v1 to v2](#from-v1-to-v2)). Generate `moved` blocks from it (requires `jq`):
 
@@ -69,7 +69,7 @@ The `state_migration` output maps the 2.x keys of these records to their keys no
    # module.dns.cloudflare_dns_record.record
    ADDRESS=module.dns.module.v5.cloudflare_dns_record.record
    MODULE=${ADDRESS%%.module.v5.*}; MODULE=${MODULE%.cloudflare_dns_record.record}
-   echo "jsonencode(${MODULE}.state_migration)" | terraform console | tail -n 1 \
+   echo "jsonencode(nonsensitive(${MODULE}.state_migration))" | terraform console | tail -n 1 \
      | jq -r --arg addr "$ADDRESS" '
          fromjson | to_entries[] |
          "moved {",
@@ -79,7 +79,7 @@ The `state_migration` output maps the 2.x keys of these records to their keys no
      > dns_migration.tf
    ```
 
-   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
+   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. The output is sensitive (a key can hold the origin address of a proxied record), so the command reads it with `nonsensitive()`, and the generated file holds these keys as well: keep it out of public logs and delete it after `apply`. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
 3. Run `terraform plan`. It should only show records that have moved (and changes in place, if any), with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`.
 
