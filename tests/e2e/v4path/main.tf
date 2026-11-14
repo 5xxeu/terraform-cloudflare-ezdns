@@ -12,23 +12,23 @@ module "dns" {
   default_ttl     = 300
   default_comment = "ezdns-e2e"
   records = {
-    "MIG.${var.prefix}" = {
+    "V4P.${var.prefix}" = {
       A    = [{ content = "192.0.2.20" }]
       AAAA = [{ content = "2001:0DB8:0:0:0:0:0:20" }]
       MX   = [{ content = "mail.${var.zone_name}", priority = 10 }]
       TXT  = [{ content = "ezdns v4 path" }]
       CAA  = [{ content = "letsencrypt.org", tag = "issue" }]
     }
-    "_SIP._tcp.mig.${var.prefix}" = {
+    "_SIP._tcp.v4p.${var.prefix}" = {
       SRV = [{ data = { priority = 10, weight = 5, port = 5060, target = "sip.${var.zone_name}" } }]
     }
-    "WWW.mig.${var.prefix}" = {
-      CNAME = [{ content = "alias.mig.${var.prefix}.${var.zone_name}" }]
+    "WWW.v4p.${var.prefix}" = {
+      CNAME = [{ content = "alias.v4p.${var.prefix}.${var.zone_name}" }]
     }
-    "alias.mig.${var.prefix}" = {
+    "alias.v4p.${var.prefix}" = {
       A             = [{ content = "192.0.2.21" }]
-      ALIASES       = [{ (var.alias_attribute) = "ALIAS-WWW.mig.${var.prefix}" }]
-      "cdn.ALIASES" = [{ (var.alias_attribute) = "cdn-www.mig.${var.prefix}" }]
+      ALIASES       = [{ (var.alias_attribute) = "ALIAS-WWW.v4p.${var.prefix}" }]
+      "cdn.ALIASES" = [{ (var.alias_attribute) = "cdn-www.v4p.${var.prefix}" }]
     }
   }
 }
