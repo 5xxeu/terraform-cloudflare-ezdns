@@ -120,7 +120,7 @@ run "zone" {
 # tests/compile/main.tf
 module "compiled" {
   source  = "5xxeu/ezdns/cloudflare//modules/dns/compile"
-  version = "2.22.0"
+  version = "3.0.0"
 
   zone_name = "example.com"
   records   = yamldecode(file("${path.module}/../../records.ezdns.yaml")).records
