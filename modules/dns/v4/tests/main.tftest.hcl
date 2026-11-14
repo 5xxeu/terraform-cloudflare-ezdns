@@ -1,0 +1,660 @@
+# Record parsing, aliases and validation are covered by the tests of modules/dns/records.
+# These tests cover only how records are mapped to the provider resource.
+
+mock_provider "cloudflare" {
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "looked-up.com" }
+  }
+}
+
+variables {
+  zone_id   = "z"
+  zone_name = "example.com"
+  records = {
+    "app" = {
+      A       = [{ content = "30.40.50.60", proxied = true }]
+      TXT     = [{ content = "v=spf1 ~all", key = "spf" }]
+      MX      = [{ content = "mx.example.com", priority = 5 }]
+      CAA     = [{ content = "letsencrypt.org", tag = "issue" }]
+      ALIASES = [{ name = "support" }]
+      DNSKEY  = [{ data = { flags = 257, protocol = 3, algorithm = 13, public_key = "abc" } }]
+      NAPTR   = [{ data = { order = 100, preference = 10, flags = "U", service = "E2U+sip", regex = "!^.*0sip:info@example.com!", replacement = "." } }]
+    }
+    "_sip._tcp" = {
+      SRV = [{ key = "sip", data = { priority = 10, weight = 5, port = 5060, target = "sip.example.com" } }]
+    }
+  }
+}
+
+run "plan" {
+  command = plan
+
+  assert {
+    condition     = cloudflare_record.record["app A 30.40.50.60"].ttl == 1 && cloudflare_record.record["app A 30.40.50.60"].proxied == true
+    error_message = "Proxied records must have automatic TTL"
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app TXT spf"].ttl == 3600 && cloudflare_record.record["app TXT spf"].priority == null
+    error_message = "Default TTL, no priority for TXT"
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app MX mx.example.com"].priority == 5
+    error_message = "MX priority"
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app CAA issue letsencrypt.org"].data[0].tag == "issue" && cloudflare_record.record["app CAA issue letsencrypt.org"].data[0].flags == "0"
+    error_message = "CAA data"
+  }
+
+  assert {
+    condition     = cloudflare_record.record["_sip._tcp SRV sip"].priority == 10 && cloudflare_record.record["_sip._tcp SRV sip"].data[0].port == 5060 && cloudflare_record.record["_sip._tcp SRV sip"].data[0].target == "sip.example.com"
+    error_message = "SRV data and priority"
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app DNSKEY ${substr(sha1(jsonencode({ flags = "257", protocol = "3", algorithm = "13", public_key = "abc" })), 0, 12)}"].data[0].flags == "257"
+    error_message = "DNSKEY flags"
+  }
+
+  assert {
+    condition     = one([for k, r in cloudflare_record.record : r.data[0].flags if r.type == "NAPTR"]) == "U"
+    error_message = "NAPTR flags"
+  }
+}
+
+run "zone_lookup" {
+  command = plan
+
+  variables {
+    zone_name = null
+  }
+
+  assert {
+    condition     = cloudflare_record.record["support CNAME"].content == "app.looked-up.com"
+    error_message = "Zone lookup"
+  }
+}
+
+run "comments_and_tags" {
+  command = plan
+
+  variables {
+    default_comment = "Managed by Terraform"
+    default_tags    = ["managed-by:terraform"]
+    records = {
+      "app" = {
+        A    = [{ content = "192.0.2.1", comment = "Web", tags = ["role:web"] }]
+        AAAA = [{ content = "2001:db8::1" }]
+      }
+    }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app A 192.0.2.1"].comment == "Web" && cloudflare_record.record["app AAAA 2001:db8::1"].comment == "Managed by Terraform"
+    error_message = "Comments are passed to the resource"
+  }
+
+  assert {
+    condition     = toset(cloudflare_record.record["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "Tags are passed to the resource"
+  }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].comment == "Web" && toset(output.records["app A 192.0.2.1"].tags) == toset(["managed-by:terraform", "role:web"])
+    error_message = "records has the comment and the tags as configured"
+  }
+
+  assert {
+    condition = (
+      [for r in output.record_metadata : "${r.fqdn} ${r.type} ${r.comment}"] == ["app.example.com A Web", "app.example.com AAAA Managed by Terraform"]
+      && alltrue([for r in output.record_metadata : !contains(keys(r), "content") && !contains(keys(r), "data")])
+      && toset(output.record_metadata[0].tags) == toset(["managed-by:terraform", "role:web"])
+    )
+    error_message = "record_metadata has the records in the order of their keys, with comments and tags but without values"
+  }
+}
+
+run "unknown_attribute" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxid = true }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
+run "private_routing_is_ignored" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = true }] } }
+  }
+
+  assert {
+    condition     = output.records["app A 192.0.2.1"].private_routing == null
+    error_message = "Provider v4 has no private_routing: the attribute is accepted and ignored"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "settings_are_ignored_with_a_warning" {
+  command = plan
+
+  variables {
+    records = { "app" = { CNAME = [{ content = "target.example.net", settings = { flatten_cname = true } }] } }
+    record_groups = {
+      "mail" = { records = { "mx" = { AAAA = [{ content = "2001:db8::1", settings = { ipv6_only = true } }] } } }
+    }
+  }
+
+  assert {
+    condition = local.v5_only_attributes == [
+      "records[\"app\"][\"CNAME\"][0].settings.flatten_cname",
+      "record_groups[\"mail\"].records[\"mx\"][\"AAAA\"][0].settings.ipv6_only",
+    ]
+    error_message = "Settings that ask for something are listed with their source"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "v5_only_attributes_as_strings" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", proxied = true, private_routing = "true", settings = { ipv4_only = "true" } }] } }
+  }
+
+  assert {
+    condition     = length(local.v5_only_attributes) == 2
+    error_message = "\"true\" as a string (YAML, JSON) is converted to true by the core and warns too"
+  }
+
+  expect_failures = [check.records_v5_only_attributes]
+}
+
+run "default_settings_need_no_warning" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", private_routing = false, settings = { ipv4_only = false } }] } }
+  }
+
+  assert {
+    condition     = length(local.v5_only_attributes) == 0
+    error_message = "false is the default: nothing is lost with provider v4"
+  }
+}
+
+run "unknown_settings_attribute" {
+  command = plan
+
+  variables {
+    records = { "app" = { AAAA = [{ content = "2001:db8::1", settings = { ipv6_onyl = true } }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
+run "record_is_not_an_object" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = ["192.0.2.1"] } }
+  }
+
+  expect_failures = [var.records]
+}
+
+run "names_in_lower_case_and_allowed_cname_conflicts" {
+  command = plan
+
+  variables {
+    records = {
+      "Community" = {
+        CNAME = [{ content = "forum.example.net" }]
+        MX    = [{ content = "mx.example.net", priority = 10 }]
+      }
+    }
+    allowed_cname_conflicts = ["community.example.com"]
+  }
+
+  assert {
+    condition     = cloudflare_record.record["community CNAME"].name == "community" && cloudflare_record.record["community MX mx.example.net"].name == "community"
+    error_message = "The resource gets the name in lower case, and the listed CNAME conflict is accepted"
+  }
+}
+
+run "minimum_ttl_from_the_plan_of_the_zone" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "example.com", plan = "Enterprise Website" }
+  }
+
+  variables {
+    minimum_ttl = "auto"
+    records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["fast A 192.0.2.9"].ttl == 30 && length(data.cloudflare_zone.this) == 1
+    error_message = "minimum_ttl = \"auto\" reads the zone and allows 30 seconds on Enterprise zones"
+  }
+}
+
+run "minimum_ttl_passed_to_the_core" {
+  command = plan
+
+  variables {
+    minimum_ttl = 30
+    records     = { "fast" = { A = [{ content = "192.0.2.9", ttl = 30 }] } }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["fast A 192.0.2.9"].ttl == 30
+    error_message = "minimum_ttl must reach the core module"
+  }
+}
+
+run "yaml_booleans_in_text_values" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        TXT:
+          - content: off
+          - content: "quoted"
+            comment: yes
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+# name of ALIASES is text too: unquoted off would become the name "false"
+run "yaml_booleans_in_alias_names" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        ALIASES:
+          - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+run "yaml_booleans_in_alias_names_of_groups" {
+  command = plan
+
+  variables {
+    records = {}
+    record_groups = yamldecode(<<-YAML
+      web:
+        records:
+          "@":
+            ALIASES:
+              - name: off
+    YAML
+    )
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "yaml_quoted_text_values" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      "@":
+        TXT:
+          - content: "off"
+          - content: "0123"
+            key: "n"
+    YAML
+    )
+  }
+
+  assert {
+    condition     = length([for r in cloudflare_record.record : r if r.content == "off" || r.content == "0123"]) == 2
+    error_message = "Quoted values must stay as written"
+  }
+}
+
+run "empty_zone_name" {
+  command = plan
+
+  variables {
+    zone_name = ""
+  }
+
+  expect_failures = [var.zone_name]
+}
+
+run "unicode_zone_name" {
+  command = plan
+
+  variables {
+    zone_name = "münchen.de"
+  }
+
+  expect_failures = [var.zone_name]
+}
+
+run "zone_name_with_a_trailing_dot" {
+  command = plan
+
+  variables {
+    zone_name = "Example.com."
+    records   = { "app" = { A = [{ content = "192.0.2.1" }], ALIASES = [{ name = "www" }] }, "api.example.com" = { A = [{ content = "192.0.2.2" }] } }
+  }
+
+  assert {
+    condition     = sort([for r in values(module.records.flat_records) : r.fqdn]) == tolist(["api.example.com", "app.example.com", "www.example.com"])
+    error_message = "A trailing dot and the case of zone_name do not change the names"
+  }
+}
+
+# Cloudflare returns the name of an internationalized zone in Unicode (checked against
+# the API on a pending zone münchen.de); the lookup then fails with what to set
+run "unicode_zone_lookup" {
+  command = plan
+
+  override_data {
+    target = data.cloudflare_zone.this[0]
+    values = { name = "münchen.de" }
+  }
+
+  variables {
+    zone_name = null
+  }
+
+  expect_failures = [data.cloudflare_zone.this]
+}
+
+run "punycode_zone_name" {
+  command = plan
+
+  variables {
+    zone_name = "xn--mnchen-3ya.de"
+    records   = { "www" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = module.records.flat_records["www A 192.0.2.1"].fqdn == "www.xn--mnchen-3ya.de"
+    error_message = "A zone name in Punycode gives fully qualified names in Punycode"
+  }
+}
+
+run "yaml_booleans_in_data" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      svc:
+        SVCB:
+          - data: { priority: 1, target: ".", value: off }
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+run "yaml_booleans_in_tags" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      app:
+        A:
+          - content: 192.0.2.1
+            tags: [N]
+    YAML
+    )
+  }
+
+  expect_failures = [var.records]
+}
+
+run "yaml_unquoted_n_as_loc_lat_direction" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      office:
+        LOC:
+          - data: { lat_degrees: 52, lat_minutes: 22, lat_seconds: 23, lat_direction: N, long_degrees: 4, long_minutes: 53, long_seconds: 32, long_direction: E, altitude: 0, size: 1, precision_horz: 10000, precision_vert: 10 }
+    YAML
+    )
+  }
+
+  assert {
+    condition     = one([for r in module.records.flat_records : r.data.lat_direction if r.type == "LOC"]) == "N"
+    error_message = "An unquoted N is north in a LOC lat_direction"
+  }
+}
+
+# Numeric fields of data may be numbers: no warning
+run "yaml_numbers_in_numeric_data_fields" {
+  command = plan
+
+  variables {
+    records = yamldecode(<<-YAML
+      _sip._tcp:
+        SRV:
+          - data: { priority: 10, weight: 5, port: 5060, target: sip.example.com }
+    YAML
+    )
+  }
+
+  assert {
+    condition     = length(module.records.flat_records) == 1
+    error_message = "SRV with numeric fields"
+  }
+}
+
+# A module call may pass optional inputs through as null; null means the default
+run "null_defaults" {
+  command = plan
+
+  variables {
+    default_ttl     = null
+    default_proxied = null
+    default_tags    = null
+    records         = { "app" = { A = [{ content = "192.0.2.1" }] } }
+  }
+
+  assert {
+    condition     = module.records.flat_records["app A 192.0.2.1"].ttl == 3600 && module.records.flat_records["app A 192.0.2.1"].proxied == false && length(module.records.flat_records["app A 192.0.2.1"].tags) == 0
+    error_message = "null defaults mean 3600, false and no tags"
+  }
+}
+
+# tags given as a set in HCL: a set has no index, so the values are checked
+run "booleans_in_a_set_of_tags" {
+  command = plan
+
+  variables {
+    records = { "app" = { A = [{ content = "192.0.2.1", tags = toset([false]) }] } }
+  }
+
+  expect_failures = [var.records]
+}
+
+run "fractional_default_ttl" {
+  command = plan
+
+  variables {
+    default_ttl = 3600.5
+  }
+
+  expect_failures = [var.default_ttl]
+}
+
+run "ipv6_sent_in_canonical_form" {
+  command = plan
+
+  variables {
+    records = { "app" = { AAAA = [{ content = "2001:0DB8:0:0:0:0:0:1" }] } }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["app AAAA 2001:db8::1"].content == "2001:db8::1"
+    error_message = "IPv6 addresses are sent in the canonical form"
+  }
+}
+
+# The merge of record_groups is the code of the v5 wrapper (scripts/check-sync.sh), tested
+# there in detail
+run "record_groups" {
+  command = plan
+
+  variables {
+    record_groups = {
+      web = {
+        defaults = { ttl = 300 }
+        records  = { "www" = { A = [{ content = "192.0.2.1" }] } }
+      }
+    }
+  }
+
+  assert {
+    condition     = cloudflare_record.record["www A 192.0.2.1"].ttl == 300 && cloudflare_record.record["app TXT spf"].ttl == 3600
+    error_message = "Grouped records must be merged with records and get the group defaults"
+  }
+}
+
+run "record_groups_unknown_attribute" {
+  command = plan
+
+  variables {
+    record_groups = { web = { records = { "www" = { A = [{ content = "192.0.2.1", proxid = true }] } } } }
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "records_output" {
+  command = plan
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].fqdn == "app.example.com" && output.records["_sip._tcp SRV sip"].data.port == "5060"
+    error_message = "records must have the fully qualified name and the data from the configuration, known at plan"
+  }
+
+  assert {
+    condition     = issensitive(output.records) && !issensitive(output.record_metadata) && issensitive(output.state_migration)
+    error_message = "records (content and data of proxied records) and state_migration must be sensitive, record_metadata must not"
+  }
+
+  assert {
+    condition     = output.records["app MX mx.example.com"].name == "app.example.com" && alltrue([for r in output.record_metadata : r.name == r.fqdn && r.name == lower(r.name)])
+    error_message = "name must be the fully qualified name in lower case, as fqdn, before and after apply"
+  }
+
+  assert {
+    condition     = output.records["app A 30.40.50.60"].settings == null && output.records["app A 30.40.50.60"].private_routing == null
+    error_message = "settings and private_routing are null with provider v4"
+  }
+}
+
+run "owned_names" {
+  command = plan
+
+  variables {
+    owned_names = { include = ["*"] }
+  }
+
+  expect_failures = [var.owned_names]
+}
+
+run "ignore_changes_needs_provider_v5" {
+  command = plan
+
+  variables {
+    records = { "_acme-challenge" = { TXT = [{ content = "init", key = "acme", ignore_changes = ["content"] }] } }
+  }
+
+  expect_failures = [cloudflare_record.record]
+}
+
+# records: [] or record_groups: [] in YAML is a list: it must stop the plan, not pass
+# the validations as no records and delete them
+run "list_records" {
+  command = plan
+
+  variables {
+    records = []
+  }
+
+  expect_failures = [var.records]
+}
+
+run "list_record_groups" {
+  command = plan
+
+  variables {
+    record_groups = []
+  }
+
+  expect_failures = [var.record_groups]
+}
+
+run "require_keys_passed_to_the_core" {
+  command = plan
+
+  variables {
+    require_keys = ["A"]
+    records      = { "app" = { A = [{ content = "192.0.2.9", key = "web" }] } }
+  }
+
+  assert {
+    condition     = length(cloudflare_record.record) == 1 && cloudflare_record.record["app A web"].content == "192.0.2.9"
+    error_message = "Records with a key are planned with require_keys"
+  }
+}
+
+run "require_keys_in_the_wrapper" {
+  command = plan
+
+  variables {
+    require_keys = ["CNAME"]
+  }
+
+  expect_failures = [var.require_keys]
+}
+
+# Values known only after apply: a zone ID with no zone_name, and a zone_name. The plan
+# must not fail on the lookup of the zone, and the keys stay known (the same cases as modules/dns/idna/tests/computed_zone)
+run "computed_zone" {
+  command = plan
+
+  module {
+    source = "./tests/computed_zone"
+  }
+
+  assert {
+    condition     = output.keys == ["app A a"]
+    error_message = "With a zone ID known only after apply and no zone_name, the plan must not fail on the zone lookup, and the keys stay known"
+  }
+
+  assert {
+    condition     = output.keys_named == ["app A a", "shop AAAA 2001:db8::1"]
+    error_message = "A zone_name known only after apply must not make the keys unknown"
+  }
+}

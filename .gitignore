@@ -30,3 +30,4 @@ tools/tests/terraform/records.ezdns.yaml
 
 # Temporary converter integration tests
 .converter-test-*/
+/.plan-checks-*/

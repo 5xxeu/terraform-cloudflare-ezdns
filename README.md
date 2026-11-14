@@ -8,7 +8,7 @@ Predictable Cloudflare DNS management with Terraform. The zone (or a part of it)
 - **Checks before apply**: mistakes in names, types, values and conflicting records fail at `plan`, before the Cloudflare API.
 - **Import of an existing zone**: records that are already in the zone are adopted instead of created again.
 - **Checks of dangerous changes**: a script for CI stops plans that delete or replace records or turn off the proxy.
-- **Tested upgrades**: the upgrade from the previous release runs against a real zone before each release; `moved` blocks for renamed records are written from a plan.
+- **Tested upgrades**: the upgrade from the previous release and the path of the provider v4 wrapper to v5 run against a real zone before each release; `moved` blocks for renamed records are written from a plan.
 
 What is guaranteed and what is a best-effort check is listed in [Guarantees and Limits](#guarantees-and-limits).
 
@@ -148,7 +148,7 @@ When the zone already has records, adopt them instead of creating them again: se
 | [Recipes](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/recipes.md#recipes) | Record types and fields the module does not support, records next to external-dns, Cloudflare Tunnel, a table of the zone for a wiki, internationalized names |
 | [Module Sources](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#module-sources) | A copy of the module from a release archive, and a Git source |
 | [Testing](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/testing.md#testing) | How the module is tested, and how to test your own records without credentials |
-| [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) | Notes for each release that can fail a plan that passed before, from v1 to v2, and from provider v4 to v5 in 2.x |
+| [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) | Notes for each release that can fail a plan that passed before, from v1 to v2, and from provider v4 to v5 |
 | [Troubleshooting](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/troubleshooting.md) | The common errors and warnings, why they happen and what to do |
 
 ## Features
@@ -169,7 +169,8 @@ When the zone already has records, adopt them instead of creating them again: se
 - 🌍 **Internationalized Names**: The `idna` submodule takes zones, names and targets in Unicode (`münchen.de`) and converts them to Punycode.
 - 🧾 **Tests Without Credentials**: The `compile` submodule returns the records of a configuration without a provider, for `terraform test` of your own zone.
 - ✍️ **Editor Support for YAML**: A JSON Schema for records kept in YAML, for completion and highlighting of mistakes before `plan`.
-- 🧪 **Tested End to End**: Every record type, updates, import, names in Unicode and the upgrade from the previous release are tested against a real Cloudflare zone.
+- 🔀 **Provider v4 and v5**: The same input schema for both major versions of the Cloudflare provider.
+- 🧪 **Tested End to End**: Every record type, updates, import, names in Unicode, the upgrade from the previous release and the path from provider v4 to v5 are tested against a real Cloudflare zone.
 
 ## Guarantees and Limits
 
@@ -208,6 +209,7 @@ The module fits zones whose records are written down and change through review. 
 |--------|-----------|---------------------|
 | Root module | `>= 1.9.0` | `~> 5.26` |
 | `modules/dns/v5` | `>= 1.9.0` | `~> 5.26` |
+| `modules/dns/v4` | `>= 1.9.0` | `~> 4.41` |
 | `modules/dns/idna` | `>= 1.9.0` | `~> 5.26`, and [`5xxeu/idna`](https://registry.terraform.io/providers/5xxeu/idna/latest) `~> 0.1` |
 | `modules/dns/compile` | `>= 1.9.0` | none |
 
@@ -224,7 +226,7 @@ If `zone_name` is not set, the module looks up the zone by `zone_id`, so the API
 
 > **`zone_name` must be the name of the zone that `zone_id` refers to** (a trailing dot, as in zone files, is ignored). Setting it skips the lookup (no `Zone:Read` needed), and the module cannot check it: a wrong `zone_name` makes alias targets and fully qualified names point into another domain. Leave it unset when the token can read zones.
 
-The module needs provider v5. The provider v4 wrapper was removed in 3.0: move to provider v5 with the latest 2.x first, see [Migrating from v4 to v5](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#from-provider-v4-to-v5), and then to 3.0.
+The root module needs provider v5. The provider v4 wrapper is kept for existing configurations and is supported in 3.x as long as Cloudflare releases provider v4 versions (see [Stability](#stability)). Provider v4 no longer gets new features, so new configurations should use v5 (the root module). See [Migrating from v4 to v5](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#from-provider-v4-to-v5).
 
 ## Usage
 
@@ -240,7 +242,7 @@ module "dns" {
 }
 ```
 
-Pin an exact version: an upgrade may need steps of its own, see [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration).
+For provider v4, use `source = "5xxeu/ezdns/cloudflare//modules/dns/v4"`. Pin an exact version: an upgrade may need steps of its own, see [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration).
 
 ### Local Copy and Git Source
 
@@ -258,6 +260,8 @@ Records can be written directly in `records` or kept in a YAML file passed throu
 ## Stability
 
 The module follows [Semantic Versioning](https://semver.org/): within a major version, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys did not change between 2.0 and 2.22. Version 3.0 requires Terraform 1.9.0 or later, normalizes the keys of records written in other forms (names in upper case, targets with a trailing dot) and has other breaking changes: see [To 3.0](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#to-30). 2.x gets only fixes, and stays the version for Terraform 1.8. Each release passes the tests on the oldest supported Terraform version (1.9.0 for 3.x, 1.8.0 for 2.x) and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge; from 2.16.0 the release workflow publishes the GitHub Release and archives only after CI and the end-to-end test passed on the tagged commit. The Terraform Registry picks up pushed version tags independently of this workflow.
+
+The provider v4 wrapper (`modules/dns/v4`) is supported in 3.x as long as Cloudflare releases provider v4 versions. It is removed only in a major release, and the CHANGELOG announces the removal beforehand: at least one minor release before. The supported range is `~> 4.41`, tested on 4.41.0 and on the latest 4.x. "Cloudflare releases provider v4 versions" means that Cloudflare has not announced the end of v4 and that the latest v4 release is not older than six months. The wrapper has the same inputs, outputs and record keys as the root module, except what needs provider v5: `settings` and `private_routing` (accepted with a warning, `null` in the `records` output), `ignore_changes` (an error) and the live lookup of the records of a zone with its outputs.
 
 Pin `version` exactly (or to a minor version, `~> 2.22.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
 

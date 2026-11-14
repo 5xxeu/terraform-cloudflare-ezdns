@@ -7,9 +7,9 @@ Part of the documentation of [ezdns](../README.md).
 Do one step at a time, each with its own `terraform plan` and `apply`, and review every plan: it must not destroy or create records.
 
 1. **From v1 to v2** (record keys): [v1 to v2](#from-v1-to-v2), staying on the submodule you already use. Targeting 2.6 or later, fix any [unknown attributes](#to-26-unknown-attributes) as part of this step.
-2. **From provider v4 to v5**, if you use the `v4` submodule: [provider v4 to v5](#from-provider-v4-to-v5). Do it with the latest 2.x: version 3.0 has no `v4` submodule.
-3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module).
-4. **To 3.0**: [To 3.0](#to-30), from the latest 2.x.
+2. **From provider v4 to v5**, if you use the `v4` submodule and want provider v5: [provider v4 to v5](#from-provider-v4-to-v5). Do it with the latest 2.x, or after step 4 with 3.x, which keeps the `v4` submodule. This step is optional: provider v4 stays supported in 3.x (see [Stability](../README.md#stability)).
+3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module). From the `v4` submodule it is a step of its own, after step 2 is applied: do not combine the two moves.
+4. **To 3.0**: [To 3.0](#to-30), from the latest 2.x, on the same submodule (`v4` stays `v4`).
 
 Configurations that use the module from an earlier address (the repository `i386dev/terraform-cloudflare-easy-dns` or the Registry source `NikitaPuglachenko/easy-dns/cloudflare`) only change `source`, see [from an earlier address](#from-an-earlier-address).
 
@@ -40,10 +40,10 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 
 ## To 3.0
 
-Version 3.0 has breaking changes, so go through the list before changing `version`. Upgrade from the latest 2.x (a configuration on 1.x or on provider v4 goes through 2.x first, see the [upgrade path](#upgrade-path)), and fix what does not need 3.0 on 2.x already.
+Version 3.0 has breaking changes, so go through the list before changing `version`. Upgrade from the latest 2.x (a configuration on 1.x goes through 2.x first, see the [upgrade path](#upgrade-path); a configuration on provider v4 stays on the `v4` submodule, which 3.x keeps), and fix what does not need 3.0 on 2.x already.
 
 1. **Terraform 1.9.0 or later.** 3.0 requires Terraform 1.9.0 (2.x: 1.8.0); stay on 2.x to keep Terraform 1.8.
-2. **No provider v4 wrapper.** `modules/dns/v4`, `examples/v4` and the `moved` block from `cloudflare_record` are gone, and a release has one archive. Move to provider v5 with the latest 2.x first, see [From Provider v4 to v5](#from-provider-v4-to-v5).
+2. **Provider v4 stays.** The `v4` submodule is kept on the core of 3.0 with the same changes as the other modules, and a configuration on provider v4 goes to 3.0 on it, without moving to provider v5 at the same time. Do step 6 with the address of the v4 wrapper (`module.dns.cloudflare_record.record`), apply, and delete the file with the `moved` blocks. Moving to provider v5 comes afterwards, in 3.x, see [From Provider v4 to v5](#from-provider-v4-to-v5): one step from provider v4 on 2.x to provider v5 on 3.0 is not supported. `settings`, `private_routing` and `ignore_changes` still need provider v5.
 3. [Unused attributes fail the plan](#unused-attributes-fail-the-plan): fix them on 2.x.
 4. [ALIASES take `name`](#aliases-take-name-instead-of-content): rename the attribute.
 5. [`records` is sensitive, `name` is the fully qualified name](#records-is-sensitive-name-is-the-fully-qualified-name): mark outputs that pass it on.
@@ -80,9 +80,10 @@ The `state_migration` output maps the 2.x keys of these records to their keys no
 
    ```sh
    # The root module and modules/dns/idna; the //modules/dns/v5 submodule has no module.v5:
-   # module.dns.cloudflare_dns_record.record
+   # module.dns.cloudflare_dns_record.record. The //modules/dns/v4 submodule (provider v4):
+   # module.dns.cloudflare_record.record
    ADDRESS=module.dns.module.v5.cloudflare_dns_record.record
-   MODULE=${ADDRESS%%.module.v5.*}; MODULE=${MODULE%.cloudflare_dns_record.record}
+   MODULE=${ADDRESS%.cloudflare_*record}; MODULE=${MODULE%.module.v[45]}
    echo "jsonencode(nonsensitive(${MODULE}.state_migration))" | terraform console | tail -n 1 \
      | jq -r --arg addr "$ADDRESS" '
          def key: tojson | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{");
@@ -94,7 +95,7 @@ The `state_migration` output maps the 2.x keys of these records to their keys no
      > dns_migration.tf
    ```
 
-   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. `key` writes a key as an HCL string and escapes `${` and `%{` (an explicit key may contain them), since the address of a `moved` block cannot hold a template. The output is sensitive (a key can hold the origin address of a proxied record), so the command reads it with `nonsensitive()`, and the generated file holds these keys as well: keep it out of public logs and delete it after `apply`. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
+   `MODULE` is the module call whose output `state_migration` is read (`module.dns`, or `module.v4` for a call of the v4 submodule at `module.v4.cloudflare_record.record`): it is `ADDRESS` without the resource and without a `.module.v4` or `.module.v5` inside the call; the module call must be in the root module, where `terraform console` reads it. `key` writes a key as an HCL string and escapes `${` and `%{` (an explicit key may contain them), since the address of a `moved` block cannot hold a template. The output is sensitive (a key can hold the origin address of a proxied record), so the command reads it with `nonsensitive()`, and the generated file holds these keys as well: keep it out of public logs and delete it after `apply`. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
 3. Run `terraform plan`. It should only show records that have moved (and changes in place, if any), with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`.
 
@@ -119,8 +120,8 @@ moved {
 }
 ```
 
-Adjust the module address to your configuration; with provider v4 (2.x only) the resource is
-`module.dns.module.v4.cloudflare_record.record`. Record key generation itself is
+Adjust the module address to your configuration; with provider v4 the resource is
+`module.dns.cloudflare_record.record`. Record key generation itself is
 unchanged; canonical inputs keep their existing addresses.
 
 ## To 2.17: plan-guard Rejects Incomplete Plans
@@ -165,20 +166,22 @@ Since 2.6, a record attribute that the module does not know fails the plan, e.g.
 
 ## From Provider v4 to v5
 
-This step is possible in 2.x only. Version 3.0 removed the `v4` submodule and the `moved` block from `cloudflare_record`, so a configuration on provider v4 moves to provider v5 with the latest 2.x first, and only then to 3.0.
+This step is optional: the `v4` submodule is supported in 3.x as long as Cloudflare releases provider v4 versions. It works with the latest 2.x and with 3.x, but not from provider v4 on 2.x straight to provider v5 on 3.0: first upgrade to 3.0 on the `v4` submodule, apply the `moved` blocks of [To 3.0](#normalized-record-keys) (if there were any) and delete their file, and only then switch to v5.
 
-The v5 wrapper of 2.x contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record`, so the state is migrated without recreating records:
+The v5 wrapper contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record` (`modules/dns/v5/migrate-from-v4.tf`), so the state is migrated without recreating records:
 
-1. Upgrade the Cloudflare provider to `~> 5.26`.
-2. Change the module `source` from `//modules/dns/v4` to `//modules/dns/v5`, keeping the module name the same. To go straight to the root module, also add the `moved` block from [the v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module), with `cloudflare_record` in `from`.
+1. Upgrade the Cloudflare provider to `~> 5.26`. The file with the `moved` blocks of [To 3.0](#normalized-record-keys) (`dns_migration.tf`) must be deleted after its `apply` and before the switch: it holds addresses of `cloudflare_record`.
+2. Change the module `source` from `//modules/dns/v4` to `//modules/dns/v5`, keeping the module name the same.
 3. Run `terraform init -upgrade` and `terraform plan`. The plan should only show moved resources, without destroying or creating records; provider v5 also plans a one-time in-place update of the moved records (e.g. CAA `flags` become numbers). Review it carefully before applying.
 4. Run `terraform apply`. Provider v5 (checked with 5.26) may report `Provider produced inconsistent result after apply` with `.modified_on` for some records: the timestamp in the migrated state has a different precision ([cloudflare/terraform-provider-cloudflare#7387](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7387)). The records are updated anyway; run `terraform plan` again, it should show no changes.
+
+To end up on the root module, do it as a separate step after this one is applied: follow [From the v5 Submodule to the Root Module](#from-the-v5-submodule-to-the-root-module). Staying on the `v5` submodule is fine as well.
 
 ## From an Earlier Address
 
 Up to 2.12.0, the module was developed in `i386dev/terraform-cloudflare-easy-dns`, and up to 2.6.0 it was published on the Terraform Registry as `NikitaPuglachenko/easy-dns/cloudflare`, which is no longer available. The repository now is `5xxeu/terraform-cloudflare-ezdns`, with all earlier tags, and the Registry source is `5xxeu/ezdns/cloudflare`. Git sources of the old repository and the archives of its releases keep working, but new versions are published only here.
 
-Change `source` to the [Terraform Registry](../README.md#terraform-registry) (with `version`), a [Git source](sources.md#git-source) of the new repository or a [local copy](sources.md#local-copy) of the same version, keeping the module name and the path (root module or `//modules/dns/v5`, or `//modules/dns/v4` in 2.x): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes. The module is now called ezdns: the README suggests `modules/ezdns` for a local copy and `*.ezdns.yaml` for records in YAML, but an existing copy in `modules/easy-dns` and existing `*.easy-dns.yaml` mappings keep working, since neither affects the state.
+Change `source` to the [Terraform Registry](../README.md#terraform-registry) (with `version`), a [Git source](sources.md#git-source) of the new repository or a [local copy](sources.md#local-copy) of the same version, keeping the module name and the path (root module, `//modules/dns/v5` or `//modules/dns/v4`): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes. The module is now called ezdns: the README suggests `modules/ezdns` for a local copy and `*.ezdns.yaml` for records in YAML, but an existing copy in `modules/easy-dns` and existing `*.easy-dns.yaml` mappings keep working, since neither affects the state.
 
 ## From the v5 Submodule to the Root Module
 

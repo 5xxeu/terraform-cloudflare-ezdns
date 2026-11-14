@@ -1,4 +1,5 @@
 # Root module for the Terraform Registry: the provider v5 wrapper.
+# For provider v4, use the modules/dns/v4 submodule.
 module "v5" {
   source = "./modules/dns/v5"
 

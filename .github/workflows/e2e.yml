@@ -20,12 +20,28 @@ jobs:
     name: Real Cloudflare zone
     runs-on: ubuntu-latest
     environment: cloudflare-e2e
-    timeout-minutes: 30
+    # The run takes about 3 minutes (see tests/e2e/run.sh: 66 s of the scenarios 1 to 5
+    # on main, plus about 2 minutes of the path of provider v4 with two provider
+    # downloads). 20 minutes is 6 times that, with room for a slow Cloudflare API and
+    # for the destroy and sweep of the cleanup; a stuck run does not hold the e2e
+    # concurrency group (and the wait for it in release.yml) for longer
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Two binaries: 1.9.0 for the path of provider v4 (the minimum Terraform of 3.0,
+      # kept as a copy outside the tool cache path), the latest for the rest
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.9.0
+          terraform_wrapper: false
+      - name: Keep Terraform 1.9.0
+        run: |
+          mkdir -p "${RUNNER_TEMP}/terraform-1.9.0"
+          cp "$(command -v terraform)" "${RUNNER_TEMP}/terraform-1.9.0/terraform"
+          echo "E2E_TERRAFORM_1_9=${RUNNER_TEMP}/terraform-1.9.0/terraform" >>"$GITHUB_ENV"
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_wrapper: false

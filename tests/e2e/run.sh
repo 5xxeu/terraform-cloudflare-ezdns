@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # End-to-end test against a real Cloudflare zone: creates records of all types
 # under a label of this run, checks updates, import and names in
-# Unicode, an upgrade from the previous release, the migration of the keys of 2.x, and
-# deletes everything
-# at the end.
+# Unicode, an upgrade from the previous release, the migration of the keys of 2.x, the
+# path of a configuration on provider v4, and deletes everything at the end.
 #
 # Requires CLOUDFLARE_API_TOKEN (DNS Edit on the zone), E2E_ZONE_ID and E2E_ZONE_NAME.
+# The path of provider v4 runs on the minimum Terraform of 3.0: E2E_TERRAFORM_1_9 is
+# the path of a Terraform 1.9.0 binary (the rest runs on the terraform of PATH).
 set -euo pipefail
 
 : "${CLOUDFLARE_API_TOKEN:?}" "${E2E_ZONE_ID:?}" "${E2E_ZONE_NAME:?}"
@@ -21,7 +22,12 @@ fail() {
     exit 1
 }
 pass() { echo "ok - $*"; }
-tf() { terraform -chdir="${E2E_DIR}/$1" "${@:2}"; }
+# The path of provider v4 runs on the pinned Terraform 1.9.0, the rest on PATH
+tf() {
+    local bin=terraform
+    [ "$1" != v4path ] || bin=$E2E_TERRAFORM_1_9
+    "$bin" -chdir="${E2E_DIR}/$1" "${@:2}"
+}
 # How many of the record_names of a configuration are fully qualified, as "N of M"
 # (the names themselves are not printed)
 qualified_names() {
@@ -35,7 +41,7 @@ qualified_names() {
 cleanup() {
     local rc=$? cleaned=1 dir
     set +e
-    for dir in migrate upgrade idna v5; do
+    for dir in v4path migrate upgrade idna v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
             echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
@@ -47,7 +53,7 @@ cleanup() {
         cleaned=0
     fi
     if [ "$cleaned" = 1 ]; then
-        rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/.migrate-from" "${E2E_DIR}"/*/source_override.tf "${E2E_DIR}/migrate/dns_migration.tf"
+        rm -rf "${E2E_DIR}/.upgrade-from" "${E2E_DIR}/.migrate-from" "${E2E_DIR}/.v4path-from" "${E2E_DIR}"/*/source_override.tf "${E2E_DIR}"/*/versions_override.tf "${E2E_DIR}"/*/dns_migration.tf
         rm -rf "${E2E_DIR}"/*/terraform.tfstate* "${E2E_DIR}"/*/tfplan "${E2E_DIR}"/ids* "${E2E_DIR}/tfplan.json"
     else
         echo "Records of ${LABEL} may be left in the zone, the state files are kept" >&2
@@ -75,6 +81,10 @@ fi
 # The migration of the keys of 2.x (docs/upgrading.md) starts from the last 2.x release
 migrate_from=${E2E_MIGRATE_FROM:-v2.22.0}
 git show-ref --verify --quiet "refs/tags/${migrate_from}" || fail "E2E_MIGRATE_FROM must name an available tag"
+# The binary of the path of provider v4 must really be 1.9.0, or the scenario would
+# not check the minimum version
+: "${E2E_TERRAFORM_1_9:?path of a Terraform 1.9.0 binary}"
+[ "$("$E2E_TERRAFORM_1_9" version | head -n 1)" = "Terraform v1.9.0" ] || fail "E2E_TERRAFORM_1_9 is not Terraform 1.9.0"
 trap cleanup EXIT
 
 # Prints how many resources a saved plan creates, deletes, updates, imports and moves
@@ -100,7 +110,7 @@ plan_summary() {
 # its address too, without an index or values
 record_ids() {
     tf "$1" show -json | jq -r '
-        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record"))]
+        [.values | .. | objects | select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record"))]
         | map("\(.index) \(.values.id)") | sort[]'
 }
 
@@ -267,24 +277,37 @@ punycode=$(tf idna output -json record_names | jq '[.[] | select(startswith("xn-
 [ "$punycode" = 2 ] || fail "idna: expected 2 names in Punycode, got ${punycode}"
 pass "idna: records with names in Unicode created in Punycode without drift (${names})"
 
+# Saves the addresses of the records in the state of a directory (JSON, sorted), both
+# resource types: a wrapper of provider v4 has cloudflare_record
+save_addresses() {
+    tf "$1" show -json | jq '
+        [.values | .. | objects |
+            select(.mode? == "managed" and (.type? == "cloudflare_dns_record" or .type? == "cloudflare_record")) | .address] | sort
+    ' >"$2"
+}
+
 # Applies the configuration of a directory with a release, saves its record IDs and
 # addresses, then switches the directory to the current checkout. The override changes
 # only the source (removing it restores ../../.. in main.tf) and, before 3.0, the
-# attribute of the name of ALIASES records, also for a destroy in cleanup
+# attribute of the name of ALIASES records, also for a destroy in cleanup. The module
+# of the release is the root module, or a submodule of it (the third argument, as
+# modules/dns/v4 for provider v4)
 apply_release() {
-    local dir=$1 tag=$2 alias_attribute=name
+    local dir=$1 tag=$2 submodule=${3:-} alias_attribute=name
     case "$tag" in v[0-2].*) alias_attribute=content ;; esac
     rm -rf "${E2E_DIR}/.${dir}-from"
     mkdir -p "${E2E_DIR}/.${dir}-from"
     # Archive from the repository root, git archive otherwise uses the current subdirectory.
     git -C "$(git rev-parse --show-toplevel)" archive "refs/tags/${tag}" | tar -x -C "${E2E_DIR}/.${dir}-from"
-    if ! grep -q '^module "v5" {' "${E2E_DIR}/.${dir}-from/main.tf" ||
+    if [ -n "$submodule" ]; then
+        [ -f "${E2E_DIR}/.${dir}-from/${submodule}/main.tf" ] || fail "${dir}: archive of ${tag} does not contain ${submodule}"
+    elif ! grep -q '^module "v5" {' "${E2E_DIR}/.${dir}-from/main.tf" ||
         [ ! -f "${E2E_DIR}/.${dir}-from/modules/dns/v5/main.tf" ]; then
         fail "${dir}: archive of ${tag} does not contain the root module and v5 wrapper"
     fi
     cat >"${E2E_DIR}/${dir}/source_override.tf" <<EOF
 module "dns" {
-  source = "../.${dir}-from"
+  source = "../.${dir}-from${submodule:+/}${submodule}"
 }
 
 variable "alias_attribute" {
@@ -295,19 +318,17 @@ EOF
     tf "$dir" apply -auto-approve -no-color >"${E2E_DIR}/${dir}.log" 2>&1 || fail "${dir}: apply of ${tag}: $(tail -40 "${E2E_DIR}/${dir}.log")"
     record_ids "$dir" >"${E2E_DIR}/ids-${dir}-before.txt"
     # Capture addresses before moved blocks in the new source can rewrite the prior state.
-    tf "$dir" show -json | jq '
-        [.values | .. | objects |
-            select(.mode? == "managed" and .type? == "cloudflare_dns_record") | .address] | sort
-    ' >"${E2E_DIR}/ids-${dir}-addresses.json"
+    save_addresses "$dir" "${E2E_DIR}/ids-${dir}-addresses.json"
     rm "${E2E_DIR}/${dir}/source_override.tf"
     tf "$dir" init -no-color >"${E2E_DIR}/${dir}.log" 2>&1 || fail "${dir}: init of current checkout: $(tail -40 "${E2E_DIR}/${dir}.log")"
 }
 
 # Fails unless the saved plan of a directory only keeps, updates in place or moves the
-# records of apply_release, with the given number of moves (any number without one)
+# records of apply_release, with the given number of moves (any number without one).
+# The addresses before are those of apply_release, or of the file in the third argument
 assert_kept_records() {
-    tf "$1" show -json tfplan | jq -e --slurpfile before "${E2E_DIR}/ids-${1}-addresses.json" --argjson moves "${2:-null}" '
-        [.resource_changes[]? | select(.mode == "managed" and .type == "cloudflare_dns_record")] as $rc |
+    tf "$1" show -json tfplan | jq -e --slurpfile before "${3:-${E2E_DIR}/ids-${1}-addresses.json}" --argjson moves "${2:-null}" '
+        [.resource_changes[]? | select(.mode == "managed" and (.type == "cloudflare_dns_record" or .type == "cloudflare_record"))] as $rc |
         ($rc | length) > 0 and
         all($rc[]; .change.actions == ["no-op"] or .change.actions == ["update"]) and
         $before[0] == ([$rc[] | .previous_address // .address] | sort) and
@@ -326,21 +347,30 @@ assert_same_ids "upgrade" "${E2E_DIR}/ids-upgrade-before.txt" "${E2E_DIR}/ids-up
 assert_no_changes upgrade
 pass "upgrade from ${upgrade_from}: same record IDs, no drift (${summary})"
 
+# Generates dns_migration.tf in a directory with the command of docs/upgrading.md
+# (To 3.0, normalized record keys) for the records at the address in the second
+# argument, and keeps the map in ids-migration.json (the old keys to the new ones)
+write_moved_blocks() {
+    local dir=$1 address=$2 module
+    module=${address%.cloudflare_*record}
+    module=${module%.module.v[45]}
+    echo "jsonencode(nonsensitive(${module}.state_migration))" | tf "$dir" console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
+        fail "${dir}: state_migration could not be read"
+    jq -r --arg addr "$address" '
+        def key: tojson | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{");
+        to_entries[] |
+        "moved {",
+        "  from = \($addr)[\(.key | key)]",
+        "  to   = \($addr)[\(.value | key)]",
+        "}", ""' "${E2E_DIR}/ids-migration.json" >"${E2E_DIR}/${dir}/dns_migration.tf"
+}
+
 # Scenario 5: the migration of docs/upgrading.md from 2.x to 3.0. Records written in
 # forms that have another key in 3.0 are moved by the blocks generated from
 # state_migration, with the command of the docs; the IDs of the records stay
 migration_moves=7
 apply_release migrate "$migrate_from"
-address=module.dns.module.v5.cloudflare_dns_record.record
-echo "jsonencode(nonsensitive(module.dns.state_migration))" | tf migrate console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
-    fail "migrate: state_migration could not be read"
-jq -r --arg addr "$address" '
-    def key: tojson | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{");
-    to_entries[] |
-    "moved {",
-    "  from = \($addr)[\(.key | key)]",
-    "  to   = \($addr)[\(.value | key)]",
-    "}", ""' "${E2E_DIR}/ids-migration.json" >"${E2E_DIR}/migrate/dns_migration.tf"
+write_moved_blocks migrate module.dns.module.v5.cloudflare_dns_record.record
 entries=$(jq length "${E2E_DIR}/ids-migration.json")
 [ "$entries" = "$migration_moves" ] || fail "migrate: expected ${migration_moves} keys in state_migration, got ${entries}"
 summary=$(plan_summary migrate) || fail "migrate: plan failed"
@@ -351,5 +381,70 @@ record_ids migrate >"${E2E_DIR}/ids-migrate-after.txt"
 assert_same_ids "migrate" "${E2E_DIR}/ids-migrate-before.txt" "${E2E_DIR}/ids-migrate-after.txt" "${E2E_DIR}/ids-migration.json"
 assert_no_changes migrate
 pass "migrate from ${migrate_from}: ${migration_moves} records moved to their new keys, same record IDs, no drift (${summary})"
+
+# Scenario 6: the path of a configuration on provider v4, all on Terraform 1.9.0 and
+# with the same record IDs at every step: v2.22.0 on the v4 wrapper, this checkout on
+# the v4 wrapper (moved blocks from state_migration, the command of docs/upgrading.md),
+# this checkout on the v5 wrapper (migrate-from-v4.tf, the state moves to
+# cloudflare_dns_record)
+v4path_moves=8
+apply_release v4path "$migrate_from" modules/dns/v4
+v4_address=module.dns.cloudflare_record.record
+write_moved_blocks v4path "$v4_address"
+entries=$(jq length "${E2E_DIR}/ids-migration.json")
+[ "$entries" = "$v4path_moves" ] || fail "v4 path: expected ${v4path_moves} keys in state_migration, got ${entries}"
+summary=$(plan_summary v4path) || fail "v4 path: plan of the v4 wrapper of 3.0 failed"
+assert_kept_records v4path "$v4path_moves" || fail "v4 path: expected ${v4path_moves} moves and only no-op or in-place updates (${summary})"
+tf v4path apply -auto-approve -no-color tfplan >"${E2E_DIR}/v4path.log" 2>&1 || fail "v4 path: apply of the v4 wrapper of 3.0: $(tail -40 "${E2E_DIR}/v4path.log")"
+rm "${E2E_DIR}/v4path/dns_migration.tf"
+record_ids v4path >"${E2E_DIR}/ids-v4path-v4.txt"
+assert_same_ids "v4 path, v4 wrapper of 3.0" "${E2E_DIR}/ids-v4path-before.txt" "${E2E_DIR}/ids-v4path-v4.txt" "${E2E_DIR}/ids-migration.json"
+assert_no_changes v4path
+save_addresses v4path "${E2E_DIR}/ids-v4path-v4-addresses.json"
+pass "v4 path: ${v4path_moves} records moved to their keys of 3.0 on the v4 wrapper, same record IDs, no drift (${summary})"
+
+# Provider v5 on the v5 wrapper: the module of the same call, and the version of the
+# provider (init -upgrade, the lock file holds 4.x)
+cat >"${E2E_DIR}/v4path/source_override.tf" <<EOF
+module "dns" {
+  source = "../../../modules/dns/v5"
+}
+EOF
+cat >"${E2E_DIR}/v4path/versions_override.tf" <<EOF
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.26"
+    }
+  }
+}
+EOF
+tf v4path init -upgrade -no-color >"${E2E_DIR}/v4path.log" 2>&1 || fail "v4 path: init of the v5 wrapper: $(tail -40 "${E2E_DIR}/v4path.log")"
+v4path_count=$(($(wc -l <"${E2E_DIR}/ids-v4path-v4.txt")))
+summary=$(plan_summary v4path) || fail "v4 path: plan of the v5 wrapper failed"
+case "$summary" in
+    "create=0 delete=0 "*) ;;
+    *) fail "v4 path: switch to the v5 wrapper: ${summary}" ;;
+esac
+assert_kept_records v4path "$v4path_count" "${E2E_DIR}/ids-v4path-v4-addresses.json" || fail "v4 path: expected ${v4path_count} moves to cloudflare_dns_record and only in-place updates (${summary})"
+# Provider v5 may report an inconsistent modified_on (different precision than in the
+# migrated state) for some records on this first apply; the records are updated and
+# the next plan is empty, so only this error is tolerated until
+# https://github.com/cloudflare/terraform-provider-cloudflare/issues/7387 is fixed
+only_modified_on_inconsistency() {
+    local attributes
+    grep -q "Provider produced inconsistent result after apply" "$1" || return 1
+    attributes=$(grep -oE "unexpected new value: \.[a-z_]+" "$1" | sed 's/.*\.//' | sort -u)
+    [ "$attributes" = "modified_on" ]
+}
+if ! tf v4path apply -auto-approve -no-color tfplan >"${E2E_DIR}/v4path.log" 2>&1; then
+    only_modified_on_inconsistency "${E2E_DIR}/v4path.log" || fail "v4 path: apply of the v5 wrapper: $(tail -40 "${E2E_DIR}/v4path.log")"
+    echo "note: provider reported the known modified_on inconsistency after the switch to v5"
+fi
+assert_no_changes v4path
+record_ids v4path >"${E2E_DIR}/ids-v4path-v5.txt"
+assert_same_ids "v4 path, v5 wrapper" "${E2E_DIR}/ids-v4path-v4.txt" "${E2E_DIR}/ids-v4path-v5.txt"
+pass "v4 path: ${v4path_count} records moved to provider v5, same record IDs, no drift (${summary})"
 
 echo "All end-to-end checks passed"

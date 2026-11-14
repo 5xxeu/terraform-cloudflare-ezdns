@@ -20,11 +20,14 @@ modules/dns/
 ├── records/   # Provider-agnostic core: validation and flattening (internal)
 ├── compile/   # The checks of the wrappers without a provider, for tests of your records
 ├── idna/      # The v5 wrapper for names in Unicode, converted with the 5xxeu/idna provider
-└── v5/        # Wrapper for Cloudflare provider v5 (cloudflare_dns_record)
+├── v4/        # Wrapper for Cloudflare provider v4 (cloudflare_record)
+└── v5/        # Wrapper for Cloudflare provider v5 (cloudflare_dns_record);
+               # migrate-from-v4.tf moves the state of the v4 wrapper
 examples/
 ├── v5/        # Records in HCL
 ├── yaml/      # Records in a YAML file, validated by the JSON Schema
-└── import/    # Adopting a zone that already has records
+├── import/    # Adopting a zone that already has records
+└── v4/        # Provider v4, for existing configurations
 schema/        # JSON Schema for records in YAML
 tools/         # plan-guard.py (checks a saved plan), moved-blocks.py (moved blocks from a plan), zone-to-ezdns.py (YAML of a zone)
 docs/          # The guides: record model, validation, inputs and outputs, YAML, examples, ...
@@ -32,7 +35,7 @@ scripts/       # The checks of CI
 tests/         # terraform test with a mocked provider, the end-to-end test, benchmarks
 ```
 
-The root module passes everything to the v5 wrapper, so it has the same inputs and outputs.
+Both wrappers share the same inputs (except the v5-only ones), outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs. The v4 wrapper is supported in 3.x as long as Cloudflare releases provider v4 versions, see [Stability](README.md#stability): a change of the core goes into both wrappers, and CI tests the v4 wrapper on the minimum provider 4.41.0 and the latest 4.x.
 
 The README covers what the module does and how to start; the record model, validation, inputs and outputs and the longer guides are in [docs](docs).
 
@@ -75,7 +78,7 @@ The plan-only tests use a mocked provider and need no Cloudflare credentials, se
 These are not visible from a single file, and the tests catch only some of them:
 
 - **Record keys stay the same within 2.x.** A key is the address of a record in the state of every user; a change of the key format recreates records. Changes of keys wait for 3.0 and come with `moved` blocks.
-- **The wrapper and compile are one code.** `modules/dns/v5` and `modules/dns/compile` share their inputs, which `scripts/check-sync.sh` compares, and both pass `records` and `record_groups` through `modules/dns/prepare` (the merge of `record_groups` and the checks of the values as given) to `modules/dns/records`, and its records through `modules/dns/checks` (the checks over all records) to the resources; the root module passes every input to the v5 wrapper.
+- **The wrappers and compile are one code.** `modules/dns/v4`, `modules/dns/v5` and `modules/dns/compile` share their inputs, which `scripts/check-sync.sh` compares, and both pass `records` and `record_groups` through `modules/dns/prepare` (the merge of `record_groups` and the checks of the values as given) to `modules/dns/records`, and its records through `modules/dns/checks` (the checks over all records) to the resources; the root module passes every input to the v5 wrapper.
 - **Keys stay known at plan.** A value known only after apply (a TTL or a target from another resource) must not make names or keys unknown, or `for_each` fails. So there is no `try()` over record values: `try()` returns an unknown result for a value that is not wholly known. Use `can()` over the shape (names, types and attribute names) and conditionals. The `computed_values` tests of `modules/dns/prepare`, `modules/dns/v5` and `modules/dns/idna` and `scripts/test-plan-checks.py` cover it.
 - **Validations and the order of apply.** A variable validation can refer to other variables of its module, but not to a local built from its own variable, even through other locals: Terraform reports a cycle. So `modules/dns/records` builds the lists of problems over all records (`output.diagnostics`) and `modules/dns/checks` validates them, one input per check. A validation whose value is known only after apply waits for apply, and an output that passes data on beside the validated inputs does not wait for it: the `flat_records` output of `modules/dns/checks` has `depends_on` on every checked input, so the records are not applied before a failing check (`scripts/test-plan-checks.py` applies a saved plan and reads the state). On Terraform 1.9.0 a failing validation of a constant argument whose message refers to another variable shows "Failed to evaluate condition error message" instead of the message; the wrappers pass outputs of the records module, which do not hit it.
 - **The work grows linearly with the records.** Do not scan all records once per name (a lookup per name in a map grouped once instead); plans of zones with thousands of records must stay fast. Some functions scan their whole argument on every call: `contains()` inside a loop over records (look up a map built once instead), `distinct()` on a long list (`toset()`), and `alltrue(flatten(...))` over all records (nest `alltrue()` per level). `tests/bench` has plain, groups and import benchmarks and a profile of the trace log. `python3 scripts/bench.py` runs the workloads; CI checks core changes against a stored runner baseline and fails above 2x time or peak memory, see [Testing](docs/testing.md).

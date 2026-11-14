@@ -14,12 +14,14 @@ terraform test cannot expect a failure in a called module, so these cases are pl
   any of these resources is created or changed;
 - through modules/dns/checks alone, for the full text of the messages that take the
   context of the call (minimum_ttl, owned_names);
-- through the v5 wrapper and the root module, with terraform test and a mock provider (no
+- through the v4 wrapper (provider v4), the v5 wrapper and the root module, with terraform test and a mock provider (no
   Cloudflare account): each run must fail with the message of its check;
-- the plan JSON of root, v5, idna and compile (made-up token, nothing is read from
+- the plan JSON of root, v5, v4, idna and compile (made-up token, nothing is read from
   Cloudflare): the records output is sensitive and record_metadata is not;
+- the v4 wrapper with a zone and a content known only after apply (plan only): the keys of
+  the records stay known at plan;
 - the command of docs/upgrading.md that writes moved blocks from state_migration, on the
-  three addresses of the records (root, v5, idna), against a state with the 2.x keys.
+  addresses of the records (root, v5, v4 as a submodule and as a module "v4", idna), against a state with the 2.x keys.
 
 Standard library, sh and jq; no provider credentials. The last parts download the cloudflare
 provider for the mock (terraform init). TERRAFORM sets the binary (default: terraform).
@@ -27,6 +29,7 @@ provider for the mock (terraform init). TERRAFORM sets the binary (default: terr
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 
@@ -364,12 +367,13 @@ with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
         result = run(['plan', '-json'], directory)
         report(f'checks: message of {name}', failed_with(result, message), result[1])
 
-# Through the v5 wrapper and the root module with a mock provider. A run that fails skips
-# the runs after it, so each case is a test file of its own
-with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
-    directory = Path(tmp)
-    (directory / 'versions.tf').write_text('terraform {\n  required_providers {\n    cloudflare = {\n      source = "cloudflare/cloudflare"\n    }\n  }\n}\n')
-    for label, source in [('v5', '../modules/dns/v5'), ('root', './..')]:
+# Through the v4 and v5 wrappers and the root module with a mock provider. A run that fails
+# skips the runs after it, so each case is a test file of its own; the v4 wrapper has a
+# directory of its own (its provider version differs, and so does the lock file)
+for label, source in [('v5', '../modules/dns/v5'), ('v4', '../modules/dns/v4'), ('root', './..')]:
+    with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
+        directory = Path(tmp)
+        (directory / 'versions.tf').write_text('terraform {\n  required_providers {\n    cloudflare = {\n      source = "cloudflare/cloudflare"\n    }\n  }\n}\n')
         for check, arguments, message in CHECKS:
             for old in directory.glob('*.tftest.hcl'):
                 old.unlink()
@@ -394,13 +398,13 @@ run "%s" {
             result = run(['test', '-json'], directory)
             report(f'{label}: {check} fails the plan', failed_with(result, message), result[1])
 
-# The records output of root, v5, idna and compile is sensitive in the plan JSON of the
+# The records output of root, v5, v4, idna and compile is sensitive in the plan JSON of the
 # module as a root module (a caller must mark its own output, and Terraform 1.9.0 does not
 # carry the mark through a module call), record_metadata is not. The provider gets a
 # made-up token: the plan reads nothing from Cloudflare
 os.environ['CLOUDFLARE_API_TOKEN'] = '0123456789abcdef0123456789abcdef01234567'
 with tempfile.TemporaryDirectory() as tmp:
-    for label, module in [('root', ROOT), ('v5', ROOT / 'modules/dns/v5'), ('idna', ROOT / 'modules/dns/idna'), ('compile', ROOT / 'modules/dns/compile')]:
+    for label, module in [('root', ROOT), ('v5', ROOT / 'modules/dns/v5'), ('v4', ROOT / 'modules/dns/v4'), ('idna', ROOT / 'modules/dns/idna'), ('compile', ROOT / 'modules/dns/compile')]:
         wrapper = label != 'compile'
         variables = {'zone_name': 'example.com', 'records': {'app': {'A': [{'content': '192.0.2.1', 'proxied': True}]}}}
         if wrapper:
@@ -417,6 +421,153 @@ with tempfile.TemporaryDirectory() as tmp:
         except (ValueError, KeyError):
             marked = False
         report(f'{label}: records is sensitive in the plan JSON, record_metadata is not', result[0] == 0 and marked, result[1] + shown[1][:2000])
+
+# The v4 wrapper with a content known only after apply (plan only: the provider gets a
+# made-up token and creates nothing): the keys of the records stay known at plan, so
+# for_each works, with an explicit key and with the normalized key of a known value; also
+# with a zone ID known only after apply and no zone_name, and with a zone_name known only
+# after apply (the cases of modules/dns/idna/tests/computed_zone). A zone_name that is
+# null at plan and known later would make the count of the lookup unknown, as in the v5
+# wrapper
+with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
+    directory = Path(tmp)
+    (directory / 'main.tf').write_text('''resource "terraform_data" "value" {
+  input = "192.0.2.9"
+}
+
+module "dns" {
+  source    = "../modules/dns/v4"
+  zone_id   = "z"
+  zone_name = "example.com"
+  records = {
+    "WEB" = {
+      A = [{ key = "web", content = terraform_data.value.output }, { content = "192.0.2.2" }]
+    }
+    "ALIAS" = { CNAME = [{ content = terraform_data.value.output }] }
+  }
+}
+
+resource "terraform_data" "zone" {
+  input = "z${timestamp()}"
+}
+
+# A zone ID known only after apply and no zone_name: no lookup of the zone may stop the plan
+module "dns_zone_id" {
+  source  = "../modules/dns/v4"
+  zone_id = terraform_data.zone.output
+  records = { "app" = { A = [{ key = "a", content = terraform_data.value.output }] } }
+}
+
+# A zone_name known only after apply (not null), with a content known after apply
+module "dns_zone_name" {
+  source    = "../modules/dns/v4"
+  zone_id   = "z"
+  zone_name = "example.com${substr(timestamp(), 0, 0)}"
+  records = {
+    "app"  = { A = [{ key = "a", content = terraform_data.value.output }] }
+    "Shop" = { AAAA = [{ content = "2001:DB8::1" }] }
+  }
+}
+''')
+    init(directory)
+    code, output = run(['plan', '-out=tfplan'], directory)
+    shown = run(['show', '-json', 'tfplan'], directory)
+    try:
+        keys = sorted(c['module_address'].split('.')[-1] + ' ' + c['index'] for c in json.loads(shown[1])['resource_changes'] if c['type'] == 'cloudflare_record')
+    except (ValueError, KeyError):
+        keys = []
+    report('v4: keys known at plan with a content, a zone ID and a zone_name known after apply', code == 0 and keys == [
+        'dns alias CNAME', 'dns web A 192.0.2.2', 'dns web A web',
+        'dns_zone_id app A a', 'dns_zone_name app A a', 'dns_zone_name shop AAAA 2001:db8::1'], output + str(keys))
+
+# Switching from the v4 wrapper to the v5 wrapper (docs/upgrading.md): the state of a record
+# of the v4 wrapper after the apply of 3.0 (the keys of the moved blocks), the file of
+# moved blocks of that step left in place (the docs tell to delete it), and the source
+# switched to v5. migrate-from-v4.tf moves the address from cloudflare_record to
+# cloudflare_dns_record, and the real provider v5 converts the instance (MoveResourceState,
+# which a mock provider does not do; the made-up token is never used, nothing is read with
+# -refresh=false): the plan has one move and no record to create or delete. Without
+# migrate-from-v4.tf there is no move: the plan fails (or would create the record)
+def v4_to_v5(directory, with_migration_file):
+    config = '''terraform {
+  required_providers {
+    cloudflare = {
+      source = "cloudflare/cloudflare"
+    }
+  }
+}
+
+module "dns" {
+  source    = "../modules/dns/%s"
+  zone_id   = "z"
+  zone_name = "example.com"
+  records   = { "WWW" = { A = [{ content = "192.0.2.1" }] } }
+}
+'''
+    (directory / 'main.tf').write_text(config % 'v4')
+    init(directory)
+    code, output = run(['plan', '-out=v4.tfplan'], directory)
+    planned = json.loads(run(['show', '-json', 'v4.tfplan'], directory)[1])
+    change = [c for c in planned['resource_changes'] if c['type'] == 'cloudflare_record'][0]
+    schema = json.loads(subprocess.run([terraform, 'providers', 'schema', '-json'], cwd=directory,
+                                       capture_output=True, text=True, check=True).stdout)
+    version = schema['provider_schemas']['registry.terraform.io/cloudflare/cloudflare']['resource_schemas']['cloudflare_record']['version']
+    (directory / 'terraform.tfstate').write_text(json.dumps({
+        'version': 4, 'terraform_version': '1.9.0', 'serial': 1, 'lineage': 'plan-checks', 'outputs': {},
+        'resources': [{'module': change['module_address'], 'mode': 'managed', 'type': 'cloudflare_record',
+                       'name': 'record', 'provider': 'provider["registry.terraform.io/cloudflare/cloudflare"]',
+                       'instances': [{'index_key': change['index'], 'schema_version': version, 'sensitive_attributes': [],
+                                      'attributes': dict(change['change']['after'], id='0' * 32)}]}]}))
+    (directory / 'dns_migration.tf').write_text('''moved {
+  from = module.dns.cloudflare_record.record["WWW A 192.0.2.1"]
+  to   = module.dns.cloudflare_record.record["www A 192.0.2.1"]
+}
+''')
+    (directory / 'main.tf').write_text(config % ('v5' if with_migration_file else 'v5-without-migration'))
+    return directory
+
+
+for with_file in (True, False):
+    with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
+        directory = Path(tmp)
+        output = ''
+        copy = None
+        try:
+            if with_file:
+                v4_to_v5(directory, True)
+            else:
+                # a copy of the v5 wrapper without migrate-from-v4.tf, next to the core modules
+                copy = ROOT / 'modules/dns' / f'v5-without-migration-{directory.name.lstrip(".")}'
+                shutil.copytree(ROOT / 'modules/dns/v5', copy, ignore=shutil.ignore_patterns('.terraform*', 'tests', 'migrate-from-v4.tf'))
+                v4_to_v5(directory, False)
+                (directory / 'main.tf').write_text((directory / 'main.tf').read_text().replace('v5-without-migration', copy.name))
+            # another provider version than the v4 step: the lock file is replaced
+            (directory / '.terraform.lock.hcl').unlink(missing_ok=True)
+            subprocess.run([terraform, 'init', '-upgrade', '-backend=false', '-input=false', '-no-color'], cwd=directory, capture_output=True, text=True, check=True)
+            code, output = run(['plan', '-refresh=false', '-out=v5.tfplan'], directory)
+            if code != 0 and not with_file:
+                # without the file Terraform cannot read the instance of a resource that the
+                # configuration no longer has at that type: the plan fails
+                ok = 'no schema available for module.dns.cloudflare_record.record' in output
+                changes = []
+            else:
+                changes = [c for c in json.loads(run(['show', '-json', 'v5.tfplan'], directory)[1])['resource_changes']
+                           if c['type'] in ('cloudflare_record', 'cloudflare_dns_record')]
+            actions = sorted(c['change']['actions'][0] if len(c['change']['actions']) == 1 else '+'.join(c['change']['actions']) for c in changes)
+            moved = [c for c in changes if c.get('previous_address')]
+            if with_file:
+                ok = (code == 0 and len(changes) == 1 and len(moved) == 1 and actions == ['no-op']
+                      and moved[0]['type'] == 'cloudflare_dns_record' and moved[0]['previous_address'].endswith('cloudflare_record.record["www A 192.0.2.1"]'))
+            elif code == 0:
+                ok = not moved and 'create' in actions
+        except (ValueError, KeyError, IndexError, OSError, subprocess.CalledProcessError) as error:
+            ok = False
+            output += f'\n{error!r}'
+        finally:
+            if copy is not None:
+                shutil.rmtree(copy, ignore_errors=True)
+        report('v4 to v5: ' + ('migrate-from-v4.tf moves the record of the v4 wrapper without create or delete, with the left-over moved file in place'
+                               if with_file else 'without migrate-from-v4.tf the same state is not moved (the plan fails or creates the record)'), ok, output[-3000:])
 
 # The moved blocks of docs/upgrading.md ("To 3.0, Normalized Record Keys") on the three
 # addresses of the records: a state with the 2.x keys (the keys of state_migration, on
@@ -441,7 +592,12 @@ for label, source, address in [
     ('root', './..', 'module.dns.module.v5.cloudflare_dns_record.record'),
     ('v5', '../modules/dns/v5', 'module.dns.cloudflare_dns_record.record'),
     ('idna', '../modules/dns/idna', 'module.dns.module.v5.cloudflare_dns_record.record'),
+    ('v4', '../modules/dns/v4', 'module.dns.cloudflare_record.record'),
+    # a call named v4 (docs/upgrading.md: the module name is not taken from the path)
+    ('v4 named v4', '../modules/dns/v4', 'module.v4.cloudflare_record.record'),
 ]:
+    resource_type = address.rsplit('.', 2)[1]
+    module_name = address.split('.')[1]
     with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
         directory = Path(tmp)
         (directory / 'records.json').write_text(json.dumps(FORMS))
@@ -453,13 +609,13 @@ for label, source, address in [
   }
 }
 
-module "dns" {
+module "%s" {
   source    = "%s"
   zone_id   = "z"
   zone_name = "example.com"
   records   = jsondecode(file("records.json"))
 }
-''' % source)
+''' % (module_name, source))
         init(directory)
         ok, output = False, ''
         try:
@@ -467,18 +623,18 @@ module "dns" {
             planned = json.loads(run(['show', '-json', 'new.tfplan'], directory)[1])
             schema = json.loads(subprocess.run([terraform, 'providers', 'schema', '-json'], cwd=directory,
                                                capture_output=True, text=True, check=True).stdout)
-            version = schema['provider_schemas']['registry.terraform.io/cloudflare/cloudflare']['resource_schemas']['cloudflare_dns_record']['version']
+            version = schema['provider_schemas']['registry.terraform.io/cloudflare/cloudflare']['resource_schemas'][resource_type]['version']
             migration = json.loads(json.loads(subprocess.run(
-                [terraform, 'console'], input='jsonencode(nonsensitive(module.dns.state_migration))', cwd=directory,
+                [terraform, 'console'], input='jsonencode(nonsensitive(module.%s.state_migration))' % module_name + '', cwd=directory,
                 capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1]))
             old_keys = {new: old for old, new in migration.items()}
-            changes = [c for c in planned['resource_changes'] if c['type'] == 'cloudflare_dns_record']
+            changes = [c for c in planned['resource_changes'] if c['type'] == resource_type]
             resource = changes[0]
             instances = [{'index_key': old_keys.get(c['index'], c['index']), 'schema_version': version, 'sensitive_attributes': [],
                           'attributes': dict(c['change']['after'], id=f'{n:032x}')} for n, c in enumerate(changes)]
             (directory / 'terraform.tfstate').write_text(json.dumps({
                 'version': 4, 'terraform_version': '1.9.0', 'serial': 1, 'lineage': 'plan-checks', 'outputs': {},
-                'resources': [{'module': resource['module_address'], 'mode': 'managed', 'type': 'cloudflare_dns_record',
+                'resources': [{'module': resource['module_address'], 'mode': 'managed', 'type': resource_type,
                                'name': 'record', 'provider': 'provider["registry.terraform.io/cloudflare/cloudflare"]',
                                'instances': instances}]}))
             # Terraform writes the addresses with the template sequences escaped
@@ -489,7 +645,7 @@ module "dns" {
             blocks = (directory / 'dns_migration.tf').read_text().count('moved {')
             code, output = run(['plan', '-refresh=false', '-out=moved.tfplan'], directory)
             moved = [c for c in json.loads(run(['show', '-json', 'moved.tfplan'], directory)[1])['resource_changes']
-                     if c['type'] == 'cloudflare_dns_record']
+                     if c['type'] == resource_type]
             moves = [c for c in moved if c.get('previous_address', c['address']) != c['address']]
             ok = (code == 0 and blocks == len(migration) == len(moves) == 5
                   and all(c['change']['actions'] in (['no-op'], ['update']) for c in moved)

@@ -27,7 +27,9 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SOURCE = re.compile(r'^(\s*)source\s*=\s*"5xxeu/ezdns/cloudflare"\s*$', re.M)
+# The root module, or a wrapper of the repository: only the provider v4 wrapper
+# (//modules/dns/v4) is a source of its own; it is planned against its own directory
+SOURCE = re.compile(r'^(\s*)source\s*=\s*"5xxeu/ezdns/cloudflare(//modules/dns/v4)?"\s*$', re.M)
 VERSION = re.compile(r'^\s*version\s*=\s*"[^"]*"\s*\n', re.M)
 BEGIN, END = "<!-- BEGIN_RECORDS -->", "<!-- END_RECORDS -->"
 TEST = """mock_provider "cloudflare" {}
@@ -82,7 +84,7 @@ def local_source(path, d):
 
 def plan_example(ex, d, env):
     """Plans the example against the mocked provider; returns an error text or None."""
-    main = VERSION.sub("", SOURCE.sub(lambda m: f'{m.group(1)}source = "{local_source(ROOT, d)}"', ex["hcl"]))
+    main = VERSION.sub("", SOURCE.sub(lambda m: f'{m.group(1)}source = "{local_source(ROOT / "modules" / "dns" / "v4" if m.group(2) else ROOT, d)}"', ex["hcl"]))
     # The mocked provider is cloudflare/cloudflare: add it to the providers of the example
     if "required_providers {" in main and "cloudflare = " not in main:
         main = main.replace("required_providers {", 'required_providers {\n    cloudflare = { source = "cloudflare/cloudflare" }', 1)
