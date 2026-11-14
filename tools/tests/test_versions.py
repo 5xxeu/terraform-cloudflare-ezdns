@@ -20,7 +20,7 @@ class VersionTest(unittest.TestCase):
             (root / 'CHANGELOG.md').write_text('## [Unreleased]\n## [2.18.1] - 2026-10-22\n')
             (root / 'README.md').write_text('version = "~> 5.26"\n')
             (root / 'docs/upgrading.md').write_text('VERSION=v1.0.0\n')
-            for name in ('v5', 'yaml', 'import'):
+            for name in ('v5', 'v4', 'yaml', 'import'):
                 path = root / 'examples' / name
                 path.mkdir(parents=True)
                 (path / 'main.tf').write_text('# source = "5xxeu/ezdns/cloudflare"\n# version = "2.18.1"\n')
