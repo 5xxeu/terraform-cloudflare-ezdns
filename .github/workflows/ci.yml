@@ -139,7 +139,7 @@ jobs:
           terraform_wrapper: false
       - name: Validate
         run: |
-          for dir in tests/e2e/v5 tests/e2e/import tests/e2e/idna tests/e2e/upgrade tests/e2e/migrate tests/bench/import tests/bench/plain tests/bench/groups; do
+          for dir in tests/e2e/v5 tests/e2e/import tests/e2e/idna tests/e2e/upgrade tests/e2e/migrate tests/e2e/v4path tests/bench/import tests/bench/plain tests/bench/groups; do
             terraform -chdir="$dir" init -backend=false -input=false >/dev/null
             terraform -chdir="$dir" validate
           done

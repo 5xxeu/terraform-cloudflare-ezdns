@@ -1,18 +1,19 @@
 #!/usr/bin/env sh
-# Checks the module archive that release.yml builds before it is published: the files
-# a configuration needs are there, tests and CI files are not, and the archive is a
-# module that terraform validates.
+# Checks the module archives that release.yml builds before they are published: the
+# files a configuration needs are there, tests and CI files are not, the v5 archive
+# has no v4 wrapper, and each archive is a module that terraform validates (the full
+# one also its v4 wrapper, which no root module calls).
 #
-#   ./scripts/check-archives.sh <archive>
+#   ./scripts/check-archives.sh <full archive> <v5 archive>
 set -eu
 
-[ $# -eq 1 ] || { echo "Usage: $0 <archive>" >&2; exit 2; }
+[ $# -eq 2 ] || { echo "Usage: $0 <full archive> <v5 archive>" >&2; exit 2; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 status=0
 
 check() {
-    name=$1 archive=$2 required=$3 forbidden=$4
+    name=$1 archive=$2 required=$3 forbidden=$4 submodule=${5:-}
     mkdir -p "$work/$name"
     tar -xzf "$archive" -C "$work/$name"
     files=$(cd "$work/$name" && find . -type f | sed 's|^\./||' | sort)
@@ -25,11 +26,16 @@ check() {
         echo "$name archive: terraform validate failed" >&2
         status=1
     fi
+    if [ -n "$submodule" ] && ! (cd "$work/$name/$submodule" && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color >/dev/null); then
+        echo "$name archive: terraform validate of $submodule failed" >&2
+        status=1
+    fi
 }
 
 common="main.tf variables.tf outputs.tf versions.tf modules/dns/v5/main.tf modules/dns/v5/import.tf modules/dns/prepare/main.tf modules/dns/records/main.tf modules/dns/checks/main.tf schema/records.schema.json README.md CHANGELOG.md LICENSE VERSION"
 tests='(^|/)tests/|^\.github/|(^|/)\.terraform|\.tftest\.hcl$'
-check full "$1" "$common modules/dns/compile/main.tf modules/dns/idna/main.tf tools/zone-to-ezdns.py tools/plan-guard.py" "$tests"
+check full "$1" "$common modules/dns/v4/main.tf modules/dns/v4/variables.tf modules/dns/v4/outputs.tf modules/dns/v4/versions.tf modules/dns/v5/migrate-from-v4.tf modules/dns/compile/main.tf modules/dns/idna/main.tf tools/zone-to-ezdns.py tools/plan-guard.py" "$tests" modules/dns/v4
+check v5 "$2" "$common" "$tests|^modules/dns/(v4|compile|idna)/|^tools/|migrate-from-v4\.tf\$"
 
-[ "$status" = 0 ] && echo "Archive is complete"
+[ "$status" = 0 ] && echo "Archives are complete"
 exit "$status"
