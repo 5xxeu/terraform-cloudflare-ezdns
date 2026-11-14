@@ -22,6 +22,8 @@ jobs:
       - run: terraform fmt -check -recursive -diff
       - name: Check that the root module and the wrappers have the same interface
         run: ./scripts/check-sync.sh
+      - name: Check that check-sync.sh catches a damaged block of the v4 wrapper
+        run: ./scripts/test-check-sync.sh
 
   test:
     name: Validate and test (${{ matrix.dir }}, terraform ${{ matrix.terraform }})
@@ -36,7 +38,9 @@ jobs:
           - modules/dns/prepare
           - modules/dns/checks
           - modules/dns/idna
+          - modules/dns/v4
           - modules/dns/v5
+          - examples/v4
           - examples/v5
           - examples/yaml
           - examples/import
@@ -57,7 +61,7 @@ jobs:
       - run: terraform validate
       - run: terraform test
       # terraform test cannot expect a failure in a called module: these checks are planned
-      # (and applied) through compile, and through the v5 wrapper and the root module with a
+      # (and applied) through compile, and through the v4 and v5 wrappers and the root module with a
       # mocked provider
       - name: Input checks with values known after apply and checks over all records
         if: matrix.dir == 'modules/dns/compile'
@@ -92,6 +96,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { dir: modules/dns/v4, provider: 4.41.0 }
           - { dir: modules/dns/v5, provider: 5.26.0 }
           - { dir: modules/dns/idna, provider: 5.26.0 }
           - { dir: ., provider: 5.26.0 }

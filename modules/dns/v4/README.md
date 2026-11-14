@@ -1,0 +1,59 @@
+# DNS records for Cloudflare provider v4
+
+Manages DNS records with `cloudflare_record`. See the [main README](https://github.com/5xxeu/terraform-cloudflare-ezdns#readme) for usage, record types, keys and migration.
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+| ---- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.0 |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | ~> 4.41 |
+
+## Providers
+
+| Name | Version |
+| ---- | ------- |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | ~> 4.41 |
+
+## Modules
+
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| <a name="module_checks"></a> [checks](#module\_checks) | ../checks | n/a |
+| <a name="module_prepare"></a> [prepare](#module\_prepare) | ../prepare | n/a |
+| <a name="module_records"></a> [records](#module\_records) | ../records | n/a |
+
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [cloudflare_record.record](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/record) | resource |
+| [cloudflare_zone.this](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/data-sources/zone) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_allowed_cname_conflicts"></a> [allowed\_cname\_conflicts](#input\_allowed\_cname\_conflicts) | Names where a CNAME already shares its name with other records in the zone, e.g. ["community", "*.legacy.example.com"]. Cloudflare accepts this for records that are not proxied, and older zones often have such names; only the listed names are exempt from the CNAME check. Compared fully qualified and case-insensitively; a second CNAME on a name still fails, and listed names without a conflict show a warning | `list(string)` | `[]` | no |
+| <a name="input_default_comment"></a> [default\_comment](#input\_default\_comment) | Comment of records that do not set one, e.g. "Managed by Terraform" | `string` | `null` | no |
+| <a name="input_default_proxied"></a> [default\_proxied](#input\_default\_proxied) | Whether A, AAAA, CNAME and ALIASES records that do not set proxied are proxied by Cloudflare | `bool` | `false` | no |
+| <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Tags added to all records, e.g. ["managed-by:terraform"] (tags require a Cloudflare plan that supports them) | `list(string)` | `[]` | no |
+| <a name="input_default_ttl"></a> [default\_ttl](#input\_default\_ttl) | TTL of records that do not set one (1 means automatic) | `number` | `3600` | no |
+| <a name="input_minimum_ttl"></a> [minimum\_ttl](#input\_minimum\_ttl) | Lowest TTL other than 1 (automatic). Cloudflare accepts TTLs below 60 seconds only on Enterprise zones: set 30 there, keep 60 otherwise, or "auto" to take it from the plan of the zone (one more API call, which needs Zone Read; the compile module, which reads nothing, takes 30) | `string` | `"60"` | no |
+| <a name="input_owned_names"></a> [owned\_names](#input\_owned\_names) | The part of the zone that this module call manages: names in include and below them, except names in exclude and below them (e.g. include = ["apps"], exclude = ["k8s.apps"]). Configured records outside it fail at plan, and only existing records inside it are reported as unmanaged. Names like in records, compared fully qualified and case-insensitively, by whole labels ("apps" covers "x.apps", not "myapps"). null: the whole zone | <pre>object({<br/>    include = optional(list(string), ["@"])<br/>    exclude = optional(list(string), [])<br/>  })</pre> | `null` | no |
+| <a name="input_record_groups"></a> [record\_groups](#input\_record\_groups) | Further records in named groups, each with defaults of its own:<br/>`record_groups[GROUP] = { records = RECORDS, defaults = { ttl, proxied, comment, tags } }`,<br/>where RECORDS has the form of `records` (e.g. one YAML file per group). The groups and<br/>`records` are merged by name and type: the lists of records are joined, and a record<br/>defined twice fails as a duplicate. A record's own value wins over the group default,<br/>which wins over the module default (`proxied` applies to A, AAAA, CNAME and ALIASES<br/>only; group tags are added to `default_tags` and the record's tags). The group name<br/>is not a part of the record keys, so moving a record between groups or into<br/>`records` keeps it in the state. | `any` | `{}` | no |
+| <a name="input_records"></a> [records](#input\_records) | DNS records: `records[NAME][TYPE] = [RECORD, ...]`, where NAME is a name within the<br/>zone (`@` for the apex) and TYPE a record type, optionally with a prefix<br/>(`"_acme-challenge.TXT"`). Record attributes: `content`, `name` (ALIASES only), `ttl`, `proxied`, `priority`,<br/>`tag`, `flags`, `data`, `key`, `comment`, `tags`, `settings` (`flatten_cname`,<br/>`ipv4_only`, `ipv6_only`), `private_routing` and `ignore_changes`. See the README for the details. Unknown attributes fail at plan. | `any` | `{}` | no |
+| <a name="input_require_keys"></a> [require\_keys](#input\_require\_keys) | Record types whose records must have a key, e.g. ["A", "AAAA", "TXT"]: a record of these types without a key fails at plan. Without a key, a record is addressed by its value, so a new value deletes the record and creates a new one. CNAME and ALIASES are keyed by name, so they cannot be listed | `list(string)` | `[]` | no |
+| <a name="input_zone_id"></a> [zone\_id](#input\_zone\_id) | Cloudflare Zone ID | `string` | n/a | yes |
+| <a name="input_zone_name"></a> [zone\_name](#input\_zone\_name) | Zone domain name (e.g. example.com). If null, it is looked up from zone\_id. A trailing dot is ignored. Internationalized zones must set it, in Punycode | `string` | `null` | no |
+
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_record_metadata"></a> [record\_metadata](#output\_record\_metadata) | Managed records without their values, in the order of their keys: id, zone\_id, name (the fully qualified name, the same as fqdn), fqdn, type, ttl, proxied, priority, comment and tags (as in records). Unlike records, it holds no content, data or keys, so it does not show the origin address of a proxied record |
+| <a name="output_record_names"></a> [record\_names](#output\_record\_names) | Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record) |
+| <a name="output_records"></a> [records](#output\_records) | Managed records keyed by their stable identifier: id, zone\_id, name (the fully qualified name, lower case, the same as fqdn), fqdn (from the configuration, so known at plan), type, content, ttl, proxied, priority, data (structured records), comment, tags, settings and private\_routing (null with provider v4: the attributes are not supported), the last five as configured, e.g. for monitoring or certificates of these names. Sensitive: content and data of a proxied record show its origin address that Cloudflare hides, and a key without an explicit key holds the value; use record\_metadata for values that are not secret, or nonsensitive(...) where you accept that |
+| <a name="output_state_migration"></a> [state\_migration](#output\_state\_migration) | Map of the record keys of module versions 2.x to the current keys, for the records whose key changed in 3.0 (a name or a value written in another form), to generate moved blocks. Sensitive: a key without an explicit key holds the value, such as the origin address of a proxied record; read it with nonsensitive(...) in terraform console (docs/upgrading.md) |
+<!-- END_TF_DOCS -->
