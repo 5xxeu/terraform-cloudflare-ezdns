@@ -428,9 +428,10 @@ section = upgrading[upgrading.index('## To 3.0: Normalized Record Keys'):]
 command = section[section.index('```sh') + len('```sh'):]
 command = '\n'.join(line[3:] for line in command[:command.index('```')].splitlines()
                     if line.strip() and not line.strip().startswith(('#', 'ADDRESS=')))
-# Records in other forms (each moves) next to one in the canonical form (stays)
+# Records in other forms (each moves) next to one in the canonical form (stays). The
+# explicit key holds template sequences, which the command escapes in the addresses
 FORMS = {
-    'WWW': {'A': [{'content': '192.0.2.1'}]},
+    'WWW': {'A': [{'content': '192.0.2.1'}], 'TXT': [{'content': 'v=1', 'key': '${1+1}%{if-true}x'}]},
     'app': {'AAAA': [{'content': '2001:DB8:0:0:0:0:0:1'}]},
     '@': {'MX': [{'content': 'Mail.Example.com.', 'priority': 10}]},
     '_SIP._tcp': {'SRV': [{'data': {'priority': '10.0', 'weight': 5, 'port': 5060, 'target': 'sip.example.com'}}]},
@@ -480,7 +481,8 @@ module "dns" {
                 'resources': [{'module': resource['module_address'], 'mode': 'managed', 'type': 'cloudflare_dns_record',
                                'name': 'record', 'provider': 'provider["registry.terraform.io/cloudflare/cloudflare"]',
                                'instances': instances}]}))
-            before = sorted(f'{address}[{json.dumps(i["index_key"])}]' for i in instances)
+            # Terraform writes the addresses with the template sequences escaped
+            before = sorted(f'{address}[{json.dumps(i["index_key"]).replace("${", "$${").replace("%{", "%%{")}]' for i in instances)
             generated = subprocess.run(['sh', '-c', f'ADDRESS={address}\n{command}'], cwd=directory, capture_output=True, text=True,
                                        env=dict(os.environ, PATH=f'{Path(terraform).resolve().parent}:{os.environ["PATH"]}' if '/' in terraform else os.environ['PATH']))
             output = generated.stdout + generated.stderr
@@ -489,7 +491,7 @@ module "dns" {
             moved = [c for c in json.loads(run(['show', '-json', 'moved.tfplan'], directory)[1])['resource_changes']
                      if c['type'] == 'cloudflare_dns_record']
             moves = [c for c in moved if c.get('previous_address', c['address']) != c['address']]
-            ok = (code == 0 and blocks == len(migration) == len(moves) == 4
+            ok = (code == 0 and blocks == len(migration) == len(moves) == 5
                   and all(c['change']['actions'] in (['no-op'], ['update']) for c in moved)
                   and sorted(c.get('previous_address', c['address']) for c in moved) == before)
         except (ValueError, KeyError, IndexError, OSError, subprocess.CalledProcessError) as error:

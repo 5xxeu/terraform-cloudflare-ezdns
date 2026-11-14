@@ -335,10 +335,11 @@ address=module.dns.module.v5.cloudflare_dns_record.record
 echo "jsonencode(nonsensitive(module.dns.state_migration))" | tf migrate console | tail -n 1 | jq 'fromjson' >"${E2E_DIR}/ids-migration.json" ||
     fail "migrate: state_migration could not be read"
 jq -r --arg addr "$address" '
+    def key: tojson | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{");
     to_entries[] |
     "moved {",
-    "  from = \($addr)[\(.key | tojson)]",
-    "  to   = \($addr)[\(.value | tojson)]",
+    "  from = \($addr)[\(.key | key)]",
+    "  to   = \($addr)[\(.value | key)]",
     "}", ""' "${E2E_DIR}/ids-migration.json" >"${E2E_DIR}/migrate/dns_migration.tf"
 entries=$(jq length "${E2E_DIR}/ids-migration.json")
 [ "$entries" = "$migration_moves" ] || fail "migrate: expected ${migration_moves} keys in state_migration, got ${entries}"

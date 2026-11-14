@@ -71,15 +71,16 @@ The `state_migration` output maps the 2.x keys of these records to their keys no
    MODULE=${ADDRESS%%.module.v5.*}; MODULE=${MODULE%.cloudflare_dns_record.record}
    echo "jsonencode(nonsensitive(${MODULE}.state_migration))" | terraform console | tail -n 1 \
      | jq -r --arg addr "$ADDRESS" '
+         def key: tojson | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{");
          fromjson | to_entries[] |
          "moved {",
-         "  from = \($addr)[\(.key | tojson)]",
-         "  to   = \($addr)[\(.value | tojson)]",
+         "  from = \($addr)[\(.key | key)]",
+         "  to   = \($addr)[\(.value | key)]",
          "}", ""' \
      > dns_migration.tf
    ```
 
-   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. The output is sensitive (a key can hold the origin address of a proxied record), so the command reads it with `nonsensitive()`, and the generated file holds these keys as well: keep it out of public logs and delete it after `apply`. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
+   `MODULE` is the module call whose output `state_migration` is read (`module.dns`); the module call must be in the root module, where `terraform console` reads it. `key` writes a key as an HCL string and escapes `${` and `%{` (an explicit key may contain them), since the address of a `moved` block cannot hold a template. The output is sensitive (a key can hold the origin address of a proxied record), so the command reads it with `nonsensitive()`, and the generated file holds these keys as well: keep it out of public logs and delete it after `apply`. `tail -n 1` keeps the value: Terraform 1.9 prints warnings of the configuration to the same output. An empty `dns_migration.tf` means that no key changes.
 3. Run `terraform plan`. It should only show records that have moved (and changes in place, if any), with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`.
 

@@ -4,7 +4,7 @@
 
 output "record_names" {
   description = "Fully qualified names of all managed records (lower case, from the configuration, so known at plan; one per record)"
-  value       = [for key, r in cloudflare_dns_record.record : module.checks.flat_records[key].fqdn if contains(local.configured_keys, key)]
+  value       = [for key, r in cloudflare_dns_record.record : module.checks.flat_records[key].fqdn if lookup(local.configured_keys, key, false)]
 }
 
 output "records" {
@@ -25,7 +25,7 @@ output "records" {
       tags            = local.effective_records[key].tags
       settings        = module.checks.flat_records[key].settings
       private_routing = module.checks.flat_records[key].private_routing
-    } if contains(local.configured_keys, key)
+    } if lookup(local.configured_keys, key, false)
   }
   sensitive = true
 }
@@ -44,7 +44,7 @@ output "record_metadata" {
       priority = r.priority
       comment  = local.effective_records[key].comment
       tags     = local.effective_records[key].tags
-    } if contains(local.configured_keys, key)
+    } if lookup(local.configured_keys, key, false)
   ]
 }
 
