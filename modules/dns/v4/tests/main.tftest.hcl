@@ -638,3 +638,23 @@ run "require_keys_in_the_wrapper" {
 
   expect_failures = [var.require_keys]
 }
+
+# Values known only after apply: a zone ID with no zone_name, and a zone_name. The plan
+# must not fail on the lookup of the zone, and the keys stay known (the same cases as modules/dns/idna/tests/computed_zone)
+run "computed_zone" {
+  command = plan
+
+  module {
+    source = "./tests/computed_zone"
+  }
+
+  assert {
+    condition     = output.keys == ["app A a"]
+    error_message = "With a zone ID known only after apply and no zone_name, the plan must not fail on the zone lookup, and the keys stay known"
+  }
+
+  assert {
+    condition     = output.keys_named == ["app A a", "shop AAAA 2001:db8::1"]
+    error_message = "A zone_name known only after apply must not make the keys unknown"
+  }
+}
