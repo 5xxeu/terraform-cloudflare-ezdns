@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Fixes go into the latest 3.x release. The latest 2.x release gets fixes only, for configurations that stay on Terraform 1.8 (3.x requires 1.9.0). Older versions do not get backports: upgrade to the latest 3.x release (or the latest 2.x on Terraform 1.8), see [Upgrading and Migration](docs/upgrading.md).
+Fixes go into the latest 3.x release, for the root module and the wrappers for provider v5 and provider v4 (the v4 wrapper is supported as long as Cloudflare releases provider v4 versions, see [Stability](README.md#stability)). The latest 2.x release gets fixes only, for configurations that stay on Terraform 1.8 (3.x requires 1.9.0). Older versions do not get backports: upgrade to the latest 3.x release (or the latest 2.x on Terraform 1.8), see [Upgrading and Migration](docs/upgrading.md).
 
 | Version | Supported |
 |---------|-----------|
@@ -14,7 +14,7 @@ Fixes go into the latest 3.x release. The latest 2.x release gets fixes only, fo
 
 Do not open a public issue. Report it privately through [GitHub private vulnerability reporting](https://github.com/5xxeu/terraform-cloudflare-ezdns/security/advisories/new) with:
 
-- the affected version and wrapper (root module, `modules/dns/v5`);
+- the affected version and wrapper (root module, `modules/dns/v4`, `modules/dns/v5`);
 - the configuration that shows the problem (without real tokens or zone IDs);
 - what happens and what you expected.
 

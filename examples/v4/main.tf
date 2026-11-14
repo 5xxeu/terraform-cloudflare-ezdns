@@ -1,6 +1,7 @@
 module "dns" {
-  # Outside of this repository, with a local copy of the module (see the README):
-  #   source = "./modules/ezdns/modules/dns/v4"
+  # Outside of this repository, from the Terraform Registry (see the README for a local copy or Git):
+  #   source  = "5xxeu/ezdns/cloudflare//modules/dns/v4"
+  #   version = "2.22.0"
   source = "../../modules/dns/v4"
 
   zone_id   = var.zone_id

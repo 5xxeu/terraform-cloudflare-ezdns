@@ -80,6 +80,10 @@ The zone has more records of one type than the lookup returns at once (100,000),
 
 A record with [`ignore_changes`](record-model.md#values-changed-outside-terraform) takes its values from the record of the same name and type in the zone, so it must be the only configured record of its type on its name, and the zone may have only one record of that name and type. Move the other configured records of the type to another name or drop `ignore_changes`, or delete the extra records in the zone.
 
+### ignore_changes needs provider v5
+
+The v4 wrapper has no lookup of the records of a zone, which `ignore_changes` reads. Move to provider v5 (see [Upgrading](upgrading.md#from-provider-v4-to-v5)), or remove `ignore_changes`.
+
 ## Errors at Apply
 
 ### Record already exists / An identical record already exists
@@ -91,6 +95,10 @@ The record is in the zone already, created outside this configuration (in the da
 A record of the configuration conflicts with a record in the zone that the configuration does not describe (a CNAME on a name that has other records, or the other way round). The module checks conflicts between configured records at `plan`, but cannot see records it does not manage unless `report_unmanaged = true` lists them. Remove or adopt the record in the zone.
 
 ## Warnings
+
+### These attributes need provider v5 (the root module) and are ignored by the v4 wrapper
+
+A record of the v4 wrapper sets `settings` (`flatten_cname`, `ipv4_only`, `ipv6_only`) or `private_routing` to `true`. Provider v4 has no such attributes, so the record is created without them. Move to provider v5 (the root module) to apply them, or remove them. `false` is the default and needs no warning.
 
 ### Text values given as numbers are written in their canonical form
 

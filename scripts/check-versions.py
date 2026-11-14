@@ -30,7 +30,7 @@ def check(root, tag=None):
         errors.append(f'tag {tag}: expected v{expected} from CHANGELOG.md')
     paths = [root / 'README.md']
     paths += sorted(p for p in (root / 'docs').glob('*.md') if p.name != 'upgrading.md')
-    examples = [root / 'examples' / kind / 'main.tf' for kind in ('v5', 'yaml', 'import')]
+    examples = [root / 'examples' / kind / 'main.tf' for kind in ('v5', 'v4', 'yaml', 'import')]
     for path in paths + examples:
         content = path.read_text()
         found = 0
