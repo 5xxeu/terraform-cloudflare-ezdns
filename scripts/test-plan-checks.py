@@ -418,13 +418,13 @@ with tempfile.TemporaryDirectory() as tmp:
             marked = False
         report(f'{label}: records is sensitive in the plan JSON, record_metadata is not', result[0] == 0 and marked, result[1] + shown[1][:2000])
 
-# The moved blocks of docs/upgrading.md ("To 3.0: Normalized Record Keys") on the three
+# The moved blocks of docs/upgrading.md ("To 3.0, Normalized Record Keys") on the three
 # addresses of the records: a state with the 2.x keys (the keys of state_migration, on
 # the values that the plan gives the records) is moved by the blocks that the command of
 # the docs writes, without records to create or delete. Made-up token, no refresh:
 # nothing is read from Cloudflare. Needs jq and sh
 upgrading = (ROOT / 'docs/upgrading.md').read_text()
-section = upgrading[upgrading.index('## To 3.0: Normalized Record Keys'):]
+section = upgrading[upgrading.index('### Normalized Record Keys'):]
 command = section[section.index('```sh') + len('```sh'):]
 command = '\n'.join(line[3:] for line in command[:command.index('```')].splitlines()
                     if line.strip() and not line.strip().startswith(('#', 'ADDRESS=')))

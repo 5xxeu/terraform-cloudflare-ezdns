@@ -4,7 +4,7 @@
 
 Predictable Cloudflare DNS management with Terraform. The zone (or a part of it) is one map of names and record types instead of a resource per record, and the module adds what plain resources leave to review:
 
-- **Stable state addresses**: a record with a `key` keeps its address when its value changes, and keys do not change within 2.x.
+- **Stable state addresses**: a record with a `key` keeps its address when its value changes, and keys do not change within a major version.
 - **Checks before apply**: mistakes in names, types, values and conflicting records fail at `plan`, before the Cloudflare API.
 - **Import of an existing zone**: records that are already in the zone are adopted instead of created again.
 - **Checks of dangerous changes**: a script for CI stops plans that delete or replace records or turn off the proxy.
@@ -175,7 +175,7 @@ When the zone already has records, adopt them instead of creating them again: se
 
 What the module guarantees (tested in CI, and against a real zone before each release):
 
-- Within 2.x, record keys and therefore the addresses in the state stay the same (see [Stability](#stability)). A record with a `key` keeps its address when its value changes.
+- Within a major version, record keys and therefore the addresses in the state stay the same (see [Stability](#stability)). A record with a `key` keeps its address when its value changes.
 - The errors listed in [Validation](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/validation.md#validation) fail at `plan` when the values they check are known then (Terraform checks a value known only after apply, such as a TTL computed by another resource, at `apply`); the warnings listed there (two SPF records on one name, attributes the module ignores) do not stop it. What the checks do not cover is left to the Cloudflare API, which fails at `apply`.
 - The module creates, changes and deletes only the records in its state. Records of other tools are never deleted, also with `report_unmanaged`.
 - With `import_existing`, a configured record is adopted only when exactly one record of the zone matches it; several matches stop the plan.
@@ -257,7 +257,7 @@ Records can be written directly in `records` or kept in a YAML file passed throu
 
 ## Stability
 
-The module follows [Semantic Versioning](https://semver.org/): within 2.x, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys have not changed since 2.0. Each release passes the tests on Terraform 1.8 and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge; from 2.16.0 the release workflow publishes the GitHub Release and archives only after CI and the end-to-end test passed on the tagged commit. The Terraform Registry picks up pushed version tags independently of this workflow.
+The module follows [Semantic Versioning](https://semver.org/): within a major version, record keys and therefore the addresses in the state stay the same, inputs and outputs are only added, and a change that can fail a plan that passed before is described in [Upgrading and Migration](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#upgrading-and-migration) (stricter validation of values the API would reject anyway). Many 2.x releases were made in September and October 2026; the record keys did not change between 2.0 and 2.22. Version 3.0 requires Terraform 1.9.0 or later, normalizes the keys of records written in other forms (names in upper case, targets with a trailing dot) and has other breaking changes: see [To 3.0](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/upgrading.md#to-30). 2.x gets only fixes, and stays the version for Terraform 1.8. Each release passes the tests on the oldest supported Terraform version (1.9.0 for 3.x, 1.8.0 for 2.x) and the latest version, the end-to-end test against a real Cloudflare zone, and a review before the merge; from 2.16.0 the release workflow publishes the GitHub Release and archives only after CI and the end-to-end test passed on the tagged commit. The Terraform Registry picks up pushed version tags independently of this workflow.
 
 Pin `version` exactly (or to a minor version, `~> 2.22.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
 

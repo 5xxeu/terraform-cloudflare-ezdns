@@ -9,6 +9,7 @@ Do one step at a time, each with its own `terraform plan` and `apply`, and revie
 1. **From v1 to v2** (record keys): [v1 to v2](#from-v1-to-v2), staying on the submodule you already use. Targeting 2.6 or later, fix any [unknown attributes](#to-26-unknown-attributes) as part of this step.
 2. **From provider v4 to v5**, if you use the `v4` submodule: [provider v4 to v5](#from-provider-v4-to-v5). Do it with the latest 2.x: version 3.0 has no `v4` submodule.
 3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module).
+4. **To 3.0**: [To 3.0](#to-30), from the latest 2.x.
 
 Configurations that use the module from an earlier address (the repository `i386dev/terraform-cloudflare-easy-dns` or the Registry source `NikitaPuglachenko/easy-dns/cloudflare`) only change `source`, see [from an earlier address](#from-an-earlier-address).
 
@@ -37,15 +38,28 @@ Version 2 changes the record keys in the state (see [Record Keys](record-model.m
 3. Run `terraform plan`. It should only show records that have moved, with no records to add or destroy.
 4. Run `terraform apply`, then delete `dns_migration.tf`. The next `terraform plan` should show no changes.
 
-## To 3.0: Unused Attributes Fail the Plan
+## To 3.0
+
+Version 3.0 has breaking changes, so go through the list before changing `version`. Upgrade from the latest 2.x (a configuration on 1.x or on provider v4 goes through 2.x first, see the [upgrade path](#upgrade-path)), and fix what does not need 3.0 on 2.x already.
+
+1. **Terraform 1.9.0 or later.** 3.0 requires Terraform 1.9.0 (2.x: 1.8.0); stay on 2.x to keep Terraform 1.8.
+2. **No provider v4 wrapper.** `modules/dns/v4`, `examples/v4` and the `moved` block from `cloudflare_record` are gone, and a release has one archive. Move to provider v5 with the latest 2.x first, see [From Provider v4 to v5](#from-provider-v4-to-v5).
+3. [Unused attributes fail the plan](#unused-attributes-fail-the-plan): fix them on 2.x.
+4. [ALIASES take `name`](#aliases-take-name-instead-of-content): rename the attribute.
+5. [`records` is sensitive, `name` is the fully qualified name](#records-is-sensitive-name-is-the-fully-qualified-name): mark outputs that pass it on.
+6. [Normalized record keys](#normalized-record-keys): generate `moved` blocks from `state_migration` for the records that change their key.
+
+Steps 3 to 5 do not change the state. Run `terraform init -upgrade` and `terraform plan` after the changes: apart from step 6, the plan must not destroy or create records.
+
+### Unused Attributes Fail the Plan
 
 Attributes that do not apply to the type of a record (`content` of a record with `data`, `priority` other than on `MX` and `URI`, `tag` and `flags` other than on `CAA`) fail the plan; in 2.x they showed a warning. A configuration that plans on the latest 2.x without the warning "These attributes do not apply to the type of their record" is not affected. Otherwise remove the listed attributes, on 2.x or with the upgrade: they had no effect, so the records do not change. No addresses in the state change.
 
-## To 3.0: ALIASES Take name Instead of content
+### ALIASES Take name Instead of content
 
 An `ALIASES` record names the CNAME it creates in `name`; `content` on an `ALIASES` record fails the plan with the list of the records to change. Rename the attribute: `ALIASES = [{ content = "www" }]` becomes `ALIASES = [{ name = "www" }]`, and `- content: www` becomes `- name: www` in YAML, also in `record_groups` and for `"<prefix>.ALIASES"`. The JSON Schema (`schema/records.schema.json`) requires `name` for `ALIASES` as well. The CNAME, its key (`www CNAME`) and its target do not change, so no addresses in the state change.
 
-## To 3.0: records Is Sensitive, name Is the Fully Qualified Name
+### records Is Sensitive, name Is the Fully Qualified Name
 
 The `records` output of the root module, the wrappers and `modules/dns/compile` is sensitive: `content` and `data` of a proxied record show the origin address that Cloudflare hides. What changes for a configuration that uses it:
 
@@ -55,7 +69,7 @@ The `records` output of the root module, the wrappers and `modules/dns/compile` 
 
 No addresses in the state change.
 
-## To 3.0: Normalized Record Keys
+### Normalized Record Keys
 
 Record keys are built from the name in lower case and the value in a normal form (see [Record Keys](record-model.md#record-keys)), so forms that DNS does not tell apart have one address: `WWW` and `www`, `Mail.Example.com.` and `mail.example.com` as an `MX`, `NS` or `PTR` target, `2001:0DB8::1` and `2001:db8::1`, `5060.0` and `5060` in `data`. A record written in the normal form (names in lower case, targets without the trailing dot, IPv6 addresses shortened, numbers in their shortest form) keeps its key. The service parameters of `HTTPS` and `SVCB` records are not normalized: a record keeps its key with the parameters as fields of `data` and with them in `value`, and switching between the two still gives a new key. A record written in another form gets the key of the normal form, and without a `moved` block Terraform plans to delete it and create it again.
 
@@ -105,7 +119,7 @@ moved {
 }
 ```
 
-Adjust the module address to your configuration; with provider v4 the resource is
+Adjust the module address to your configuration; with provider v4 (2.x only) the resource is
 `module.dns.module.v4.cloudflare_record.record`. Record key generation itself is
 unchanged; canonical inputs keep their existing addresses.
 
@@ -125,7 +139,7 @@ Such a list passed the validations as no groups, so the plan deleted every recor
 
 > **Configurations with out-of-range `data` values:** `plan` now fails for them, e.g. an SRV `port` of 70000 or a CAA `flags` of 256.
 
-Numeric fields of structured records are checked against their ranges (see [Validation](validation.md#validation)). Such values were rejected by the Cloudflare API at apply before, so a configuration that applies today is not affected, unless it has a record that has never been applied. Attributes that do not apply to the type of a record (`content` of an SRV record, `priority` of an A record, `tag` of a TXT record) now show a warning; they were ignored before and still are, and fail from [3.0](#to-30-unused-attributes-fail-the-plan), so remove them.
+Numeric fields of structured records are checked against their ranges (see [Validation](validation.md#validation)). Such values were rejected by the Cloudflare API at apply before, so a configuration that applies today is not affected, unless it has a record that has never been applied. Attributes that do not apply to the type of a record (`content` of an SRV record, `priority` of an A record, `tag` of a TXT record) now show a warning; they were ignored before and still are, and fail from [3.0](#unused-attributes-fail-the-plan), so remove them.
 
 The `records` output has more attributes (`zone_id`, `fqdn`, `ttl`, `proxied`, `priority`, `data`), and the lookups of `import_existing` and `report_unmanaged` read up to 100,000 records per type instead of 10,000. No addresses in the state change.
 
@@ -164,7 +178,7 @@ The v5 wrapper of 2.x contains a `moved` block from `cloudflare_record` to `clou
 
 Up to 2.12.0, the module was developed in `i386dev/terraform-cloudflare-easy-dns`, and up to 2.6.0 it was published on the Terraform Registry as `NikitaPuglachenko/easy-dns/cloudflare`, which is no longer available. The repository now is `5xxeu/terraform-cloudflare-ezdns`, with all earlier tags, and the Registry source is `5xxeu/ezdns/cloudflare`. Git sources of the old repository and the archives of its releases keep working, but new versions are published only here.
 
-Change `source` to the [Terraform Registry](../README.md#terraform-registry) (with `version`), a [Git source](sources.md#git-source) of the new repository or a [local copy](sources.md#local-copy) of the same version, keeping the module name and the path (root module or `//modules/dns/v4`, `//modules/dns/v5`): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes. The module is now called ezdns: the README suggests `modules/ezdns` for a local copy and `*.ezdns.yaml` for records in YAML, but an existing copy in `modules/easy-dns` and existing `*.easy-dns.yaml` mappings keep working, since neither affects the state.
+Change `source` to the [Terraform Registry](../README.md#terraform-registry) (with `version`), a [Git source](sources.md#git-source) of the new repository or a [local copy](sources.md#local-copy) of the same version, keeping the module name and the path (root module or `//modules/dns/v5`, or `//modules/dns/v4` in 2.x): the module is the same, so no addresses in the state change. Run `terraform init -upgrade`, and `terraform plan` shows no changes. The module is now called ezdns: the README suggests `modules/ezdns` for a local copy and `*.ezdns.yaml` for records in YAML, but an existing copy in `modules/easy-dns` and existing `*.easy-dns.yaml` mappings keep working, since neither affects the state.
 
 ## From the v5 Submodule to the Root Module
 
