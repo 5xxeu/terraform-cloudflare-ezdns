@@ -8,7 +8,7 @@ Do one step at a time, each with its own `terraform plan` and `apply`, and revie
 
 1. **From v1 to v2** (record keys): [v1 to v2](#from-v1-to-v2), staying on the submodule you already use. Targeting 2.6 or later, fix any [unknown attributes](#to-26-unknown-attributes) as part of this step.
 2. **From provider v4 to v5**, if you use the `v4` submodule and want provider v5: [provider v4 to v5](#from-provider-v4-to-v5). Do it with the latest 2.x, or after step 4 with 3.x, which keeps the `v4` submodule. This step is optional: provider v4 stays supported in 3.x (see [Stability](../README.md#stability)).
-3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module).
+3. **To the root module**, optionally: [v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module). From the `v4` submodule it is a step of its own, after step 2 is applied: do not combine the two moves.
 4. **To 3.0**: [To 3.0](#to-30), from the latest 2.x, on the same submodule (`v4` stays `v4`).
 
 Configurations that use the module from an earlier address (the repository `i386dev/terraform-cloudflare-easy-dns` or the Registry source `NikitaPuglachenko/easy-dns/cloudflare`) only change `source`, see [from an earlier address](#from-an-earlier-address).
@@ -171,9 +171,11 @@ This step is optional: the `v4` submodule is supported in 3.x as long as Cloudfl
 The v5 wrapper contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record` (`modules/dns/v5/migrate-from-v4.tf`), so the state is migrated without recreating records:
 
 1. Upgrade the Cloudflare provider to `~> 5.26`. The file with the `moved` blocks of [To 3.0](#normalized-record-keys) (`dns_migration.tf`) must be deleted after its `apply` and before the switch: it holds addresses of `cloudflare_record`.
-2. Change the module `source` from `//modules/dns/v4` to `//modules/dns/v5`, keeping the module name the same. To go straight to the root module, also add the `moved` block from [the v5 submodule to the root module](#from-the-v5-submodule-to-the-root-module), with `cloudflare_record` in `from`.
+2. Change the module `source` from `//modules/dns/v4` to `//modules/dns/v5`, keeping the module name the same.
 3. Run `terraform init -upgrade` and `terraform plan`. The plan should only show moved resources, without destroying or creating records; provider v5 also plans a one-time in-place update of the moved records (e.g. CAA `flags` become numbers). Review it carefully before applying.
 4. Run `terraform apply`. Provider v5 (checked with 5.26) may report `Provider produced inconsistent result after apply` with `.modified_on` for some records: the timestamp in the migrated state has a different precision ([cloudflare/terraform-provider-cloudflare#7387](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7387)). The records are updated anyway; run `terraform plan` again, it should show no changes.
+
+To end up on the root module, do it as a separate step after this one is applied: follow [From the v5 Submodule to the Root Module](#from-the-v5-submodule-to-the-root-module). Staying on the `v5` submodule is fine as well.
 
 ## From an Earlier Address
 
