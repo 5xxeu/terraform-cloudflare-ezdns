@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-14
+
 ### Changed
 
 - **Breaking:** Terraform 1.9.0 or later is required (was 1.8.0): `required_version` of the root module, the wrappers, the submodules and the tests is `>= 1.9.0`, and CI tests Terraform 1.9.0 and the latest version. Stay on 2.x to keep using Terraform 1.8
@@ -646,7 +648,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.22.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.22.0...v3.0.0
 [2.22.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.19.0...v2.20.0

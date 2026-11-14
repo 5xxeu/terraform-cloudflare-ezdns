@@ -33,7 +33,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.22.0"
+  version = "3.0.0"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -108,7 +108,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "2.22.0"
+     version = "3.0.0"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -237,7 +237,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "2.22.0"
+  version = "3.0.0"
   # ...
 }
 ```
@@ -263,7 +263,7 @@ The module follows [Semantic Versioning](https://semver.org/): within a major ve
 
 The provider v4 wrapper (`modules/dns/v4`) is supported in 3.x as long as Cloudflare releases provider v4 versions. It is removed only in a major release, and the CHANGELOG announces the removal beforehand: at least one minor release before. The supported range is `~> 4.41`, tested on 4.41.0 and on the latest 4.x. "Cloudflare releases provider v4 versions" means that Cloudflare has not announced the end of v4 and that the latest v4 release is not older than six months. The wrapper has the same inputs, outputs and record keys as the root module, except what needs provider v5: `settings` and `private_routing` (accepted with a warning, `null` in the `records` output), `ignore_changes` (an error) and the live lookup of the records of a zone with its outputs.
 
-Pin `version` exactly (or to a minor version, `~> 2.22.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
+Pin `version` exactly (or to a minor version, `~> 3.0.0`) and read the [CHANGELOG](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/CHANGELOG.md) before upgrading. Renovate and Dependabot update Registry and Git sources; [release archives](https://github.com/5xxeu/terraform-cloudflare-ezdns/blob/main/docs/sources.md#local-copy) are upgraded by hand.
 
 ## License
 MIT
