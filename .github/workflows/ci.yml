@@ -22,7 +22,7 @@ jobs:
       - run: terraform fmt -check -recursive -diff
       - name: Check that the root module and the wrappers have the same interface
         run: ./scripts/check-sync.sh
-      - name: Check that check-sync.sh catches a damaged block of the v4 wrapper
+      - name: Check that check-sync.sh catches a damaged interface
         run: ./scripts/test-check-sync.sh
 
   test:
