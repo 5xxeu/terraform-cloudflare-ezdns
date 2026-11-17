@@ -79,6 +79,50 @@ CASES = [
     ('record_groups with a computed attribute that does not apply to the type',
      'record_groups = { web = { records = { "@" = { A = [{ content = "192.0.2.1", priority = %s }] } } } }' % TTL,
      None, 'record_groups["web"].records["@"]["A"][0].priority'),
+    # Where a known violation and a value known only after apply meet: a computed attribute
+    # that applies to its type is not looked at, so the known violation fails at plan; next
+    # to a computed attribute that does not apply, the known violation in an earlier name
+    # still fails at plan (alltrue stops at the first false) and in a later name the check
+    # waits for apply (the matrix of the unused attribute rule; the same on both Terraform
+    # versions, the cases inside one record differ between them and are not listed). The
+    # text of the plan error next to a computed attribute that does not apply is not
+    # stable (Terraform cannot evaluate the message there), only that the plan fails
+    ('records: known violation, then a computed attribute that applies',
+     'records = { "a" = { A = [{ content = "192.0.2.1", priority = 10 }] }, "b" = { MX = [{ content = "m.example.net", priority = %s }] } }' % TTL,
+     'records["a"]["A"][0].priority', False),
+    ('records: a computed attribute that applies, then a known violation',
+     'records = { "a" = { MX = [{ content = "m.example.net", priority = %s }] }, "b" = { A = [{ content = "192.0.2.1", priority = 10 }] } }' % TTL,
+     'records["b"]["A"][0].priority', False),
+    ('records: known violation, then a computed attribute that does not apply',
+     'records = { "a" = { A = [{ content = "192.0.2.1", priority = 10 }] }, "b" = { A = [{ content = "192.0.2.2", priority = %s }] } }' % TTL,
+     'Invalid', False),
+    ('records: computed attribute that does not apply, then a known violation (put off until apply)',
+     'records = { "a" = { A = [{ content = "192.0.2.2", priority = %s }] }, "b" = { A = [{ content = "192.0.2.1", priority = 10 }] } }' % TTL,
+     None, 'records["a"]["A"][0].priority'),
+    ('records: computed attributes that apply and that do not',
+     'records = { "c" = { MX = [{ content = "m.example.net", priority = %s }] }, "a" = { A = [{ content = "192.0.2.2", priority = %s }] } }' % (TTL, TTL),
+     None, 'records["a"]["A"][0].priority'),
+    ('records: only a computed attribute that applies',
+     'records = { "b" = { MX = [{ content = "m.example.net", priority = %s }] } }' % TTL,
+     None, None),
+    ('record_groups: known violation, then a computed attribute that applies',
+     'record_groups = { web = { records = { "a" = { A = [{ content = "192.0.2.1", priority = 10 }] }, "b" = { MX = [{ content = "m.example.net", priority = %s }] } } } }' % TTL,
+     'record_groups["web"].records["a"]["A"][0].priority', False),
+    ('record_groups: a computed attribute that applies, then a known violation',
+     'record_groups = { web = { records = { "a" = { MX = [{ content = "m.example.net", priority = %s }] }, "b" = { A = [{ content = "192.0.2.1", priority = 10 }] } } } }' % TTL,
+     'record_groups["web"].records["b"]["A"][0].priority', False),
+    ('record_groups: known violation, then a computed attribute that does not apply',
+     'record_groups = { web = { records = { "a" = { A = [{ content = "192.0.2.1", priority = 10 }] }, "b" = { A = [{ content = "192.0.2.2", priority = %s }] } } } }' % TTL,
+     'Invalid', False),
+    ('record_groups: computed attribute that does not apply, then a known violation (put off until apply)',
+     'record_groups = { web = { records = { "a" = { A = [{ content = "192.0.2.2", priority = %s }] }, "b" = { A = [{ content = "192.0.2.1", priority = 10 }] } } } }' % TTL,
+     None, 'record_groups["web"].records["a"]["A"][0].priority'),
+    ('record_groups: computed attributes that apply and that do not',
+     'record_groups = { web = { records = { "c" = { MX = [{ content = "m.example.net", priority = %s }] }, "a" = { A = [{ content = "192.0.2.2", priority = %s }] } } } }' % (TTL, TTL),
+     None, 'record_groups["web"].records["a"]["A"][0].priority'),
+    ('record_groups: only a computed attribute that applies',
+     'record_groups = { web = { records = { "b" = { MX = [{ content = "m.example.net", priority = %s }] } } } }' % TTL,
+     None, None),
     # Expected: without a key, a record is keyed by its value, so a value known only
     # after apply makes its key unknown and the resources cannot be planned
     ('content known after apply, without a key',
@@ -338,6 +382,26 @@ with tempfile.TemporaryDirectory(prefix='.plan-checks-', dir=ROOT) as tmp:
     plan, applied, records, output = step(directory, ['records = { "app" = { A = [{ key = "a", content = "192.0.2.1" }, { key = "b", content = "192.0.2.1" }, { key = "c", content = %s }] } }' % VALUE], value='192.0.2.3')
     report('compile: same values next to a value known after apply fail at apply, nothing created',
            passed(plan) and applied is not None and failed_with(applied, SAME_A) and not records, output)
+
+    # An attribute that does not apply to the type, known only after apply: the check of
+    # the input waits for apply and fails there, before any record is created or changed
+    # (the saved plan is applied, the state is read)
+    UNUSED = ('These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n')
+    for label, wrap, path in [
+        ('records', 'records = { "app" = { A = [%s] } }', 'records["app"]["A"][0].priority'),
+        ('record_groups', 'record_groups = { web = { records = { "app" = { A = [%s] } } } }', 'record_groups["web"].records["app"]["A"][0].priority'),
+    ]:
+        fresh(directory)
+        plan, applied, records, output = step(directory, [wrap % '{ key = "a", content = "192.0.2.1", priority = tonumber(terraform_data.value.output) }'], value='10')
+        report(f'compile: {label}: computed attribute that does not apply fails at apply, nothing created',
+               passed(plan) and applied is not None and failed_with(applied, UNUSED + path) and not records, output)
+        fresh(directory)
+        before = {'app A a': ('192.0.2.1', 300)}
+        plan, applied, records, output = step(directory, [wrap % '{ key = "a", content = "192.0.2.1", ttl = 300 }'], value='10')
+        ok = passed(plan) and passed(applied) and records == before
+        plan, applied, records, output = step(directory, [wrap % '{ key = "a", content = "192.0.2.2", ttl = 600, priority = tonumber(terraform_data.value.output) }'], value='11')
+        report(f'compile: {label}: computed attribute that does not apply fails at apply, nothing changed',
+               ok and passed(plan) and applied is not None and failed_with(applied, UNUSED + path) and records == before, output)
 
 # The messages that take the context of the call, from modules/dns/checks alone
 CONTEXT = [

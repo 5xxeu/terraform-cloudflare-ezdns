@@ -9,61 +9,39 @@ variable "records" {
   default  = {}
   nullable = false
 
-  # Attributes that the module would ignore for a record type (content of a record with
-  # data, priority other than MX and URI, CAA tag and flags on other types) are a mistake
-  # in the configuration. A conditional, so a value known only after apply is not looked
-  # at where the attribute applies; elsewhere such a value is checked at apply
+  # Attributes that the module would ignore for a record type (see local.attribute_kinds in
+  # main.tf) are a mistake in the configuration. The condition is a conditional, so a value
+  # known only after apply is not looked at where the attribute applies; elsewhere such a
+  # value is checked at apply. The condition has to refer to var.records itself, so the list
+  # cannot be a local (a local of var.records used here is a dependency cycle)
   validation {
     condition = try(alltrue([
       for name, types in var.records : alltrue([
         for type, list in types : alltrue([
           for kind in [element(split(".", type), length(split(".", type)) - 1)] : alltrue([
             for record in list : !(
-              (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
-              || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
-              || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
-              || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
+              (contains(local.attribute_kinds.content, kind) ? false : try(record.content, null) != null)
+              || (contains(local.attribute_kinds.name, kind) ? false : try(record.name, null) != null)
+              || (contains(local.attribute_kinds.priority, kind) ? false : try(record.priority, null) != null)
+              || (contains(local.attribute_kinds.tag, kind) ? false : try(record.tag, null) != null)
+              || (contains(local.attribute_kinds.flags, kind) ? false : try(record.flags, null) != null)
             )
-            # unknown types fail in the records module
-          ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
+          ]) if contains(local.known_types, kind) # unknown types fail in the records module
         ])
       ])
     ]), true)
-    # Terraform evaluates the message also when the condition holds, and both results of a
-    # conditional: the list is built in a for expression whose if leaves it out then
-    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${join("", [
-      for ok in [try(alltrue([
-        for name, types in var.records : alltrue([
-          for type, list in types : alltrue([
-            for kind in [element(split(".", type), length(split(".", type)) - 1)] : alltrue([
-              for record in list : !(
-                (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
-                || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
-                || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
-                || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
-              )
-            ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
-          ])
-        ])
-        ]), true)] : try(join("\n", flatten([
-        for name, types in var.records : [
-          for type, list in types : [
-            for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
-              for index, record in list : [
-                for attribute, kinds in {
-                  content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA"]
-                  name     = ["ALIASES"]
-                  priority = ["MX", "URI"]
-                  tag      = ["CAA"]
-                  flags    = ["CAA"]
-                } : "records[\"${name}\"][\"${type}\"][${index}].${attribute}"
-                if contains(kinds, kind) ? false : try(record[attribute], null) != null
-              ]
-            ] if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
-          ]
+    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${try(join("\n", flatten([
+      for name, types in var.records : [
+        for type, list in types : [
+          for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
+            for index, record in list : [
+              for attribute, kinds in local.attribute_kinds : "records[\"${name}\"][\"${type}\"][${index}].${attribute}"
+              if contains(kinds, kind) ? false : try(record[attribute], null) != null
+            ]
+          ] if contains(local.known_types, kind)
         ]
-      ])), "") if !ok
-    ])}"
+      ]
+    ])), "")}"
   }
 }
 
@@ -82,60 +60,33 @@ variable "record_groups" {
             for type, list in types : alltrue([
               for kind in [element(split(".", type), length(split(".", type)) - 1)] : alltrue([
                 for record in list : !(
-                  (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
-                  || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
-                  || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
-                  || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
+                  (contains(local.attribute_kinds.content, kind) ? false : try(record.content, null) != null)
+                  || (contains(local.attribute_kinds.name, kind) ? false : try(record.name, null) != null)
+                  || (contains(local.attribute_kinds.priority, kind) ? false : try(record.priority, null) != null)
+                  || (contains(local.attribute_kinds.tag, kind) ? false : try(record.tag, null) != null)
+                  || (contains(local.attribute_kinds.flags, kind) ? false : try(record.flags, null) != null)
                 )
-                # unknown types fail in the records module
-              ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
+              ]) if contains(local.known_types, kind)
             ])
           ])
         ]) if can(keys(records))
       ])
     ]), true)
-    # Terraform evaluates the message also when the condition holds, and both results of a
-    # conditional: the list is built in a for expression whose if leaves it out then
-    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${join("", [
-      for ok in [try(alltrue([
-        for group, g in var.record_groups : alltrue([
-          for records in [for x in [g] : lookup(x, "records", {}) if can(keys(x))] : alltrue([
-            for name, types in records : alltrue([
-              for type, list in types : alltrue([
-                for kind in [element(split(".", type), length(split(".", type)) - 1)] : alltrue([
-                  for record in list : !(
-                    (contains(["CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind) ? try(record.content, null) != null : false)
-                    || (kind == "MX" || kind == "URI" ? false : try(record.priority, null) != null)
-                    || (kind == "CAA" ? false : try(record.tag, null) != null || try(record.flags, null) != null)
-                    || (kind == "ALIASES" ? try(record.content, null) != null : try(record.name, null) != null)
-                  )
-                ]) if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
-              ])
-            ])
-          ]) if can(keys(records))
-        ])
-        ]), true)] : try(join("\n", flatten([
-        for group, g in var.record_groups : [
-          for records in [for x in [g] : lookup(x, "records", {}) if can(keys(x))] : [
-            for name, types in records : [
-              for type, list in types : [
-                for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
-                  for index, record in list : [
-                    for attribute, kinds in {
-                      content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA"]
-                      name     = ["ALIASES"]
-                      priority = ["MX", "URI"]
-                      tag      = ["CAA"]
-                      flags    = ["CAA"]
-                    } : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].${attribute}"
-                    if contains(kinds, kind) ? false : try(record[attribute], null) != null
-                  ]
-                ] if contains(["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"], kind)
-              ]
-            ] if can(keys(records))
+    error_message = "These attributes do not apply to the type of their record (SRV keeps its priority in data; content is for records without data; tag and flags are for CAA; name is for ALIASES, which have the name of the CNAME they create in name, not in content). Remove them:\n${try(join("\n", flatten([
+      for group, g in var.record_groups : [
+        for records in [for x in [g] : lookup(x, "records", {}) if can(keys(x))] : [
+          for name, types in records : [
+            for type, list in types : [
+              for kind in [element(split(".", type), length(split(".", type)) - 1)] : [
+                for index, record in list : [
+                  for attribute, kinds in local.attribute_kinds : "record_groups[\"${group}\"].records[\"${name}\"][\"${type}\"][${index}].${attribute}"
+                  if contains(kinds, kind) ? false : try(record[attribute], null) != null
+                ]
+              ] if contains(local.known_types, kind)
+            ]
           ]
-        ]
-      ])), "") if !ok
-    ])}"
+        ] if can(keys(records))
+      ]
+    ])), "")}"
   }
 }
