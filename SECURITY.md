@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Fixes go into the latest 3.x release, for the root module and the wrappers for provider v5 and provider v4 (the v4 wrapper is supported as long as Cloudflare releases provider v4 versions, see [Stability](README.md#stability)). The latest 2.x release gets fixes only, for configurations that stay on Terraform 1.8 (3.x requires 1.9.0). Older versions do not get backports: upgrade to the latest 3.x release (or the latest 2.x on Terraform 1.8), see [Upgrading and Migration](docs/upgrading.md).
+Fixes go into the latest 3.x release, for the root module and the wrappers for provider v5 and provider v4 (the v4 wrapper gets fixes of security and of the shared core also after the end of its development, and is removed only in a major release, see [Stability](README.md#stability)). The latest 2.x release gets fixes only, for configurations that stay on Terraform 1.8 (3.x requires 1.9.0). Older versions do not get backports: upgrade to the latest 3.x release (or the latest 2.x on Terraform 1.8), see [Upgrading and Migration](docs/upgrading.md).
 
 | Version | Supported |
 |---------|-----------|

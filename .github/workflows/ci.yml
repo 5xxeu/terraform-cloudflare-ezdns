@@ -230,9 +230,26 @@ jobs:
           python3 ../../zone-to-ezdns.py ../fixtures/zone.json --zone example.com --stable-keys > records.ezdns.yaml || [ $? -eq 1 ]
           terraform test -verbose | tee test.log
           if grep -q "Warning" test.log; then exit 1; fi
-      # Every whole module call in the README and docs plans without errors or warnings
-      - name: Examples of the README and docs
-        run: python3 scripts/test-docs-examples.py
+
+  # Every whole module call in the README and docs plans without errors or warnings, on the
+  # oldest supported and the latest Terraform (the example of for_each over records in
+  # docs/upgrading.md runs a first plan without a state)
+  docs-examples:
+    name: Docs examples (terraform ${{ matrix.terraform }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform: [1.9.0, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+      - run: python3 scripts/test-docs-examples.py
 
   tflint:
     name: TFLint
@@ -273,7 +290,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [fmt, test, docs, provider-min, e2e-config, bench, schema, tools, tflint, gitleaks]
+    needs: [fmt, test, docs, docs-examples, provider-min, e2e-config, bench, schema, tools, tflint, gitleaks]
     runs-on: ubuntu-latest
     steps:
       - name: Check that all jobs passed

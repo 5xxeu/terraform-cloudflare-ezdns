@@ -64,10 +64,38 @@ An `ALIASES` record names the CNAME it creates in `name`; `content` on an `ALIAS
 The `records` output of the root module, the wrappers and `modules/dns/compile` is sensitive: `content` and `data` of a proxied record show the origin address that Cloudflare hides. What changes for a configuration that uses it:
 
 - An output that passes `records` on needs `sensitive = true` next to its `value`, or Terraform rejects the configuration. Terraform 1.9.0 shows the value of an output that is not marked, so mark it on every version.
-- `for_each` over `module.dns.records` fails ("Invalid for_each argument", sensitive value). Use `record_metadata`, a list of the records without values (`id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment`, `tags`), or `nonsensitive(module.dns.records)` where the addresses may be public. Expressions over `records` give sensitive results (`[for r in module.dns.records : r.fqdn]`): use `record_metadata` there too.
+- `for_each` over `module.dns.records` fails ("Invalid for_each argument", sensitive value). To keep the addresses of the resources that use it, give `for_each` a map with the same keys, taken with `nonsensitive(keys(...))` (the keys are known at `plan`, also on the first one without a state; the values stay sensitive), as in the example below. Expressions over `records` give sensitive results (`[for r in module.dns.records : r.fqdn]`): use `record_metadata` there, a list of the records without values (`id`, `zone_id`, `name`, `fqdn`, `type`, `ttl`, `proxied`, `priority`, `comment`, `tags`).
+- A key without an explicit `key` holds the value of the record, so the key of a proxied record shows its origin address. `nonsensitive(keys(...))` makes the keys visible in the plan, and the keys are already part of the addresses in the state. Give such records an explicit `key` if the plan is shared.
 - `name` in `records` and `record_metadata` is the fully qualified name in lower case, the same as `fqdn`. It was the name as written right after `apply` (`app`) and the fully qualified name after the next refresh, which made a configuration that reads `name` change its result between the two. Read `name` as `fqdn` now. The names of the records in Cloudflare and in the state do not change.
 
-No addresses in the state change.
+```hcl
+module "dns" {
+  source  = "5xxeu/ezdns/cloudflare"
+  version = "3.0.0"
+
+  zone_id = var.zone_id
+
+  records = {
+    "@" = {
+      A = [{ key = "origin", content = "192.0.2.10", proxied = true }]
+    }
+    www = {
+      CNAME = [{ content = "example.com", proxied = true }]
+    }
+  }
+}
+
+# Stands for any resource that exists once per record. In 2.x: for_each = module.dns.records
+resource "terraform_data" "monitor" {
+  for_each = { for key in nonsensitive(keys(module.dns.records)) : key => module.dns.records[key] }
+
+  input = each.value.fqdn
+}
+```
+
+The example runs a first plan without a state in CI on Terraform 1.9.0 and on the latest version (`scripts/test-docs-examples.py`). `record_metadata` has no keys: a `for_each` over it needs a key of your own, which changes the addresses of the consumer (the keys of `records` are the addresses of the records of the module, not of your resources), so keep the example above where addresses matter.
+
+No addresses of the records of the module in the state change. The addresses of your own resources with `for_each` over `records` are the keys of the map you give it: they stay the same with the map above, and change with any other key (then move them with `moved` blocks and check that the plan has no create or destroy).
 
 ### Normalized Record Keys
 
@@ -166,7 +194,7 @@ Since 2.6, a record attribute that the module does not know fails the plan, e.g.
 
 ## From Provider v4 to v5
 
-This step is optional: the `v4` submodule is supported in 3.x as long as Cloudflare releases provider v4 versions. It works with the latest 2.x and with 3.x, but not from provider v4 on 2.x straight to provider v5 on 3.0: first upgrade to 3.0 on the `v4` submodule, apply the `moved` blocks of [To 3.0](#normalized-record-keys) (if there were any) and delete their file, and only then switch to v5.
+This step is optional: the `v4` submodule is kept in 3.x (see [Stability](../README.md#stability) for the end of its development and its removal). It works with the latest 2.x and with 3.x, but not from provider v4 on 2.x straight to provider v5 on 3.0: first upgrade to 3.0 on the `v4` submodule, apply the `moved` blocks of [To 3.0](#normalized-record-keys) (if there were any) and delete their file, and only then switch to v5.
 
 The v5 wrapper contains a `moved` block from `cloudflare_record` to `cloudflare_dns_record` (`modules/dns/v5/migrate-from-v4.tf`), so the state is migrated without recreating records:
 

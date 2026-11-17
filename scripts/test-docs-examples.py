@@ -6,7 +6,8 @@ Each ```hcl block with a whole module call of 5xxeu/ezdns/cloudflare (not a frag
 with "# ...") is one example; the ```yaml blocks of the same section whose first line
 is "# <file>.yaml" are its files. The example goes into a directory of its own, with
 the source pointing to this repository, and passes when terraform test plans it
-without errors and warnings.
+without errors and warnings (the examples run on the Terraform in PATH: CI runs the
+script on 1.9.0 and on the latest version).
 
 An example followed by <!-- BEGIN_RECORDS --> and <!-- END_RECORDS --> (before the
 next code block or section) gets the table of its records between them: the module
@@ -100,9 +101,17 @@ def plan_example(ex, d, env):
     if code != 0:
         return out
     code, out = terraform(["test"], d, env)
-    if code != 0 or "Warning" in out:
+    if code != 0 or warnings(out):
         return out
     return None
+
+
+def warnings(out):
+    """The warnings of the output of terraform test, except the deprecation of the zone
+    plan attribute of the provider that Terraform 1.9.0 reports for the module itself
+    (later versions do not): it is a message about the module, not about the example."""
+    found = re.findall(r"^Warning: (.*)$", out, re.M)
+    return [w for w in found if w != "Deprecated attribute"]
 
 
 def compile_inputs():

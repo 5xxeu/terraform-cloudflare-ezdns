@@ -35,7 +35,7 @@ scripts/       # The checks of CI
 tests/         # terraform test with a mocked provider, the end-to-end test, benchmarks
 ```
 
-Both wrappers share the same inputs (except the v5-only ones), outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs. The v4 wrapper is supported in 3.x as long as Cloudflare releases provider v4 versions, see [Stability](README.md#stability): a change of the core goes into both wrappers, and CI tests the v4 wrapper on the minimum provider 4.41.0 and the latest 4.x.
+Both wrappers share the same inputs (except the v5-only ones), outputs and record keys, so switching between them only requires changing the `source`. The root module passes everything to the v5 wrapper, so it has the same inputs and outputs. The v4 wrapper is kept in 3.x (the end of its development and its removal are described in [Stability](README.md#stability)): a change of the core goes into both wrappers, and CI tests the v4 wrapper on the minimum provider 4.41.0 and the latest 4.x.
 
 The README covers what the module does and how to start; the record model, validation, inputs and outputs and the longer guides are in [docs](docs).
 
