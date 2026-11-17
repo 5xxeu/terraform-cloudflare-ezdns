@@ -26,6 +26,8 @@ python3 scripts/test-plan-checks.py
 TERRAFORM=~/bin/terraform-1.9.0 python3 scripts/test-plan-checks.py
 ```
 
+The script is the entry point; its cases are in `scripts/plan_checks`, one module per purpose (values known after apply, the order of apply and the state after a failure, the text of the messages, sensitivity, the v4 wrapper, migrations), with `helpers.py` for what they share. The order of the groups is the list `GROUPS` in the script.
+
 The same script runs the command of [To 3.0, Normalized Record Keys](upgrading.md#normalized-record-keys) that writes `moved` blocks from `state_migration`, on the addresses of the records (the root module, `modules/dns/v5`, `modules/dns/idna` and the v4 wrapper, `module.v4.cloudflare_record.record`), against a state with the 2.x keys made from the plan (no refresh, nothing is read from Cloudflare; it needs `jq`).
 
 The scripts in `tools` have unit tests (`python3 -m unittest discover -s tools/tests`), and the YAML that `zone-to-ezdns.py` writes from a fixture goes through the module in CI.
