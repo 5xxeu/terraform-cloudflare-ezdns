@@ -6,7 +6,8 @@ Each ```hcl block with a whole module call of 5xxeu/ezdns/cloudflare (not a frag
 with "# ...") is one example; the ```yaml blocks of the same section whose first line
 is "# <file>.yaml" are its files. The example goes into a directory of its own, with
 the source pointing to this repository, and passes when terraform test plans it
-without errors and warnings.
+without errors and warnings (the examples run on the Terraform in PATH: CI runs the
+script on 1.9.0 and on the latest version).
 
 An example followed by <!-- BEGIN_RECORDS --> and <!-- END_RECORDS --> (before the
 next code block or section) gets the table of its records between them: the module
@@ -100,9 +101,29 @@ def plan_example(ex, d, env):
     if code != 0:
         return out
     code, out = terraform(["test"], d, env)
-    if code != 0 or "Warning" in out:
+    if code != 0 or warnings(out):
         return out
     return None
+
+
+# The one warning that is not about an example: Terraform 1.9.0 reports the deprecated
+# plan attribute of data.cloudflare_zone (provider v5 schema) that the zone lookup of
+# modules/dns/v5/main.tf reads (the same attribute in modules/dns/v4 is a different one
+# of provider v4 and is not reported). Terraform shows the first one and counts the rest.
+KNOWN_WARNING = re.compile(
+    r"Deprecated attribute\n\n"
+    r"  on \S*modules/dns/v5/main\.tf line \d+, in locals:\n"
+    r"(?:.*\n)*?"
+    r".*data\.cloudflare_zone\.this\[0\]\.plan\b(?:.*\n)*?"
+    r'The attribute "plan" is deprecated\.'
+)
+
+
+def warnings(out):
+    """The warnings of the output of terraform test (as terraform -no-color prints them,
+    "Warning: <summary>" and the text up to the next warning), except the known one."""
+    chunks = re.split(r"^(?=Warning: )", out, flags=re.M)[1:]
+    return [c.split("\n", 1)[0] for c in chunks if not KNOWN_WARNING.match(c[len("Warning: "):])]
 
 
 def compile_inputs():

@@ -5,6 +5,18 @@
 # attribute names); here only the attributes that do not apply to their record type.
 
 locals {
+  # Where an attribute applies (the validations of variables.tf; an attribute on another
+  # type is a mistake), and the types that those validations know (others fail in the
+  # records module). SRV and the other types with data keep their fields in data
+  attribute_kinds = {
+    content  = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA"]
+    name     = ["ALIASES"]
+    priority = ["MX", "URI"]
+    tag      = ["CAA"]
+    flags    = ["CAA"]
+  }
+  known_types = ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT", "OPENPGPKEY", "CAA", "ALIASES", "CERT", "DNSKEY", "DS", "HTTPS", "LOC", "NAPTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "URI"]
+
   # Fields of data that hold text (the other fields are numbers or N/S, E/W)
   text_data_fields = ["alpn", "certificate", "digest", "ech", "fingerprint", "ipv4hint", "ipv6hint", "mandatory", "public_key", "regex", "replacement", "service", "target", "value"]
 }
