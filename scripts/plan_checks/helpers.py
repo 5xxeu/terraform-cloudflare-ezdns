@@ -99,5 +99,3 @@ def report(name, ok, output):
     if not ok:
         print(output)
         failed.append(name)
-
-
