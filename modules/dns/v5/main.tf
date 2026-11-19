@@ -1,8 +1,11 @@
 locals {
   root_domain = coalesce(var.zone_name, try(data.cloudflare_zone.this[0].name, null))
-  # minimum_ttl = "auto": 30 on Enterprise zones, 60 on the others
+  # minimum_ttl = "auto": 30 on Enterprise zones, 60 on the others. The plan attribute of
+  # the zone is deprecated in provider v5: Terraform 1.9 warns about every reference to it
+  # in the configuration, also when the zone is not read, and later versions about a
+  # local that holds it. So lookup() reads it without a reference, and only can() sees it
   minimum_ttl = var.minimum_ttl != "auto" ? tonumber(var.minimum_ttl) : (
-    can(regex("(?i)enterprise", "${coalesce(try(data.cloudflare_zone.this[0].plan.legacy_id, null), "-")} ${coalesce(try(data.cloudflare_zone.this[0].plan.name, null), "-")}")) ? 30 : 60
+    can(regex("(?i)enterprise", join(" ", [for field in ["legacy_id", "name"] : coalesce(try(lookup(data.cloudflare_zone.this[0], "plan", null)[field], null), "-")]))) ? 30 : 60
   )
 }
 

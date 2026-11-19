@@ -17,8 +17,11 @@ export CLOUDFLARE_API_TOKEN E2E_ZONE_ID
 export TF_VAR_zone_id="$E2E_ZONE_ID" TF_VAR_zone_name="$E2E_ZONE_NAME" TF_VAR_prefix="$LABEL"
 export TF_IN_AUTOMATION=1 TF_INPUT=0
 
+# The names of the zone and the records are public, so diagnostics (log tails, diffs of
+# record keys) go through mask: it replaces the zone name, in any case, with <zone>
+mask() { ZONE="${E2E_ZONE_NAME%.}" perl -pe 's/\Q$ENV{ZONE}\E/<zone>/gi'; }
 fail() {
-    echo "FAIL: $*" >&2
+    printf 'FAIL: %s\n' "$*" | mask >&2
     exit 1
 }
 pass() { echo "ok - $*"; }
@@ -44,7 +47,7 @@ cleanup() {
     for dir in v4path migrate upgrade idna v5; do
         [ -f "${E2E_DIR}/${dir}/terraform.tfstate" ] || continue
         if ! tf "$dir" destroy -auto-approve -no-color >"${E2E_DIR}/destroy.log" 2>&1; then
-            echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" >&2
+            echo "FAIL: destroy of ${dir}: $(tail -20 "${E2E_DIR}/destroy.log")" | mask >&2
             cleaned=0
         fi
     done
@@ -93,7 +96,7 @@ plan_summary() {
     local rc=0
     tf "$1" plan -no-color -out=tfplan "${@:2}" >"${E2E_DIR}/plan.log" 2>&1 || rc=$?
     if [ "$rc" -ne 0 ]; then
-        tail -40 "${E2E_DIR}/plan.log" >&2
+        tail -40 "${E2E_DIR}/plan.log" | mask >&2
         return "$rc"
     fi
     tf "$1" show -json tfplan | jq -r '
@@ -135,7 +138,6 @@ assert_no_changes() {
     [ "$rc" -eq 0 ] || fail "$1: expected no changes, plan exit code $rc: $(grep -E '^  #|~ |\+ |- ' "${E2E_DIR}/plan.log" | head -40)"
 }
 
-# The names of the zone and the records are public, so they are not printed
 echo "Label: ${LABEL}"
 "${E2E_DIR}/sweep.sh" --stale
 

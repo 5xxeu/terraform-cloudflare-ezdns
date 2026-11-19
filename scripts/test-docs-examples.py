@@ -106,24 +106,10 @@ def plan_example(ex, d, env):
     return None
 
 
-# The one warning that is not about an example: Terraform 1.9.0 reports the deprecated
-# plan attribute of data.cloudflare_zone (provider v5 schema) that the zone lookup of
-# modules/dns/v5/main.tf reads (the same attribute in modules/dns/v4 is a different one
-# of provider v4 and is not reported). Terraform shows the first one and counts the rest.
-KNOWN_WARNING = re.compile(
-    r"Deprecated attribute\n\n"
-    r"  on \S*modules/dns/v5/main\.tf line \d+, in locals:\n"
-    r"(?:.*\n)*?"
-    r".*data\.cloudflare_zone\.this\[0\]\.plan\b(?:.*\n)*?"
-    r'The attribute "plan" is deprecated\.'
-)
-
-
 def warnings(out):
     """The warnings of the output of terraform test (as terraform -no-color prints them,
-    "Warning: <summary>" and the text up to the next warning), except the known one."""
-    chunks = re.split(r"^(?=Warning: )", out, flags=re.M)[1:]
-    return [c.split("\n", 1)[0] for c in chunks if not KNOWN_WARNING.match(c[len("Warning: "):])]
+    "Warning: <summary>" and the text up to the next warning)."""
+    return re.findall(r"^Warning: (.*)$", out, flags=re.M)
 
 
 def compile_inputs():
