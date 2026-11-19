@@ -33,7 +33,7 @@ Each record becomes one Cloudflare DNS record, with a stable address in the Terr
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "3.0.0"
+  version = "3.0.1"
 
   zone_id   = var.zone_id
   zone_name = "example.com"
@@ -108,7 +108,7 @@ Everything else (all record types, defaults, import of existing records, validat
 
    module "dns" {
      source  = "5xxeu/ezdns/cloudflare"
-     version = "3.0.0"
+     version = "3.0.1"
 
      zone_id   = var.zone_id
      zone_name = "example.com"
@@ -237,7 +237,7 @@ The module is published as [`5xxeu/ezdns/cloudflare`](https://registry.terraform
 ```hcl
 module "dns" {
   source  = "5xxeu/ezdns/cloudflare"
-  version = "3.0.0"
+  version = "3.0.1"
   # ...
 }
 ```

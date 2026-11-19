@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-11-20
+
 ### Fixed
 
 - Terraform 1.9.0 no longer shows the warning "Deprecated attribute" for `data.cloudflare_zone.this[0].plan` in `modules/dns/v5/main.tf` on every plan of the root module and the v5 wrapper, also without `minimum_ttl = "auto"`. The plan of the zone is still read for `minimum_ttl = "auto"`, with the same result
@@ -653,7 +655,8 @@ All notable changes to this project are documented in this file. The format is b
 - Inline aliases pointed to a relative name instead of the full hostname
 - Zone apex (`@`) handling for aliases and nested names
 
-[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.22.0...v3.0.0
 [2.22.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/5xxeu/terraform-cloudflare-ezdns/compare/v2.20.0...v2.21.0
