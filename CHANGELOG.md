@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Terraform 1.9.0 no longer shows the warning "Deprecated attribute" for `data.cloudflare_zone.this[0].plan` in `modules/dns/v5/main.tf` on every plan of the root module and the v5 wrapper, also without `minimum_ttl = "auto"`. The plan of the zone is still read for `minimum_ttl = "auto"`, with the same result
+- The end-to-end test replaces the name of the zone with `<zone>` in the diagnostics of a failed run (log tails, record IDs that differ)
+
 ## [3.0.0] - 2026-11-18
 
 ### Changed
