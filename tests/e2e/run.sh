@@ -240,6 +240,48 @@ tf v5 plan -no-color -var a_value=192.0.2.20 -var txt_value=rotation=2 -var repo
 grep -q 'unmanaged_policy is "error"' "${E2E_DIR}/plan.log" || fail "unmanaged_policy = error: the plan fails for another reason: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -5)"
 pass "unmanaged_policy = error stops the plan for the stray record"
 
+# Copies of configured records in another form of the value (a TXT in quotes, an MX
+# target in upper case): the module matches them to the configured records, so they are
+# in matched_records and not in unmanaged_records, and plan-guard --unmanaged lists them,
+# as the state does not hold them. Cloudflare may refuse a copy as an identical record
+# (code 81058, then no such copy can be in the zone); any other error fails. Only the
+# error codes are printed, as the messages can hold the names
+copy_ids=()
+create_copy() {
+    local out
+    out=$(curl -sS -X POST -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" "$api" -d "$2") ||
+        fail "could not create the copy of $1"
+    if [ "$(jq -r .success <<<"$out")" = true ]; then
+        copy_ids+=("$(jq -r .result.id <<<"$out")")
+    elif jq -e '[.errors[]?.code] | index(81058)' <<<"$out" >/dev/null; then
+        echo "note: Cloudflare refuses the copy of $1 as an identical record"
+    else
+        fail "could not create the copy of $1: error codes $(jq -c '[.errors[]?.code]' <<<"$out")"
+    fi
+}
+create_copy "a TXT record with quotes" "$(jq -n --arg name "${LABEL}.${E2E_ZONE_NAME}" \
+    '{type: "TXT", name: $name, content: "\"v=spf1 -all\"", ttl: 300, comment: "ezdns-e2e"}')"
+create_copy "an MX record with the target in upper case" "$(jq -n --arg name "${LABEL}.${E2E_ZONE_NAME}" \
+    --arg target "MX.$(tr '[:lower:]' '[:upper:]' <<<"${E2E_ZONE_NAME%.}")" \
+    '{type: "MX", name: $name, content: $target, priority: 10, ttl: 300, comment: "ezdns-e2e"}')"
+if [ "${#copy_ids[@]}" -gt 0 ]; then
+    tf v5 plan -no-color -out=tfplan -var a_value=192.0.2.20 -var txt_value=rotation=2 -var report_unmanaged=true >"${E2E_DIR}/plan.log" 2>&1 ||
+        fail "plan with copies of configured records: $(grep -E 'Error' "${E2E_DIR}/plan.log" | head -20)"
+    outputs=$(tf v5 show -json tfplan | jq -c '.planned_values.outputs | {matched: [.matched_records.value[].id], unmanaged: [.unmanaged_records.value[].id]}')
+    guard_unmanaged v5
+    listed=" ${listed} "
+    for id in "${copy_ids[@]}"; do
+        jq -e --arg id "$id" '.matched | index($id)' <<<"$outputs" >/dev/null || fail "matched_records: the copy ${id} is not matched to a configured record"
+        jq -e --arg id "$id" '.unmanaged | index($id) | not' <<<"$outputs" >/dev/null || fail "unmanaged_records lists the copy ${id}"
+        [[ "$listed" == *" ${id} "* ]] || fail "plan-guard --unmanaged: the copy ${id} is not listed (exit ${guard_rc})"
+        curl -fsS -X DELETE -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${api}/${id}" >/dev/null || fail "could not delete the copy ${id}"
+    done
+    [ "$guard_rc" = 1 ] || fail "plan-guard --unmanaged: expected exit 1 with copies of configured records, got ${guard_rc}"
+    pass "${#copy_ids[@]} copies of configured records in another form are in matched_records, and plan-guard --unmanaged lists them"
+else
+    pass "Cloudflare refuses copies of configured records in another form, so matched_records cannot hold one"
+fi
+
 # A record with ignore_changes = ["content"] keeps a value changed outside Terraform
 acme_id=$(record_ids v5 | grep ' TXT acme ' | awk '{print $NF}')
 [ -n "$acme_id" ] || fail "ignore_changes: the record is not in the state"
